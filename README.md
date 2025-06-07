@@ -1,6 +1,6 @@
 # What is webhook? ![build-status][badge]
 
- <img src="https://github.com/mycoool/webhook-ui/raw/main/docs/logo/logo-128x128.png" alt="Webhook" align="left" />
+ <img src="https://github.com/mycoool/gohook/raw/main/docs/logo/logo-128x128.png" alt="Webhook" align="left" />
  
  [webhook][w] is a lightweight configurable tool written in Go, that allows you to easily create HTTP endpoints (hooks) on your server, which you can use to execute configured commands. You can also pass data from the HTTP request (such as headers, payload or query variables) to your commands. [webhook][w] also allows you to specify rules which have to be satisfied in order for the hook to be triggered.
 
@@ -28,13 +28,13 @@ Everything else is the responsibility of the command's author.
 ### Building from source
 To get started, first make sure you've properly set up your [Go](http://golang.org/doc/install) 1.21 or newer environment and then run
 ```bash
-$ go build github.com/mycoool/webhook-ui
+$ go build github.com/mycoool/gohook
 ```
-to build the latest version of the [webhook][w].
+to build the latest version of the [gohook][w].
 
 ### Using package manager
 #### Snap store
-[![Get it from the Snap Store](https://snapcraft.io/static/images/badges/en/snap-store-white.svg)](https://snapcraft.io/webhook)
+[![Get it from the Snap Store](https://snapcraft.io/static/images/badges/en/snap-store-white.svg)](https://snapcraft.io/gohook)
 
 #### Ubuntu
 If you are using Ubuntu linux (17.04 or later), you can install webhook using `sudo apt-get install webhook` which will install community packaged version.
@@ -46,7 +46,7 @@ If you are using Debian linux ("stretch" or later), you can install webhook usin
 If you are using FreeBSD, you can install webhook using `pkg install webhook`.
 
 ### Download prebuilt binaries
-Prebuilt binaries for different architectures are available at [GitHub Releases](https://github.com/mycoool/webhook-ui/releases).
+Prebuilt binaries for different architectures are available at [GitHub Releases](https://github.com/mycoool/gohook/releases).
 
 ## Configuration
 Next step is to define some hooks you want [webhook][w] to serve.
@@ -121,7 +121,7 @@ If you want to set CORS headers, you can use the `-header name=value` flag while
 On platforms that use [systemd](https://systemd.io), [webhook][w] supports the _socket activation_ mechanism.  If [webhook][w] detects that it has been launched from a systemd-managed socket it will automatically use that instead of opening its own listening port.  See [the systemd page](docs/Systemd-Activation.md) for full details.
 
 ## Interested in running webhook inside of a Docker container?
-You can use one of the following Docker images, or create your own (please read [this discussion](https://github.com/mycoool/webhook-ui/issues/63)):
+You can use one of the following Docker images, or create your own (please read [this discussion](https://github.com/mycoool/gohook/issues/63)):
 - [almir/webhook](https://github.com/almir/docker-webhook)
 - [roxedus/webhook](https://github.com/Roxedus/docker-webhook)
 - [thecatlady/webhook](https://github.com/thecatlady/docker-webhook)
@@ -158,7 +158,7 @@ Check out [Hook examples page](docs/Hook-Examples.md) for more complex examples 
 See the [webhook-contrib][wc] repository for a collections of tools and helpers related to [webhook][w] that have been contributed by the [webhook][w] community.
 
 ## Need help?
-Check out [existing issues](https://github.com/mycoool/webhook-ui/issues) to see if someone else also had the same problem, or [open a new one](https://github.com/mycoool/webhook-ui/issues/new).
+Check out [existing issues](https://github.com/mycoool/gohook/issues) to see if someone else also had the same problem, or [open a new one](https://github.com/mycoool/gohook/issues/new).
 
 # Support active development
 
@@ -230,6 +230,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
 
-[w]: https://github.com/mycoool/webhook-ui
-[wc]: https://github.com/mycoool/webhook-ui-contrib
-[badge]: https://github.com/mycoool/webhook-ui/workflows/build/badge.svg
+[w]: https://github.com/mycoool/gohook
+[wc]: https://github.com/mycoool/gohook-contrib
+[badge]: https://github.com/mycoool/gohook/workflows/build/badge.svg

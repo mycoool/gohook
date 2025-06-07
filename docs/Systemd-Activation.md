@@ -58,4 +58,4 @@ sudo systemctl start webhook.socket
 
 Systemd unit files support many other options, see the [systemd.socket](https://www.freedesktop.org/software/systemd/man/latest/systemd.socket.html) and [systemd.service](https://www.freedesktop.org/software/systemd/man/latest/systemd.service.html) manual pages for full details.
 
-[w]: https://github.com/mycoool/webhook-ui
+[w]: https://github.com/mycoool/gohook

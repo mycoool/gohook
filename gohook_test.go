@@ -18,7 +18,7 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/mycoool/webhook-ui/internal/hook"
+	"github.com/mycoool/gohook/internal/hook"
 )
 
 func TestStaticParams(t *testing.T) {

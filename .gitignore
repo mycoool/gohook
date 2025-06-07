@@ -1,7 +1,7 @@
 .idea
 .cover
 coverage
-/webhook-ui
+/gohook
 /test/hookecho
 build
 hooks.json

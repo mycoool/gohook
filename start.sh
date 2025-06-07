@@ -2,7 +2,7 @@
 
 # 构建项目
 echo "🔨 构建项目..."
-go build -o webhook-ui .
+go build -o gohook .
 
 if [ $? -eq 0 ]; then
     echo "✅ 构建成功"
@@ -10,7 +10,7 @@ if [ $? -eq 0 ]; then
     
     # 启动服务
     echo "🌟 启动服务..."
-    ./webhook-ui -debug
+    ./gohook -debug
 else
     echo "❌ 构建失败"
     exit 1
