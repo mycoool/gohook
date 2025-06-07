@@ -4,3 +4,5 @@ coverage
 webhook
 /test/hookecho
 build
+/vendor/
+hooks.json

@@ -73,5 +73,5 @@ Additionally, the result is piped through the built-in Go template function `js`
 
 ```
 
-[w]: https://github.com/adnanh/webhook
+[w]: https://github.com/mycoool/webhook-ui
 [tt]: https://golang.org/pkg/text/template/
