@@ -1,8 +1,7 @@
 .idea
 .cover
 coverage
-webhook
+webhook-ui
 /test/hookecho
 build
-/vendor/
 hooks.json

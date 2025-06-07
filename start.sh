@@ -10,7 +10,7 @@ if [ $? -eq 0 ]; then
     
     # 启动服务
     echo "🌟 启动服务..."
-    ./webhook-ui
+    ./webhook-ui -debug
 else
     echo "❌ 构建失败"
     exit 1
