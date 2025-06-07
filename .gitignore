@@ -5,3 +5,8 @@ coverage
 /test/hookecho
 build
 hooks.json
+
+*/node_modules/
+**/*-packr.go
+app.yaml
+yarn.lock
