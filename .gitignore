@@ -10,3 +10,5 @@ hooks.json
 **/*-packr.go
 app.yaml
 yarn.lock
+server.log
+

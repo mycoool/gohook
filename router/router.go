@@ -4,12 +4,11 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/gotify/server/v2/model"
 	"github.com/mycoool/gohook/ui"
 )
 
 // 版本信息
-var vInfo = &model.VersionInfo{
+var vInfo = &ui.VersionInfo{
 	Version:   "2.8.2", // 与app.go中的version常量保持一致
 	Commit:    "unknown",
 	BuildDate: "unknown",

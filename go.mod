@@ -12,7 +12,6 @@ require (
 	github.com/ghodss/yaml v1.0.0
 	github.com/gin-contrib/gzip v1.2.3
 	github.com/gin-gonic/gin v1.10.1
-	github.com/gotify/server/v2 v2.6.3
 	golang.org/x/sys v0.31.0
 )
 

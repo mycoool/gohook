@@ -9,19 +9,25 @@ import (
 
 	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
-	"github.com/gotify/server/v2/model"
 )
 
 //go:embed build/*
 var box embed.FS
 
+// VersionInfo 版本信息结构
+type VersionInfo struct {
+	Version   string `json:"version"`
+	Commit    string `json:"commit"`
+	BuildDate string `json:"buildDate"`
+}
+
 type uiConfig struct {
-	Register bool              `json:"register"`
-	Version  model.VersionInfo `json:"version"`
+	Register bool        `json:"register"`
+	Version  VersionInfo `json:"version"`
 }
 
 // Register registers the ui on the root path.
-func Register(r *gin.Engine, version model.VersionInfo, register bool) {
+func Register(r *gin.Engine, version VersionInfo, register bool) {
 	uiConfigBytes, err := json.Marshal(uiConfig{Version: version, Register: register})
 	if err != nil {
 		panic(err)
