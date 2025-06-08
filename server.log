@@ -1,0 +1,8 @@
+[webhook] 2025/06/08 21:20:36 version 2.8.2 starting
+[webhook] 2025/06/08 21:20:36 setting up os signal watcher
+[webhook] 2025/06/08 21:20:36 attempting to load hooks from hooks.json
+[webhook] 2025/06/08 21:20:36 os signal watcher ready
+[webhook] 2025/06/08 21:20:36 found 1 hook(s) in file
+[webhook] 2025/06/08 21:20:36 	loaded: test
+[webhook] 2025/06/08 21:20:36 serving hooks on http://0.0.0.0:8080/hooks/{id}
+[GIN] 2025/06/08 - 21:20:48 | 200 |      43.358µs |             ::1 | POST     "/login"

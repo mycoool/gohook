@@ -4,13 +4,36 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gotify/server/v2/model"
+	"github.com/mycoool/gohook/ui"
 )
+
+// 版本信息
+var vInfo = &model.VersionInfo{
+	Version:   "2.8.2", // 与app.go中的version常量保持一致
+	Commit:    "unknown",
+	BuildDate: "unknown",
+}
+
+// 配置信息
+type Config struct {
+	Registration bool
+}
+
+var conf = &Config{
+	Registration: true, // 允许注册
+}
 
 func InitRouter() *gin.Engine {
 	g := gin.Default()
+
+	// 注册前端UI路由，这将接管根路径 "/"
+	ui.Register(g, *vInfo, conf.Registration)
+
 	g.GET("/ping", func(c *gin.Context) {
 		c.String(http.StatusOK, "OK")
 	})
+
 	// 登录接口
 	g.POST("/login", func(c *gin.Context) {
 		username := c.PostForm("username")

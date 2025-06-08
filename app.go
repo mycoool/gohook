@@ -298,13 +298,7 @@ func main() {
 	// Clean up input
 	*httpMethods = strings.ToUpper(strings.ReplaceAll(*httpMethods, " ", ""))
 
-	// 根路由
-	r.GET("/", func(c *gin.Context) {
-		for _, responseHeader := range responseHeaders {
-			c.Header(responseHeader.Name, responseHeader.Value)
-		}
-		c.String(http.StatusOK, "OK")
-	})
+	// 注意：根路径 "/" 现在由前端UI路由处理（在router.InitRouter()中注册）
 
 	// webhook路由 - 支持所有HTTP方法
 	hooksPath := "/" + *hooksURLPrefix + "/*id"

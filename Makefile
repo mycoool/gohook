@@ -12,15 +12,18 @@ all: build release release-windows
 build: deps ## Build the project
 	go build
 
+build-js:
+	(cd ui && NODE_OPTIONS="${NODE_OPTIONS}" yarn build)
+
 release: clean deps ## Generate releases for unix systems
 	@for arch in $(ARCHS);\
 	do \
 		for os in $(OS);\
 		do \
 			echo "Building $$os-$$arch"; \
-			mkdir -p build/webhook-$$os-$$arch/; \
-			CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch go build -o build/webhook-$$os-$$arch/webhook; \
-			tar cz -C build -f build/webhook-$$os-$$arch.tar.gz webhook-$$os-$$arch; \
+			mkdir -p build/gohook-$$os-$$arch/; \
+			CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch go build -o build/gohook-$$os-$$arch/gohook; \
+			tar cz -C build -f build/gohook-$$os-$$arch.tar.gz gohook-$$os-$$arch; \
 		done \
 	done
 
@@ -28,9 +31,9 @@ release-windows: clean deps ## Generate release for windows
 	@for arch in $(ARCHS);\
 	do \
 		echo "Building windows-$$arch"; \
-		mkdir -p build/webhook-windows-$$arch/; \
-		GOOS=windows GOARCH=$$arch go build -o build/webhook-windows-$$arch/webhook.exe; \
-		tar cz -C build -f build/webhook-windows-$$arch.tar.gz webhook-windows-$$arch; \
+		mkdir -p build/gohook-windows-$$arch/; \
+		GOOS=windows GOARCH=$$arch go build -o build/gohook-windows-$$arch/gohook.exe; \
+		tar cz -C build -f build/gohook-windows-$$arch.tar.gz gohook-windows-$$arch; \
 	done
 
 test: deps ## Execute tests
@@ -41,4 +44,4 @@ deps: ## Install dependencies using go get
 
 clean: ## Remove building artifacts
 	rm -rf build
-	rm -f webhook
+	rm -f gohook
