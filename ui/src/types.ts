@@ -16,6 +16,19 @@ export interface IClient {
     lastUsed: string | null;
 }
 
+export interface IProject {
+    id: string;
+    name: string;
+    description: string;
+    executeCommand: string;
+    workingDirectory: string;
+    responseMessage: string;
+    httpMethods: string[];
+    triggerRuleDescription: string;
+    lastUsed: string | null;
+    status: string;
+}
+
 export interface IPlugin {
     id: number;
     token: string;

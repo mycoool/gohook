@@ -12,6 +12,7 @@ import Highlight from '@material-ui/icons/Highlight';
 import GitHubIcon from '@material-ui/icons/GitHub';
 import MenuIcon from '@material-ui/icons/Menu';
 import Apps from '@material-ui/icons/Apps';
+import Assignment from '@material-ui/icons/Assignment';
 import SupervisorAccount from '@material-ui/icons/SupervisorAccount';
 import React, {Component, CSSProperties} from 'react';
 import {Link} from 'react-router-dom';
@@ -164,6 +165,9 @@ class Header extends Component<IProps> {
                 )}
                 <Link className={classes.link} to="/applications" id="navigate-apps">
                     <ResponsiveButton icon={<Chat />} label="apps" width={width} color="inherit" />
+                </Link>
+                <Link className={classes.link} to="/projects" id="navigate-projects">
+                    <ResponsiveButton icon={<Assignment />} label="projects" width={width} color="inherit" />
                 </Link>
                 <Link className={classes.link} to="/clients" id="navigate-clients">
                     <ResponsiveButton

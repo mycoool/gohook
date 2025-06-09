@@ -7,6 +7,7 @@ import Layout from './layout/Layout';
 import {unregister} from './registerServiceWorker';
 import {CurrentUser} from './CurrentUser';
 import {AppStore} from './application/AppStore';
+import {ProjectStore} from './project/ProjectStore';
 import {WebSocketStore} from './message/WebSocketStore';
 import {SnackManager} from './snack/SnackManager';
 import {InjectProvider, StoreMapping} from './inject';
@@ -29,6 +30,7 @@ const prodUrl = urlWithSlash;
 const initStores = (): StoreMapping => {
     const snackManager = new SnackManager();
     const appStore = new AppStore(snackManager.snack);
+    const projectStore = new ProjectStore(snackManager.snack);
     const userStore = new UserStore(snackManager.snack);
     const messagesStore = new MessagesStore(appStore, snackManager.snack);
     const currentUser = new CurrentUser(snackManager.snack);
@@ -39,6 +41,7 @@ const initStores = (): StoreMapping => {
 
     return {
         appStore,
+        projectStore,
         snackManager,
         userStore,
         messagesStore,

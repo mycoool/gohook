@@ -265,6 +265,9 @@ func main() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
+	// 设置router对hooks数据的引用
+	router.LoadedHooksFromFiles = &loadedHooksFromFiles
+
 	r := router.InitRouter()
 
 	// 设置gin中间件

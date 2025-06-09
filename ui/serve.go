@@ -3,7 +3,6 @@ package ui
 import (
 	"embed"
 	"encoding/json"
-	"io/fs"
 	"net/http"
 	"strings"
 
@@ -37,17 +36,47 @@ func Register(r *gin.Engine, version VersionInfo, register bool) {
 		return strings.Replace(content, "%CONFIG%", string(uiConfigBytes), 1)
 	}
 
-	ui := r.Group("/", gzip.Gzip(gzip.DefaultCompression))
-	ui.GET("/", serveFile("index.html", "text/html", replaceConfig))
-	ui.GET("/index.html", serveFile("index.html", "text/html", replaceConfig))
-	ui.GET("/manifest.json", serveFile("manifest.json", "application/json", noop))
-	ui.GET("/asset-manifest.json", serveFile("asset-manifest.json", "application/json", noop))
+	// 注册UI路由，使用中间件包装
+	r.GET("/", gzip.Gzip(gzip.DefaultCompression), serveFile("index.html", "text/html", replaceConfig))
+	r.GET("/index.html", gzip.Gzip(gzip.DefaultCompression), serveFile("index.html", "text/html", replaceConfig))
+	r.GET("/manifest.json", gzip.Gzip(gzip.DefaultCompression), serveFile("manifest.json", "application/json", noop))
+	r.GET("/asset-manifest.json", gzip.Gzip(gzip.DefaultCompression), serveFile("asset-manifest.json", "application/json", noop))
 
-	subBox, err := fs.Sub(box, "build")
-	if err != nil {
-		panic(err)
+	// 创建静态文件处理器
+	staticHandler := func(c *gin.Context) {
+		// 获取文件路径参数
+		filepath := c.Param("filepath")
+
+		// 构建完整文件路径
+		fullPath := "build/static" + filepath
+
+		// 尝试从build目录读取文件
+		content, err := box.ReadFile(fullPath)
+		if err != nil {
+			c.Status(http.StatusNotFound)
+			return
+		}
+
+		// 设置适当的Content-Type
+		var contentType string
+		if strings.HasSuffix(filepath, ".css") {
+			contentType = "text/css"
+		} else if strings.HasSuffix(filepath, ".js") {
+			contentType = "application/javascript"
+		} else if strings.HasSuffix(filepath, ".png") {
+			contentType = "image/png"
+		} else if strings.HasSuffix(filepath, ".ico") {
+			contentType = "image/x-icon"
+		} else {
+			contentType = http.DetectContentType(content)
+		}
+
+		c.Header("Content-Type", contentType)
+		c.Data(http.StatusOK, contentType, content)
 	}
-	ui.GET("/static/*any", gin.WrapH(http.FileServer(http.FS(subBox))))
+
+	// 使用更具体的路径来避免与其他通配符路由冲突
+	r.GET("/static/*filepath", gzip.Gzip(gzip.DefaultCompression), staticHandler)
 }
 
 func noop(s string) string {
