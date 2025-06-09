@@ -13,15 +13,25 @@ import AccountTree from '@material-ui/icons/AccountTree';
 import LocalOffer from '@material-ui/icons/LocalOffer';
 import Refresh from '@material-ui/icons/Refresh';
 import CloudDownload from '@material-ui/icons/CloudDownload';
+import Add from '@material-ui/icons/Add';
+import Delete from '@material-ui/icons/Delete';
 import React, {Component, SFC} from 'react';
 import DefaultPage from '../common/DefaultPage';
+import ConfirmDialog from '../common/ConfirmDialog';
+import AddProjectDialog from './AddProjectDialog';
 import {observer} from 'mobx-react';
+import {observable} from 'mobx';
 import {inject, Stores} from '../inject';
 import {IVersion} from '../types';
 import {withRouter, RouteComponentProps} from 'react-router-dom';
 
 @observer
 class Versions extends Component<RouteComponentProps & Stores<'versionStore'>> {
+    @observable
+    private showAddDialog = false;
+    @observable
+    private deleteProjectName: string | null = null;
+
     public componentDidMount = () => this.props.versionStore.refreshProjects();
 
     public render() {
@@ -33,6 +43,12 @@ class Versions extends Component<RouteComponentProps & Stores<'versionStore'>> {
                 title="版本管理 (VERS)"
                 rightControl={
                     <ButtonGroup variant="contained" color="primary">
+                        <Button
+                            id="add-project"
+                            startIcon={<Add />}
+                            onClick={() => this.showAddDialog = true}>
+                            添加项目
+                        </Button>
                         <Button
                             id="refresh-versions"
                             startIcon={<Refresh />}
@@ -68,12 +84,28 @@ class Versions extends Component<RouteComponentProps & Stores<'versionStore'>> {
                                         project={project}
                                         onViewBranches={() => this.viewBranches(project.name)}
                                         onViewTags={() => this.viewTags(project.name)}
+                                        onDelete={() => this.deleteProjectName = project.name}
                                     />
                                 ))}
                             </TableBody>
                         </Table>
                     </Paper>
                 </Grid>
+                {this.showAddDialog && (
+                    <AddProjectDialog
+                        open={this.showAddDialog}
+                        onClose={() => this.showAddDialog = false}
+                        onSubmit={this.handleAddProject}
+                    />
+                )}
+                {this.deleteProjectName && (
+                    <ConfirmDialog
+                        title="确认删除项目"
+                        text={`确定要删除项目 "${this.deleteProjectName}" 吗？此操作不可撤销。`}
+                        fClose={() => this.deleteProjectName = null}
+                        fOnSubmit={() => this.handleDeleteProject()}
+                    />
+                )}
             </DefaultPage>
         );
     }
@@ -84,6 +116,22 @@ class Versions extends Component<RouteComponentProps & Stores<'versionStore'>> {
 
     private reloadConfig = () => {
         this.props.versionStore.reloadConfig();
+    };
+
+    private handleAddProject = async (name: string, path: string, description: string) => {
+        await this.props.versionStore.addProject(name, path, description);
+    };
+
+    private handleDeleteProject = async () => {
+        if (this.deleteProjectName) {
+            try {
+                await this.props.versionStore.deleteProject(this.deleteProjectName);
+            } catch (error) {
+                // 错误处理已在Store中完成
+            } finally {
+                this.deleteProjectName = null;
+            }
+        }
     };
 
     private viewBranches = (projectName: string) => {
@@ -99,9 +147,10 @@ interface IRowProps {
     project: IVersion;
     onViewBranches: VoidFunction;
     onViewTags: VoidFunction;
+    onDelete: VoidFunction;
 }
 
-const Row: SFC<IRowProps> = observer(({project, onViewBranches, onViewTags}) => {
+const Row: SFC<IRowProps> = observer(({project, onViewBranches, onViewTags, onDelete}) => {
     const getModeChip = (mode: string) => {
         switch (mode) {
             case 'branch':
@@ -198,6 +247,12 @@ const Row: SFC<IRowProps> = observer(({project, onViewBranches, onViewTags}) => 
                             title="管理标签"
                             size="small">
                             <LocalOffer />
+                        </IconButton>
+                        <IconButton 
+                            onClick={onDelete} 
+                            title="删除项目"
+                            size="small">
+                            <Delete />
                         </IconButton>
                     </div>
                 )}

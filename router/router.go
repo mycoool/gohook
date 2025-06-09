@@ -89,6 +89,36 @@ func loadConfig() error {
 	return nil
 }
 
+// saveConfig 保存配置文件
+func saveConfig() error {
+	if configData == nil {
+		return fmt.Errorf("配置数据为空")
+	}
+
+	data, err := yaml.Marshal(configData)
+	if err != nil {
+		return fmt.Errorf("序列化配置失败: %v", err)
+	}
+
+	// 备份原配置文件
+	if _, err := os.Stat("config.yaml"); err == nil {
+		os.Rename("config.yaml", "config.yaml.bak")
+	}
+
+	err = os.WriteFile("config.yaml", data, 0644)
+	if err != nil {
+		// 如果保存失败，恢复备份
+		if _, backupErr := os.Stat("config.yaml.bak"); backupErr == nil {
+			os.Rename("config.yaml.bak", "config.yaml")
+		}
+		return fmt.Errorf("保存配置文件失败: %v", err)
+	}
+
+	// 删除备份文件
+	os.Remove("config.yaml.bak")
+	return nil
+}
+
 // getGitStatus 获取Git状态
 func getGitStatus(projectPath string) (*VersionResponse, error) {
 	if _, err := os.Stat(filepath.Join(projectPath, ".git")); os.IsNotExist(err) {
@@ -612,6 +642,88 @@ func InitRouter() *gin.Engine {
 			c.JSON(http.StatusOK, gin.H{
 				"message":      "配置文件重新加载成功",
 				"projectCount": projectCount,
+			})
+		})
+
+		// 添加项目
+		versionAPI.POST("/add-project", func(c *gin.Context) {
+			var req struct {
+				Name        string `json:"name" binding:"required"`
+				Path        string `json:"path" binding:"required"`
+				Description string `json:"description"`
+			}
+
+			if err := c.ShouldBindJSON(&req); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "无效的请求参数: " + err.Error()})
+				return
+			}
+
+			// 检查项目名称是否已存在
+			for _, proj := range configData.Projects {
+				if proj.Name == req.Name {
+					c.JSON(http.StatusConflict, gin.H{"error": "项目名称已存在"})
+					return
+				}
+			}
+
+			// 检查路径是否存在
+			if _, err := os.Stat(req.Path); os.IsNotExist(err) {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "指定路径不存在"})
+				return
+			}
+
+			// 添加新项目
+			newProject := ProjectConfig{
+				Name:        req.Name,
+				Path:        req.Path,
+				Description: req.Description,
+				Enabled:     true,
+			}
+
+			configData.Projects = append(configData.Projects, newProject)
+
+			// 保存配置文件
+			if err := saveConfig(); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "保存配置失败: " + err.Error()})
+				return
+			}
+
+			c.JSON(http.StatusOK, gin.H{
+				"message": "项目添加成功",
+				"project": newProject,
+			})
+		})
+
+		// 删除项目
+		versionAPI.DELETE("/:name", func(c *gin.Context) {
+			projectName := c.Param("name")
+
+			// 查找项目索引
+			projectIndex := -1
+			for i, proj := range configData.Projects {
+				if proj.Name == projectName {
+					projectIndex = i
+					break
+				}
+			}
+
+			if projectIndex == -1 {
+				c.JSON(http.StatusNotFound, gin.H{"error": "项目未找到"})
+				return
+			}
+
+			// 删除项目
+			configData.Projects = append(configData.Projects[:projectIndex], configData.Projects[projectIndex+1:]...)
+
+			// 保存配置文件
+			if err := saveConfig(); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "保存配置失败: " + err.Error()})
+				return
+			}
+
+			c.JSON(http.StatusOK, gin.H{
+				"message": "项目删除成功",
+				"name":    projectName,
 			})
 		})
 

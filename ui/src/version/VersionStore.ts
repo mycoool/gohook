@@ -64,6 +64,40 @@ export class VersionStore {
     };
 
     @action
+    public addProject = async (name: string, path: string, description: string): Promise<void> => {
+        try {
+            const response = await axios.post(`${config.get('url')}version/add-project`, {
+                name,
+                path,
+                description
+            });
+            this.snack(response.data.message || '项目添加成功');
+            await this.refreshProjects(); // 添加后刷新项目列表
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 
+                (error as {response?: {data?: {error?: string}}})?.response?.data?.error ?? 
+                '未知错误';
+            this.snack('添加项目失败: ' + errorMessage);
+            throw error; // 重新抛出错误，让UI组件知道操作失败
+        }
+    };
+
+    @action
+    public deleteProject = async (name: string): Promise<void> => {
+        try {
+            const response = await axios.delete(`${config.get('url')}version/${name}`);
+            this.snack(response.data.message || '项目删除成功');
+            await this.refreshProjects(); // 删除后刷新项目列表
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 
+                (error as {response?: {data?: {error?: string}}})?.response?.data?.error ?? 
+                '未知错误';
+            this.snack('删除项目失败: ' + errorMessage);
+            throw error; // 重新抛出错误，让UI组件知道操作失败
+        }
+    };
+
+    @action
     public refreshBranches = async (projectName: string): Promise<void> => {
         this.currentProject = projectName;
         this.branches = await this.requestBranches(projectName).then((branches) => branches || []);
