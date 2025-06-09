@@ -9,9 +9,11 @@ import ScrollUpButton from '../common/ScrollUpButton';
 import SettingsDialog from '../common/SettingsDialog';
 import SnackBarHandler from '../snack/SnackBarHandler';
 import * as config from '../config';
-import Applications from '../application/Applications';
+import Versions from '../version/Versions';
+import Branches from '../version/Branches';
+import Tags from '../version/Tags';
 import Hooks from '../hook/Hooks';
-import Clients from '../client/Clients';
+
 import Plugins from '../plugin/Plugins';
 import PluginDetailView from '../plugin/PluginDetailView';
 import Login from '../user/Login';
@@ -135,15 +137,25 @@ class Layout extends React.Component<
                                         <Route exact path="/messages/:id" component={Messages} />
                                         <Route
                                             exact
-                                            path="/applications"
-                                            component={Applications}
+                                            path="/versions"
+                                            component={Versions}
+                                        />
+                                        <Route
+                                            exact
+                                            path="/versions/:projectName/branches"
+                                            component={Branches}
+                                        />
+                                        <Route
+                                            exact
+                                            path="/versions/:projectName/tags"
+                                            component={Tags}
                                         />
                                         <Route
                                             exact
                                             path="/hooks"
                                             component={Hooks}
                                         />
-                                        <Route exact path="/clients" component={Clients} />
+                
                                         <Route exact path="/users" component={Users} />
                                         <Route exact path="/plugins" component={Plugins} />
                                         <Route

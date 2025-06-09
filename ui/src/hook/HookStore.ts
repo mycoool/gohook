@@ -32,6 +32,20 @@ export class HookStore {
     };
 
     @action
+    public reloadConfig = async (): Promise<void> => {
+        try {
+            const response = await axios.post(`${config.get('url')}hook/reload-config`);
+            this.snack(response.data.message || 'Hooks配置重新加载成功');
+            await this.refresh(); // 重新加载后刷新数据
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 
+                (error as {response?: {data?: {error?: string}}})?.response?.data?.error ?? 
+                '未知错误';
+            this.snack('重新加载Hooks配置失败: ' + errorMessage);
+        }
+    };
+
+    @action
     public triggerHook = async (id: string): Promise<void> => {
         await axios.post(`${config.get('url')}hook/${id}/trigger`);
         this.snack('Hook triggered successfully');

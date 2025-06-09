@@ -723,7 +723,7 @@ func reloadHooks(hooksFilePath string) {
 	}
 }
 
-func reloadAllHooks() {
+func ReloadAllHooks() {
 	for _, hooksFilePath := range hooksFiles {
 		reloadHooks(hooksFilePath)
 	}

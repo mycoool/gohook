@@ -1,0 +1,30 @@
+# GOHOOK版本管理工具配置文件
+
+
+# 认证配置
+auth:
+  username: "admin"
+  password: "Ww110120.."
+
+# 项目配置
+projects:
+  - name: "PIXROOT-API"
+    path: "/www/wwwroot/inscription-api"
+    description: "版本管理测试项目"
+    enabled: true
+  - name: "CHAIN-API"
+    path: "/www/wwwroot/chain-api"
+    description: "原链接口"
+    enabled: true
+
+# 安全配置
+security:
+  enable_auth: true
+  session_timeout: 3600  # 秒
+  session_secret: "gover-secret-key-2024-prod"  # Session 密钥
+  remember_me_days: 7  # 记住我功能的天数
+  
+# 日志配置
+logging:
+  level: "info"
+  file: "logs/app.log" 

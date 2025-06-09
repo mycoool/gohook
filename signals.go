@@ -31,11 +31,11 @@ func watchForSignals() {
 		switch sig {
 		case syscall.SIGUSR1:
 			log.Println("caught USR1 signal")
-			reloadAllHooks()
+			ReloadAllHooks()
 
 		case syscall.SIGHUP:
 			log.Println("caught HUP signal")
-			reloadAllHooks()
+			ReloadAllHooks()
 
 		case os.Interrupt, syscall.SIGTERM:
 			log.Printf("caught %s signal; exiting\n", sig)

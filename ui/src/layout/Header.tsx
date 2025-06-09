@@ -14,11 +14,11 @@ import MenuIcon from '@material-ui/icons/Menu';
 import Apps from '@material-ui/icons/Apps';
 import SupervisorAccount from '@material-ui/icons/SupervisorAccount';
 import Link from '@material-ui/icons/Link';
+
+import AccountTree from '@material-ui/icons/AccountTree';
 import React, {Component, CSSProperties} from 'react';
 import {Link as RouterLink} from 'react-router-dom';
 import {observer} from 'mobx-react';
-import Chat from '@material-ui/icons/Chat';
-import DevicesOther from '@material-ui/icons/DevicesOther';
 
 const styles = (theme: Theme) =>
     createStyles({
@@ -163,10 +163,10 @@ class Header extends Component<IProps> {
                         />
                     </RouterLink>
                 )}
-                <RouterLink className={classes.link} to="/applications" id="navigate-apps">
+                <RouterLink className={classes.link} to="/versions" id="navigate-versions">
                     <ResponsiveButton
-                        icon={<Chat />}
-                        label="apps"
+                        icon={<AccountTree />}
+                        label="versions"
                         width={width}
                         color="inherit"
                     />
@@ -179,14 +179,7 @@ class Header extends Component<IProps> {
                         color="inherit"
                     />
                 </RouterLink>
-                <RouterLink className={classes.link} to="/clients" id="navigate-clients">
-                    <ResponsiveButton
-                        icon={<DevicesOther />}
-                        label="clients"
-                        width={width}
-                        color="inherit"
-                    />
-                </RouterLink>
+
                 <RouterLink className={classes.link} to="/plugins" id="navigate-plugins">
                     <ResponsiveButton
                         icon={<Apps />}

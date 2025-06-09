@@ -29,6 +29,33 @@ export interface IHook {
     status: string;
 }
 
+export interface IVersion {
+    name: string;
+    path: string;
+    description: string;
+    currentBranch: string;
+    currentTag: string;
+    mode: 'branch' | 'tag' | 'none';
+    status: string;
+    lastCommit: string;
+    lastCommitTime: string;
+}
+
+export interface IBranch {
+    name: string;
+    isCurrent: boolean;
+    lastCommit: string;
+    lastCommitTime: string;
+}
+
+export interface ITag {
+    name: string;
+    isCurrent: boolean;
+    commitHash: string;
+    date: string;
+    message: string;
+}
+
 export interface IPlugin {
     id: number;
     token: string;
@@ -74,7 +101,7 @@ export interface IUser {
     admin: boolean;
 }
 
-export interface IVersion {
+export interface IVersionInfo {
     version: string;
     commit: string;
     buildDate: string;

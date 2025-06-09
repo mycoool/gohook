@@ -8,12 +8,13 @@ import {unregister} from './registerServiceWorker';
 import {CurrentUser} from './CurrentUser';
 import {AppStore} from './application/AppStore';
 import {HookStore} from './hook/HookStore';
+import {VersionStore} from './version/VersionStore';
 import {WebSocketStore} from './message/WebSocketStore';
 import {SnackManager} from './snack/SnackManager';
 import {InjectProvider, StoreMapping} from './inject';
 import {UserStore} from './user/UserStore';
 import {MessagesStore} from './message/MessagesStore';
-import {ClientStore} from './client/ClientStore';
+
 import {PluginStore} from './plugin/PluginStore';
 import {registerReactions} from './reactions';
 
@@ -31,10 +32,11 @@ const initStores = (): StoreMapping => {
     const snackManager = new SnackManager();
     const appStore = new AppStore(snackManager.snack);
     const hookStore = new HookStore(snackManager.snack);
+    const versionStore = new VersionStore(snackManager.snack);
     const userStore = new UserStore(snackManager.snack);
     const messagesStore = new MessagesStore(appStore, snackManager.snack);
     const currentUser = new CurrentUser(snackManager.snack);
-    const clientStore = new ClientStore(snackManager.snack);
+
     const wsStore = new WebSocketStore(snackManager.snack, currentUser);
     const pluginStore = new PluginStore(snackManager.snack);
     appStore.onDelete = () => messagesStore.clearAll();
@@ -42,11 +44,11 @@ const initStores = (): StoreMapping => {
     return {
         appStore,
         hookStore,
+        versionStore,
         snackManager,
         userStore,
         messagesStore,
         currentUser,
-        clientStore,
         wsStore,
         pluginStore,
     };

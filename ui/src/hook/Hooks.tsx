@@ -8,6 +8,9 @@ import TableHead from '@material-ui/core/TableHead';
 import TableRow from '@material-ui/core/TableRow';
 import Delete from '@material-ui/icons/Delete';
 import PlayArrow from '@material-ui/icons/PlayArrow';
+import Refresh from '@material-ui/icons/Refresh';
+import CloudDownload from '@material-ui/icons/CloudDownload';
+import ButtonGroup from '@material-ui/core/ButtonGroup';
 import React, {Component, SFC} from 'react';
 import ConfirmDialog from '../common/ConfirmDialog';
 import DefaultPage from '../common/DefaultPage';
@@ -38,13 +41,20 @@ class Hooks extends Component<Stores<'hookStore'>> {
             <DefaultPage
                 title="Hooks"
                 rightControl={
-                    <Button
-                        id="refresh-hooks"
-                        variant="contained"
-                        color="primary"
-                        onClick={() => this.refreshHooks()}>
-                        Refresh Hooks
-                    </Button>
+                    <ButtonGroup variant="contained" color="primary">
+                        <Button
+                            id="refresh-hooks"
+                            startIcon={<Refresh />}
+                            onClick={() => this.refreshHooks()}>
+                            刷新
+                        </Button>
+                        <Button
+                            id="reload-config"
+                            startIcon={<CloudDownload />}
+                            onClick={() => this.reloadConfig()}>
+                            重新加载配置
+                        </Button>
+                    </ButtonGroup>
                 }
                 maxWidth={1200}>
                 <Grid item xs={12}>
@@ -90,6 +100,10 @@ class Hooks extends Component<Stores<'hookStore'>> {
 
     private refreshHooks = () => {
         this.props.hookStore.refresh();
+    };
+
+    private reloadConfig = () => {
+        this.props.hookStore.reloadConfig();
     };
 
     private triggerHook = (id: string) => {
