@@ -4,21 +4,21 @@ import IconButton from '@material-ui/core/IconButton';
 import {createStyles, Theme, WithStyles, withStyles} from '@material-ui/core/styles';
 import Toolbar from '@material-ui/core/Toolbar';
 import Typography from '@material-ui/core/Typography';
+import {Hidden, PropTypes, withWidth} from '@material-ui/core';
+import {Breakpoint} from '@material-ui/core/styles/createBreakpoints';
 import AccountCircle from '@material-ui/icons/AccountCircle';
-import Chat from '@material-ui/icons/Chat';
-import DevicesOther from '@material-ui/icons/DevicesOther';
 import ExitToApp from '@material-ui/icons/ExitToApp';
 import Highlight from '@material-ui/icons/Highlight';
 import GitHubIcon from '@material-ui/icons/GitHub';
 import MenuIcon from '@material-ui/icons/Menu';
 import Apps from '@material-ui/icons/Apps';
-import Assignment from '@material-ui/icons/Assignment';
 import SupervisorAccount from '@material-ui/icons/SupervisorAccount';
+import Link from '@material-ui/icons/Link';
 import React, {Component, CSSProperties} from 'react';
-import {Link} from 'react-router-dom';
+import {Link as RouterLink} from 'react-router-dom';
 import {observer} from 'mobx-react';
-import {Hidden, PropTypes, withWidth} from '@material-ui/core';
-import {Breakpoint} from '@material-ui/core/styles/createBreakpoints';
+import Chat from '@material-ui/icons/Chat';
+import DevicesOther from '@material-ui/icons/DevicesOther';
 
 const styles = (theme: Theme) =>
     createStyles({
@@ -100,11 +100,11 @@ class Header extends Component<IProps> {
             <AppBar position={position} style={style} className={classes.appBar}>
                 <Toolbar className={classes.toolbar}>
                     <div className={classes.title}>
-                        <Link to="/" className={classes.link}>
+                        <RouterLink to="/" className={classes.link}>
                             <Typography variant="h5" className={classes.titleName} color="inherit">
                                 GoHook
                             </Typography>
-                        </Link>
+                        </RouterLink>
                         <a
                             href={'https://github.com/mycoool/gohook/releases/tag/v' + version}
                             className={classes.link}>
@@ -154,37 +154,47 @@ class Header extends Component<IProps> {
                     />
                 </Hidden>
                 {admin && (
-                    <Link className={classes.link} to="/users" id="navigate-users">
+                    <RouterLink className={classes.link} to="/users" id="navigate-users">
                         <ResponsiveButton
                             icon={<SupervisorAccount />}
                             label="users"
                             width={width}
                             color="inherit"
                         />
-                    </Link>
+                    </RouterLink>
                 )}
-                <Link className={classes.link} to="/applications" id="navigate-apps">
-                    <ResponsiveButton icon={<Chat />} label="apps" width={width} color="inherit" />
-                </Link>
-                <Link className={classes.link} to="/projects" id="navigate-projects">
-                    <ResponsiveButton icon={<Assignment />} label="projects" width={width} color="inherit" />
-                </Link>
-                <Link className={classes.link} to="/clients" id="navigate-clients">
+                <RouterLink className={classes.link} to="/applications" id="navigate-apps">
+                    <ResponsiveButton
+                        icon={<Chat />}
+                        label="apps"
+                        width={width}
+                        color="inherit"
+                    />
+                </RouterLink>
+                <RouterLink className={classes.link} to="/hooks" id="navigate-hooks">
+                    <ResponsiveButton
+                        icon={<Link />}
+                        label="hooks"
+                        width={width}
+                        color="inherit"
+                    />
+                </RouterLink>
+                <RouterLink className={classes.link} to="/clients" id="navigate-clients">
                     <ResponsiveButton
                         icon={<DevicesOther />}
                         label="clients"
                         width={width}
                         color="inherit"
                     />
-                </Link>
-                <Link className={classes.link} to="/plugins" id="navigate-plugins">
+                </RouterLink>
+                <RouterLink className={classes.link} to="/plugins" id="navigate-plugins">
                     <ResponsiveButton
                         icon={<Apps />}
                         label="plugins"
                         width={width}
                         color="inherit"
                     />
-                </Link>
+                </RouterLink>
                 <ResponsiveButton
                     icon={<AccountCircle />}
                     label={name}

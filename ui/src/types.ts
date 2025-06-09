@@ -16,7 +16,7 @@ export interface IClient {
     lastUsed: string | null;
 }
 
-export interface IProject {
+export interface IHook {
     id: string;
     name: string;
     description: string;

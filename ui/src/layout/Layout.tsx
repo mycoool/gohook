@@ -10,7 +10,7 @@ import SettingsDialog from '../common/SettingsDialog';
 import SnackBarHandler from '../snack/SnackBarHandler';
 import * as config from '../config';
 import Applications from '../application/Applications';
-import Projects from '../project/Projects';
+import Hooks from '../hook/Hooks';
 import Clients from '../client/Clients';
 import Plugins from '../plugin/Plugins';
 import PluginDetailView from '../plugin/PluginDetailView';
@@ -140,8 +140,8 @@ class Layout extends React.Component<
                                         />
                                         <Route
                                             exact
-                                            path="/projects"
-                                            component={Projects}
+                                            path="/hooks"
+                                            component={Hooks}
                                         />
                                         <Route exact path="/clients" component={Clients} />
                                         <Route exact path="/users" component={Users} />

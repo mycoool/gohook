@@ -13,7 +13,12 @@ build: deps ## Build the project
 	go build
 
 build-js:
-	(cd ui && NODE_OPTIONS="${NODE_OPTIONS}" yarn build)
+	(cd ui && NODE_OPTIONS="${NODE_OPTIONS}" yarn build)	
+
+test-js:
+	go build -ldflags="-s -w -X main.Mode=prod" -o removeme/gohook .
+	(cd ui && CI=true GOTIFY_EXE=../removeme/gohook yarn test)
+	rm -rf removeme
 
 release: clean deps ## Generate releases for unix systems
 	@for arch in $(ARCHS);\

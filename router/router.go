@@ -37,8 +37,8 @@ type ClientResponse struct {
 	Name  string `json:"name"`
 }
 
-// ProjectResponse 项目响应结构
-type ProjectResponse struct {
+// HookResponse Hook响应结构
+type HookResponse struct {
 	ID                     string   `json:"id"`
 	Name                   string   `json:"name"`
 	Description            string   `json:"description"`
@@ -51,42 +51,42 @@ type ProjectResponse struct {
 	Status                 string   `json:"status"` // active, inactive
 }
 
-// getProjectsList 获取所有项目列表
-func getProjectsList() []ProjectResponse {
-	var projects []ProjectResponse
+// getHooksList 获取所有Hook列表
+func getHooksList() []HookResponse {
+	var hooks []HookResponse
 
 	if LoadedHooksFromFiles == nil {
-		return projects
+		return hooks
 	}
 
-	for _, hooks := range *LoadedHooksFromFiles {
-		for _, h := range hooks {
-			project := convertHookToProject(&h)
-			projects = append(projects, project)
+	for _, hooksInFile := range *LoadedHooksFromFiles {
+		for _, h := range hooksInFile {
+			hookResponse := convertHookToResponse(&h)
+			hooks = append(hooks, hookResponse)
 		}
 	}
 
-	return projects
+	return hooks
 }
 
-// getProjectByID 根据ID获取项目
-func getProjectByID(id string) *ProjectResponse {
+// getHookByID 根据ID获取Hook
+func getHookByID(id string) *HookResponse {
 	if LoadedHooksFromFiles == nil {
 		return nil
 	}
 
-	for _, hooks := range *LoadedHooksFromFiles {
-		if hook := hooks.Match(id); hook != nil {
-			project := convertHookToProject(hook)
-			return &project
+	for _, hooksInFile := range *LoadedHooksFromFiles {
+		if hook := hooksInFile.Match(id); hook != nil {
+			hookResponse := convertHookToResponse(hook)
+			return &hookResponse
 		}
 	}
 
 	return nil
 }
 
-// convertHookToProject 将Hook转换为ProjectResponse
-func convertHookToProject(h *hook.Hook) ProjectResponse {
+// convertHookToResponse 将Hook转换为HookResponse
+func convertHookToResponse(h *hook.Hook) HookResponse {
 	description := fmt.Sprintf("Execute: %s", h.ExecuteCommand)
 	if h.ResponseMessage != "" {
 		description = h.ResponseMessage
@@ -104,7 +104,7 @@ func convertHookToProject(h *hook.Hook) ProjectResponse {
 		httpMethods = []string{"POST", "GET"} // 默认方法
 	}
 
-	return ProjectResponse{
+	return HookResponse{
 		ID:                     h.ID,
 		Name:                   h.ID, // 使用ID作为名称
 		Description:            description,
@@ -246,39 +246,39 @@ func InitRouter() *gin.Engine {
 		}
 	})
 
-	// Projects API 接口组
-	projectsAPI := g.Group("/project")
+	// Hooks API 接口组
+	hooksAPI := g.Group("/hook")
 	{
-		// 获取所有项目列表
-		projectsAPI.GET("", func(c *gin.Context) {
-			projects := getProjectsList()
-			c.JSON(http.StatusOK, projects)
+		// 获取所有Hook列表
+		hooksAPI.GET("", func(c *gin.Context) {
+			hooks := getHooksList()
+			c.JSON(http.StatusOK, hooks)
 		})
 
-		// 获取单个项目详情
-		projectsAPI.GET("/:id", func(c *gin.Context) {
-			projectID := c.Param("id")
-			project := getProjectByID(projectID)
-			if project == nil {
-				c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
+		// 获取单个Hook详情
+		hooksAPI.GET("/:id", func(c *gin.Context) {
+			hookID := c.Param("id")
+			hookResponse := getHookByID(hookID)
+			if hookResponse == nil {
+				c.JSON(http.StatusNotFound, gin.H{"error": "Hook not found"})
 				return
 			}
-			c.JSON(http.StatusOK, project)
+			c.JSON(http.StatusOK, hookResponse)
 		})
 
-		// 触发项目webhook（测试接口）
-		projectsAPI.POST("/:id/trigger", func(c *gin.Context) {
-			projectID := c.Param("id")
-			project := getProjectByID(projectID)
-			if project == nil {
-				c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
+		// 触发Hook（测试接口）
+		hooksAPI.POST("/:id/trigger", func(c *gin.Context) {
+			hookID := c.Param("id")
+			hookResponse := getHookByID(hookID)
+			if hookResponse == nil {
+				c.JSON(http.StatusNotFound, gin.H{"error": "Hook not found"})
 				return
 			}
 
 			// 这里可以添加触发webhook的逻辑
 			c.JSON(http.StatusOK, gin.H{
-				"message": "Project webhook triggered successfully",
-				"project": project.Name,
+				"message": "Hook triggered successfully",
+				"hook":    hookResponse.Name,
 			})
 		})
 	}
