@@ -397,6 +397,7 @@ const VersionsContainer: React.FC<{
                                 <TableCell>{t('version.projectDescription')}</TableCell>
                                 <TableCell>{t('version.currentBranch')}/{t('version.currentTag')}</TableCell>
                                 <TableCell>{t('common.status')}</TableCell>
+                                <TableCell>{t('version.lastCommit')}</TableCell>
                                 <TableCell>{t('common.actions')}</TableCell>
                             </TableRow>
                         </TableHead>

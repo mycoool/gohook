@@ -163,9 +163,9 @@ class Header extends Component<IProps> {
                         icon={<AccountTree />}
                         translationKey="nav.versions"
                         fallbackLabel="versions"
-                        width={width}
-                        color="inherit"
-                    />
+                            width={width}
+                            color="inherit"
+                        />
                 </RouterLink>
                 <RouterLink className={classes.link} to="/hooks" id="navigate-hooks">
                     <ResponsiveButtonWithTranslation

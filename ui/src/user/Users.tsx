@@ -18,6 +18,7 @@ import {observer} from 'mobx-react';
 import {observable} from 'mobx';
 import {inject, Stores} from '../inject';
 import {IUser} from '../types';
+import useTranslation from '../i18n/useTranslation';
 
 const styles = () => ({
     wrapper: {
@@ -33,20 +34,24 @@ interface IRowProps {
     fEdit: VoidFunction;
 }
 
-const UserRow: SFC<IRowProps> = ({name, admin, fDelete, fEdit}) => (
+const UserRow: SFC<IRowProps> = ({name, admin, fDelete, fEdit}) => {
+    const { t } = useTranslation();
+    
+    return (
     <TableRow>
         <TableCell>{name}</TableCell>
-        <TableCell>{admin ? 'Yes' : 'No'}</TableCell>
+            <TableCell>{admin ? t('common.yes') : t('common.no')}</TableCell>
         <TableCell align="right" padding="none">
-            <IconButton onClick={fEdit} className="edit">
+                <IconButton onClick={fEdit} className="edit" title={t('user.editUser')}>
                 <Edit />
             </IconButton>
-            <IconButton onClick={fDelete} className="delete">
+                <IconButton onClick={fDelete} className="delete" title={t('user.deleteUser')}>
                 <Delete />
             </IconButton>
         </TableCell>
     </TableRow>
 );
+};
 
 @observer
 class Users extends Component<WithStyles<'wrapper'> & Stores<'userStore'>> {
@@ -60,23 +65,74 @@ class Users extends Component<WithStyles<'wrapper'> & Stores<'userStore'>> {
     public componentDidMount = () => this.props.userStore.refresh();
 
     public render() {
-        const {
-            deleteId,
-            editId,
-            createDialog,
-            props: {userStore},
-        } = this;
+        const {userStore} = this.props;
         const users = userStore.getItems();
+        
+        return (
+            <UsersContainer
+                users={users}
+                createDialog={this.createDialog}
+                deleteId={this.deleteId}
+                editId={this.editId}
+                onCreateUser={() => this.createDialog = true}
+                onEditUser={(id) => this.editId = id}
+                onDeleteUser={(id) => this.deleteId = id}
+                onCloseCreateDialog={() => this.createDialog = false}
+                onCloseEditDialog={() => this.editId = false}
+                onCloseDeleteDialog={() => this.deleteId = false}
+                onSubmitCreate={userStore.create}
+                onSubmitEdit={(id) => userStore.update.bind(this, id)}
+                onSubmitDelete={(id) => userStore.remove(id)}
+                userStore={userStore}
+            />
+        );
+    }
+}
+
+// 分离容器组件以使用Hook
+const UsersContainer: React.FC<{
+    users: IUser[];
+    createDialog: boolean;
+    deleteId: number | false;
+    editId: number | false;
+    onCreateUser: () => void;
+    onEditUser: (id: number) => void;
+    onDeleteUser: (id: number) => void;
+    onCloseCreateDialog: () => void;
+    onCloseEditDialog: () => void;
+    onCloseDeleteDialog: () => void;
+    onSubmitCreate: (name: string, password: string, admin: boolean) => void;
+    onSubmitEdit: (id: number) => (name: string, password: string, admin: boolean) => void;
+    onSubmitDelete: (id: number) => void;
+    userStore: { getByID: (id: number) => IUser };
+}> = ({
+    users,
+    createDialog,
+    deleteId,
+    editId,
+    onCreateUser,
+    onEditUser,
+    onDeleteUser,
+    onCloseCreateDialog,
+    onCloseEditDialog,
+    onCloseDeleteDialog,
+    onSubmitCreate,
+    onSubmitEdit,
+    onSubmitDelete,
+    userStore
+}) => {
+    const { t } = useTranslation();
+
         return (
             <DefaultPage
-                title="Users"
+            title={t('user.title')}
                 rightControl={
                     <Button
                         id="create-user"
                         variant="contained"
                         color="primary"
-                        onClick={() => (this.createDialog = true)}>
-                        Create User
+                    onClick={onCreateUser}>
+                    {t('user.addUser')}
                     </Button>
                 }>
                 <Grid item xs={12}>
@@ -84,8 +140,8 @@ class Users extends Component<WithStyles<'wrapper'> & Stores<'userStore'>> {
                         <Table id="user-table">
                             <TableHead>
                                 <TableRow style={{textAlign: 'center'}}>
-                                    <TableCell>Name</TableCell>
-                                    <TableCell>Admin</TableCell>
+                                <TableCell>{t('user.username')}</TableCell>
+                                <TableCell>{t('user.admin')}</TableCell>
                                     <TableCell />
                                 </TableRow>
                             </TableHead>
@@ -95,8 +151,8 @@ class Users extends Component<WithStyles<'wrapper'> & Stores<'userStore'>> {
                                         key={user.id}
                                         name={user.name}
                                         admin={user.admin}
-                                        fDelete={() => (this.deleteId = user.id)}
-                                        fEdit={() => (this.editId = user.id)}
+                                    fDelete={() => onDeleteUser(user.id)}
+                                    fEdit={() => onEditUser(user.id)}
                                     />
                                 ))}
                             </TableBody>
@@ -105,14 +161,14 @@ class Users extends Component<WithStyles<'wrapper'> & Stores<'userStore'>> {
                 </Grid>
                 {createDialog && (
                     <AddEditDialog
-                        fClose={() => (this.createDialog = false)}
-                        fOnSubmit={userStore.create}
+                    fClose={onCloseCreateDialog}
+                    fOnSubmit={onSubmitCreate}
                     />
                 )}
                 {editId !== false && (
                     <AddEditDialog
-                        fClose={() => (this.editId = false)}
-                        fOnSubmit={userStore.update.bind(this, editId)}
+                    fClose={onCloseEditDialog}
+                    fOnSubmit={onSubmitEdit(editId)}
                         name={userStore.getByID(editId).name}
                         admin={userStore.getByID(editId).admin}
                         isEdit={true}
@@ -120,15 +176,14 @@ class Users extends Component<WithStyles<'wrapper'> & Stores<'userStore'>> {
                 )}
                 {deleteId !== false && (
                     <ConfirmDialog
-                        title="Confirm Delete"
-                        text={'Delete ' + userStore.getByID(deleteId).name + '?'}
-                        fClose={() => (this.deleteId = false)}
-                        fOnSubmit={() => userStore.remove(deleteId)}
+                    title={t('user.deleteUser')}
+                    text={t('user.confirmDeleteText', { name: userStore.getByID(deleteId).name })}
+                    fClose={onCloseDeleteDialog}
+                    fOnSubmit={() => onSubmitDelete(deleteId)}
                     />
                 )}
             </DefaultPage>
         );
-    }
-}
+};
 
 export default withStyles(styles)(inject('userStore')(Users));

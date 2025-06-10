@@ -12,6 +12,7 @@ import ReactInfinite from 'react-infinite';
 import {IMessage} from '../types';
 import ConfirmDialog from '../common/ConfirmDialog';
 import LoadingSpinner from '../common/LoadingSpinner';
+import useTranslation from '../i18n/useTranslation';
 
 type IProps = RouteComponentProps<{id: string}>;
 
@@ -63,57 +64,22 @@ class Messages extends Component<IProps & Stores<'messagesStore' | 'appStore'>, 
         const hasMessages = messages.length !== 0;
 
         return (
-            <DefaultPage
-                title={name}
-                rightControl={
-                    <div>
-                        <Button
-                            id="refresh-all"
-                            variant="contained"
-                            color="primary"
-                            onClick={() => messagesStore.refreshByApp(appId)}
-                            style={{marginRight: 5}}>
-                            Refresh
-                        </Button>
-                        <Button
-                            id="delete-all"
-                            variant="contained"
-                            disabled={!hasMessages}
-                            color="primary"
-                            onClick={() => {
-                                this.deleteAll = true;
-                            }}>
-                            Delete All
-                        </Button>
-                    </div>
-                }>
-                {!messagesStore.loaded(appId) ? (
-                    <LoadingSpinner />
-                ) : hasMessages ? (
-                    <div style={{width: '100%'}} id="messages">
-                        <ReactInfinite
-                            key={appId}
-                            useWindowAsScrollContainer
-                            preloadBatchSize={window.innerHeight * 3}
-                            elementHeight={messages.map((m) => this.heights[m.id] || 1)}>
-                            {messages.map(this.renderMessage)}
-                        </ReactInfinite>
-
-                        {hasMore ? <LoadingSpinner /> : this.label("You've reached the end")}
-                    </div>
-                ) : (
-                    this.label('No messages')
-                )}
-
-                {this.deleteAll && (
-                    <ConfirmDialog
-                        title="Confirm Delete"
-                        text={'Delete all messages?'}
-                        fClose={() => (this.deleteAll = false)}
-                        fOnSubmit={() => messagesStore.removeByApp(appId)}
-                    />
-                )}
-            </DefaultPage>
+            <MessagesContainer
+                appId={appId}
+                messages={messages}
+                hasMore={hasMore}
+                name={name}
+                hasMessages={hasMessages}
+                loaded={messagesStore.loaded(appId)}
+                deleteAll={this.deleteAll}
+                heights={this.heights}
+                onRefresh={() => messagesStore.refreshByApp(appId)}
+                onDeleteAll={() => this.deleteAll = true}
+                onCloseDeleteAll={() => this.deleteAll = false}
+                onConfirmDeleteAll={() => messagesStore.removeByApp(appId)}
+                onLoadMore={() => this.checkIfLoadMore()}
+                renderMessage={this.renderMessage}
+            />
         );
     }
 
@@ -164,5 +130,99 @@ class Messages extends Component<IProps & Stores<'messagesStore' | 'appStore'>, 
         </Grid>
     );
 }
+
+// 分离容器组件以使用Hook
+const MessagesContainer: React.FC<{
+    appId: number;
+    messages: IMessage[];
+    hasMore: boolean;
+    name: string;
+    hasMessages: boolean;
+    loaded: boolean;
+    deleteAll: boolean;
+    heights: Record<string, number>;
+    onRefresh: () => void;
+    onDeleteAll: () => void;
+    onCloseDeleteAll: () => void;
+    onConfirmDeleteAll: () => void;
+    onLoadMore: () => void;
+    renderMessage: (message: IMessage) => JSX.Element;
+}> = ({
+    appId,
+    messages,
+    hasMore,
+    name,
+    hasMessages,
+    loaded,
+    deleteAll,
+    heights,
+    onRefresh,
+    onDeleteAll,
+    onCloseDeleteAll,
+    onConfirmDeleteAll,
+    renderMessage
+}) => {
+    const { t } = useTranslation();
+
+    const label = (text: string) => (
+        <Grid item xs={12}>
+            <Typography variant="caption" component="div" gutterBottom align="center">
+                {text}
+            </Typography>
+        </Grid>
+    );
+
+    return (
+        <DefaultPage
+            title={name}
+            rightControl={
+                <div>
+                    <Button
+                        id="refresh-all"
+                        variant="contained"
+                        color="primary"
+                        onClick={onRefresh}
+                        style={{marginRight: 5}}>
+                        {t('common.refresh')}
+                    </Button>
+                    <Button
+                        id="delete-all"
+                        variant="contained"
+                        disabled={!hasMessages}
+                        color="primary"
+                        onClick={onDeleteAll}>
+                        {t('message.clearMessages')}
+                    </Button>
+                </div>
+            }>
+            {!loaded ? (
+                <LoadingSpinner />
+            ) : hasMessages ? (
+                <div style={{width: '100%'}} id="messages">
+                    <ReactInfinite
+                        key={appId}
+                        useWindowAsScrollContainer
+                        preloadBatchSize={window.innerHeight * 3}
+                        elementHeight={messages.map((m) => heights[m.id] || 1)}>
+                        {messages.map(renderMessage)}
+                    </ReactInfinite>
+
+                    {hasMore ? <LoadingSpinner /> : label(t('message.reachedEnd'))}
+                </div>
+            ) : (
+                label(t('message.noMessages'))
+            )}
+
+            {deleteAll && (
+                <ConfirmDialog
+                    title={t('message.clearMessages')}
+                    text={t('message.confirmClearAll')}
+                    fClose={onCloseDeleteAll}
+                    fOnSubmit={onConfirmDeleteAll}
+                />
+            )}
+        </DefaultPage>
+    );
+};
 
 export default inject('messagesStore', 'appStore')(Messages);
