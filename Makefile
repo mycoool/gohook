@@ -1,52 +1,63 @@
-OS = darwin freebsd linux openbsd
-ARCHS = 386 arm amd64 arm64
+# Variables
+BINARY_NAME=gohook
+BUILD_DIR=./build
+SHELL := /bin/bash
+
+# Default Go toolchain to local if GOTOOLCHAIN is set, otherwise extract from go.mod
+ifdef GOTOOLCHAIN
+	GO_VERSION=$(GOTOOLCHAIN)
+else
+	GO_VERSION=$(shell go mod edit -json | jq -r .Toolchain | sed -e 's/go//')
+endif
 
 .DEFAULT_GOAL := help
 
 .PHONY: help
 help:
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-16s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-all: build release release-windows
+all: build ## Build binaries for all target platforms
 
-build: deps ## Build the project
-	go build
+build: clean build-linux-amd64 build-linux-arm64 build-windows-amd64 build-darwin-amd64 ## Build for all major platforms
 
-build-js:
-	(cd ui && NODE_OPTIONS="${NODE_OPTIONS}" yarn build)	
+build-js: ## Build the web UI
+	(cd ui && yarn && yarn build)
 
-ui-dev:
-	go build -ldflags="-s -w -X main.Mode=prod" -o removeme/gohook .
-	(cd ui && CI=true GOHOOK_EXE=../removeme/gohook yarn start)
-	rm -rf removeme
+test: ## Run Go tests
+	go test -v ./...
 
-release: clean deps ## Generate releases for unix systems
-	@for arch in $(ARCHS);\
-	do \
-		for os in $(OS);\
-		do \
-			echo "Building $$os-$$arch"; \
-			mkdir -p build/gohook-$$os-$$arch/; \
-			CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch go build -o build/gohook-$$os-$$arch/gohook; \
-			tar cz -C build -f build/gohook-$$os-$$arch.tar.gz gohook-$$os-$$arch; \
-		done \
+deps: ## Install Go dependencies
+	go get -d -v ./...
+
+clean: ## Clean up build artifacts
+	rm -rf $(BUILD_DIR)
+
+# Cross-compilation targets
+build-linux-amd64:
+	@echo "--> Building for linux/amd64..."
+	@mkdir -p $(BUILD_DIR)
+	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags='$(LD_FLAGS)' -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 .
+
+build-linux-arm64:
+	@echo "--> Building for linux/arm64..."
+	@mkdir -p $(BUILD_DIR)
+	@CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags='$(LD_FLAGS)' -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 .
+
+build-windows-amd64:
+	@echo "--> Building for windows/amd64..."
+	@mkdir -p $(BUILD_DIR)
+	@CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags='$(LD_FLAGS)' -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe .
+
+build-darwin-amd64:
+	@echo "--> Building for darwin/amd64..."
+	@mkdir -p $(BUILD_DIR)
+	@CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags='$(LD_FLAGS)' -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 .
+
+package-zip: ## Package all builds into zip files
+	@echo "--> Packaging binaries into zip files..."
+	@for f in $(BUILD_DIR)/$(BINARY_NAME)-*; do \
+		zip -j "$$f.zip" "$$f"; \
 	done
+	@echo "Done. Find packages in $(BUILD_DIR)"
 
-release-windows: clean deps ## Generate release for windows
-	@for arch in $(ARCHS);\
-	do \
-		echo "Building windows-$$arch"; \
-		mkdir -p build/gohook-windows-$$arch/; \
-		GOOS=windows GOARCH=$$arch go build -o build/gohook-windows-$$arch/gohook.exe; \
-		tar cz -C build -f build/gohook-windows-$$arch.tar.gz gohook-windows-$$arch; \
-	done
-
-test: deps ## Execute tests
-	go test ./...
-
-deps: ## Install dependencies using go get
-	go get -d -v -t ./...
-
-clean: ## Remove building artifacts
-	rm -rf build
-	rm -f gohook
+.PHONY: all build build-js test deps clean build-linux-amd64 build-linux-arm64 build-windows-amd64 build-darwin-amd64 package-zip
