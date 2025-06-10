@@ -153,16 +153,6 @@ class Header extends Component<IProps> {
                         color="inherit"
                     />
                 </Hidden>
-                {admin && (
-                    <RouterLink className={classes.link} to="/users" id="navigate-users">
-                        <ResponsiveButton
-                            icon={<SupervisorAccount />}
-                            label="users"
-                            width={width}
-                            color="inherit"
-                        />
-                    </RouterLink>
-                )}
                 <RouterLink className={classes.link} to="/versions" id="navigate-versions">
                     <ResponsiveButton
                         icon={<AccountTree />}
@@ -188,6 +178,16 @@ class Header extends Component<IProps> {
                         color="inherit"
                     />
                 </RouterLink>
+                {admin && (
+                    <RouterLink className={classes.link} to="/users" id="navigate-users">
+                        <ResponsiveButton
+                            icon={<SupervisorAccount />}
+                            label="users"
+                            width={width}
+                            color="inherit"
+                        />
+                    </RouterLink>
+                )}
                 <ResponsiveButton
                     icon={<AccountCircle />}
                     label={name}

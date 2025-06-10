@@ -2,16 +2,21 @@ package router
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
 	"github.com/mycoool/gohook/internal/hook"
 	"github.com/mycoool/gohook/ui"
+	wsmanager "github.com/mycoool/gohook/websocket"
 	"gopkg.in/yaml.v2"
 )
 
@@ -65,6 +70,60 @@ type TagResponse struct {
 // 全局变量引用，用于访问已加载的hooks
 var LoadedHooksFromFiles *map[string]hook.Hooks
 var configData *Config
+
+// WebSocket升级器
+var upgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool {
+		return true // 允许跨域
+	},
+}
+
+// WebSocket连接管理器
+type WSManager struct {
+	clients    map[*websocket.Conn]bool
+	clientsMux sync.RWMutex
+}
+
+// 全局WebSocket管理器
+var wsManager = &WSManager{
+	clients: make(map[*websocket.Conn]bool),
+}
+
+// WebSocket消息类型
+type WSMessage struct {
+	Type      string      `json:"type"`
+	Timestamp time.Time   `json:"timestamp"`
+	Data      interface{} `json:"data"`
+}
+
+// Hook触发消息
+type HookTriggeredMessage struct {
+	HookID     string `json:"hookId"`
+	HookName   string `json:"hookName"`
+	Method     string `json:"method"`
+	RemoteAddr string `json:"remoteAddr"`
+	Success    bool   `json:"success"`
+	Output     string `json:"output,omitempty"`
+	Error      string `json:"error,omitempty"`
+}
+
+// 版本切换消息
+type VersionSwitchMessage struct {
+	ProjectName string `json:"projectName"`
+	Action      string `json:"action"` // "switch-branch" | "switch-tag"
+	Target      string `json:"target"` // 分支名或标签名
+	Success     bool   `json:"success"`
+	Error       string `json:"error,omitempty"`
+}
+
+// 项目管理消息
+type ProjectManageMessage struct {
+	Action      string `json:"action"` // "add" | "delete"
+	ProjectName string `json:"projectName"`
+	ProjectPath string `json:"projectPath,omitempty"`
+	Success     bool   `json:"success"`
+	Error       string `json:"error,omitempty"`
+}
 
 // 版本信息
 var vInfo = &ui.VersionInfo{
@@ -284,6 +343,76 @@ func switchTag(projectPath, tagName string) error {
 	return nil
 }
 
+// initGit 初始化Git仓库
+func initGit(projectPath string) error {
+	// 检查项目路径是否存在
+	if _, err := os.Stat(projectPath); os.IsNotExist(err) {
+		return fmt.Errorf("项目路径不存在: %s", projectPath)
+	}
+
+	// 检查项目路径是否为目录
+	if info, err := os.Stat(projectPath); err != nil {
+		return fmt.Errorf("无法访问项目路径: %s, 错误: %v", projectPath, err)
+	} else if !info.IsDir() {
+		return fmt.Errorf("项目路径不是目录: %s", projectPath)
+	}
+
+	// 检查是否已经是Git仓库
+	gitDir := filepath.Join(projectPath, ".git")
+	if _, err := os.Stat(gitDir); err == nil {
+		return fmt.Errorf("目录已经是Git仓库")
+	}
+
+	// 尝试创建一个临时文件来测试写权限
+	testFile := filepath.Join(projectPath, ".gohook-permission-test")
+	if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
+		return fmt.Errorf("项目路径没有写权限: %s，请检查目录权限。建议运行: sudo chown -R %s:%s %s",
+			projectPath, os.Getenv("USER"), os.Getenv("USER"), projectPath)
+	}
+	// 清理测试文件
+	os.Remove(testFile)
+
+	// 执行git init命令
+	cmd := exec.Command("git", "-C", projectPath, "init")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("Git仓库初始化失败: %v, 输出: %s", err, string(output))
+	}
+
+	// 验证Git仓库是否成功创建
+	if _, err := os.Stat(gitDir); os.IsNotExist(err) {
+		return fmt.Errorf("Git仓库初始化后验证失败: .git目录未创建")
+	}
+
+	return nil
+}
+
+// setRemote 设置远程仓库
+func setRemote(projectPath, remoteUrl string) error {
+	// 检查是否是Git仓库
+	if _, err := os.Stat(filepath.Join(projectPath, ".git")); os.IsNotExist(err) {
+		return fmt.Errorf("不是Git仓库")
+	}
+
+	// 检查是否已有origin远程仓库
+	cmd := exec.Command("git", "-C", projectPath, "remote", "get-url", "origin")
+	if cmd.Run() == nil {
+		// 如果已有origin，先删除
+		cmd = exec.Command("git", "-C", projectPath, "remote", "remove", "origin")
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("删除原有远程仓库失败: %v", err)
+		}
+	}
+
+	// 添加新的origin远程仓库
+	cmd = exec.Command("git", "-C", projectPath, "remote", "add", "origin", remoteUrl)
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("设置远程仓库失败: %v", err)
+	}
+
+	return nil
+}
+
 // ClientResponse 客户端响应结构
 type ClientResponse struct {
 	Token string `json:"token"`
@@ -395,6 +524,57 @@ func describeTriggerRule(rules *hook.Rules) string {
 	}
 
 	return "Complex rules"
+}
+
+// handleWebSocket 处理WebSocket连接
+func handleWebSocket(c *gin.Context) {
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "WebSocket upgrade failed"})
+		return
+	}
+	defer func() {
+		wsmanager.Global.RemoveClient(conn)
+		conn.Close()
+	}()
+
+	// 添加到连接管理器
+	wsmanager.Global.AddClient(conn)
+
+	// 发送欢迎消息
+	welcomeMsg := wsmanager.Message{
+		Type:      "connected",
+		Timestamp: time.Now(),
+		Data: map[string]interface{}{
+			"message": "WebSocket连接成功",
+			"server":  "gohook",
+		},
+	}
+	welcomeData, _ := json.Marshal(welcomeMsg)
+	conn.WriteMessage(websocket.TextMessage, welcomeData)
+
+	// 保持连接，处理心跳
+	for {
+		_, message, err := conn.ReadMessage()
+		if err != nil {
+			break
+		}
+
+		// 处理客户端消息（心跳等）
+		var clientMsg map[string]interface{}
+		if json.Unmarshal(message, &clientMsg) == nil {
+			if msgType, ok := clientMsg["type"].(string); ok && msgType == "ping" {
+				// 响应心跳
+				pongMsg := wsmanager.Message{
+					Type:      "pong",
+					Timestamp: time.Now(),
+					Data:      map[string]string{"message": "pong"},
+				}
+				pongData, _ := json.Marshal(pongMsg)
+				conn.WriteMessage(websocket.TextMessage, pongData)
+			}
+		}
+	}
 }
 
 func InitRouter() *gin.Engine {
@@ -569,11 +749,101 @@ func InitRouter() *gin.Engine {
 				return
 			}
 
-			// 这里可以添加触发webhook的逻辑
-			c.JSON(http.StatusOK, gin.H{
-				"message": "Hook triggered successfully",
-				"hook":    hookResponse.Name,
-			})
+			// 执行Hook命令
+			success := false
+			output := ""
+			errorMsg := ""
+
+			if hookResponse.ExecuteCommand != "" {
+				// 执行命令
+				var cmd *exec.Cmd
+				if hookResponse.WorkingDirectory != "" {
+					cmd = exec.Command("bash", "-c", hookResponse.ExecuteCommand)
+					cmd.Dir = hookResponse.WorkingDirectory
+				} else {
+					cmd = exec.Command("bash", "-c", hookResponse.ExecuteCommand)
+				}
+
+				result, err := cmd.CombinedOutput()
+				output = string(result)
+				if err != nil {
+					errorMsg = err.Error()
+				} else {
+					success = true
+				}
+			} else {
+				success = true
+				output = "Hook触发成功（无执行命令）"
+			}
+
+			// 推送WebSocket消息
+			wsMessage := wsmanager.Message{
+				Type:      "hook_triggered",
+				Timestamp: time.Now(),
+				Data: wsmanager.HookTriggeredMessage{
+					HookID:     hookID,
+					HookName:   hookResponse.Name,
+					Method:     c.Request.Method,
+					RemoteAddr: c.ClientIP(),
+					Success:    success,
+					Output:     output,
+					Error:      errorMsg,
+				},
+			}
+			wsmanager.Global.Broadcast(wsMessage)
+
+			if success {
+				c.JSON(http.StatusOK, gin.H{
+					"message": "Hook触发成功",
+					"hook":    hookResponse.Name,
+					"output":  output,
+				})
+			} else {
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"message": "Hook触发失败",
+					"hook":    hookResponse.Name,
+					"error":   errorMsg,
+					"output":  output,
+				})
+			}
+		})
+	}
+
+	//添加websocket
+	ws := g.Group("/stream")
+	{
+		//前端访问地址："/stream?token=gohook-token-admin-12345"
+		ws.GET("", func(c *gin.Context) {
+			token := c.Query("token")
+			if token == "" {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "Missing token"})
+				return
+			}
+
+			// 简单的token验证
+			if !strings.HasPrefix(token, "gohook-token-") {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+				return
+			}
+
+			handleWebSocket(c)
+		})
+
+		// 也支持带ID的路径格式 /stream/:id?token=...
+		ws.GET("/:id", func(c *gin.Context) {
+			token := c.Query("token")
+			if token == "" {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "Missing token"})
+				return
+			}
+
+			// 简单的token验证
+			if !strings.HasPrefix(token, "gohook-token-") {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+				return
+			}
+
+			handleWebSocket(c)
 		})
 	}
 
@@ -684,9 +954,36 @@ func InitRouter() *gin.Engine {
 
 			// 保存配置文件
 			if err := saveConfig(); err != nil {
+				// 推送失败消息
+				wsMessage := wsmanager.Message{
+					Type:      "project_managed",
+					Timestamp: time.Now(),
+					Data: wsmanager.ProjectManageMessage{
+						Action:      "add",
+						ProjectName: req.Name,
+						ProjectPath: req.Path,
+						Success:     false,
+						Error:       "保存配置失败: " + err.Error(),
+					},
+				}
+				wsmanager.Global.Broadcast(wsMessage)
+
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "保存配置失败: " + err.Error()})
 				return
 			}
+
+			// 推送成功消息
+			wsMessage := wsmanager.Message{
+				Type:      "project_managed",
+				Timestamp: time.Now(),
+				Data: wsmanager.ProjectManageMessage{
+					Action:      "add",
+					ProjectName: req.Name,
+					ProjectPath: req.Path,
+					Success:     true,
+				},
+			}
+			wsmanager.Global.Broadcast(wsMessage)
 
 			c.JSON(http.StatusOK, gin.H{
 				"message": "项目添加成功",
@@ -717,9 +1014,34 @@ func InitRouter() *gin.Engine {
 
 			// 保存配置文件
 			if err := saveConfig(); err != nil {
+				// 推送失败消息
+				wsMessage := wsmanager.Message{
+					Type:      "project_managed",
+					Timestamp: time.Now(),
+					Data: wsmanager.ProjectManageMessage{
+						Action:      "delete",
+						ProjectName: projectName,
+						Success:     false,
+						Error:       "保存配置失败: " + err.Error(),
+					},
+				}
+				wsmanager.Global.Broadcast(wsMessage)
+
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "保存配置失败: " + err.Error()})
 				return
 			}
+
+			// 推送成功消息
+			wsMessage := wsmanager.Message{
+				Type:      "project_managed",
+				Timestamp: time.Now(),
+				Data: wsmanager.ProjectManageMessage{
+					Action:      "delete",
+					ProjectName: projectName,
+					Success:     true,
+				},
+			}
+			wsmanager.Global.Broadcast(wsMessage)
 
 			c.JSON(http.StatusOK, gin.H{
 				"message": "项目删除成功",
@@ -808,9 +1130,36 @@ func InitRouter() *gin.Engine {
 			}
 
 			if err := switchBranch(projectPath, req.Branch); err != nil {
+				// 推送失败消息
+				wsMessage := wsmanager.Message{
+					Type:      "version_switched",
+					Timestamp: time.Now(),
+					Data: wsmanager.VersionSwitchMessage{
+						ProjectName: projectName,
+						Action:      "switch-branch",
+						Target:      req.Branch,
+						Success:     false,
+						Error:       err.Error(),
+					},
+				}
+				wsmanager.Global.Broadcast(wsMessage)
+
 				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 				return
 			}
+
+			// 推送成功消息
+			wsMessage := wsmanager.Message{
+				Type:      "version_switched",
+				Timestamp: time.Now(),
+				Data: wsmanager.VersionSwitchMessage{
+					ProjectName: projectName,
+					Action:      "switch-branch",
+					Target:      req.Branch,
+					Success:     true,
+				},
+			}
+			wsmanager.Global.Broadcast(wsMessage)
 
 			c.JSON(http.StatusOK, gin.H{"message": "分支切换成功", "branch": req.Branch})
 		})
@@ -842,11 +1191,109 @@ func InitRouter() *gin.Engine {
 			}
 
 			if err := switchTag(projectPath, req.Tag); err != nil {
+				// 推送失败消息
+				wsMessage := wsmanager.Message{
+					Type:      "version_switched",
+					Timestamp: time.Now(),
+					Data: wsmanager.VersionSwitchMessage{
+						ProjectName: projectName,
+						Action:      "switch-tag",
+						Target:      req.Tag,
+						Success:     false,
+						Error:       err.Error(),
+					},
+				}
+				wsmanager.Global.Broadcast(wsMessage)
+
 				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 				return
 			}
 
+			// 推送成功消息
+			wsMessage := wsmanager.Message{
+				Type:      "version_switched",
+				Timestamp: time.Now(),
+				Data: wsmanager.VersionSwitchMessage{
+					ProjectName: projectName,
+					Action:      "switch-tag",
+					Target:      req.Tag,
+					Success:     true,
+				},
+			}
+			wsmanager.Global.Broadcast(wsMessage)
+
 			c.JSON(http.StatusOK, gin.H{"message": "标签切换成功", "tag": req.Tag})
+		})
+
+		// 初始化Git仓库
+		versionAPI.POST("/:name/init-git", func(c *gin.Context) {
+			projectName := c.Param("name")
+			fmt.Printf("收到Git初始化请求: 项目名=%s\n", projectName)
+
+			// 查找项目路径
+			var projectPath string
+			for _, proj := range configData.Projects {
+				if proj.Name == projectName && proj.Enabled {
+					projectPath = proj.Path
+					break
+				}
+			}
+
+			if projectPath == "" {
+				fmt.Printf("Git初始化失败: 项目未找到, 项目名=%s\n", projectName)
+				c.JSON(http.StatusNotFound, gin.H{"error": "项目未找到"})
+				return
+			}
+
+			fmt.Printf("Git初始化: 项目名=%s, 路径=%s\n", projectName, projectPath)
+
+			if err := initGit(projectPath); err != nil {
+				fmt.Printf("Git初始化失败: 项目名=%s, 路径=%s, 错误=%v\n", projectName, projectPath, err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+
+			fmt.Printf("Git初始化成功: 项目名=%s, 路径=%s\n", projectName, projectPath)
+			c.JSON(http.StatusOK, gin.H{"message": "Git仓库初始化成功"})
+		})
+
+		// 设置远程仓库
+		versionAPI.POST("/:name/set-remote", func(c *gin.Context) {
+			projectName := c.Param("name")
+
+			var req struct {
+				RemoteUrl string `json:"remoteUrl"`
+			}
+			if err := c.ShouldBindJSON(&req); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "无效的请求参数"})
+				return
+			}
+
+			if req.RemoteUrl == "" {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "远程仓库URL不能为空"})
+				return
+			}
+
+			// 查找项目路径
+			var projectPath string
+			for _, proj := range configData.Projects {
+				if proj.Name == projectName && proj.Enabled {
+					projectPath = proj.Path
+					break
+				}
+			}
+
+			if projectPath == "" {
+				c.JSON(http.StatusNotFound, gin.H{"error": "项目未找到"})
+				return
+			}
+
+			if err := setRemote(projectPath, req.RemoteUrl); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+
+			c.JSON(http.StatusOK, gin.H{"message": "远程仓库设置成功"})
 		})
 	}
 

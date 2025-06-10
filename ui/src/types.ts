@@ -106,3 +106,39 @@ export interface IVersionInfo {
     commit: string;
     buildDate: string;
 }
+
+// WebSocket 实时消息类型
+export interface IWebSocketMessage {
+    type: string;
+    timestamp: string;
+    data: any;
+}
+
+// Hook触发消息
+export interface IHookTriggeredMessage {
+    hookId: string;
+    hookName: string;
+    method: string;
+    remoteAddr: string;
+    success: boolean;
+    output?: string;
+    error?: string;
+}
+
+// 版本切换消息
+export interface IVersionSwitchMessage {
+    projectName: string;
+    action: 'switch-branch' | 'switch-tag';
+    target: string;
+    success: boolean;
+    error?: string;
+}
+
+// 项目管理消息
+export interface IProjectManageMessage {
+    action: 'add' | 'delete';
+    projectName: string;
+    projectPath?: string;
+    success: boolean;
+    error?: string;
+}

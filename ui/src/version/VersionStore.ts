@@ -98,6 +98,38 @@ export class VersionStore {
     };
 
     @action
+    public initGit = async (name: string): Promise<void> => {
+        try {
+            const response = await axios.post(`${config.get('url')}version/${name}/init-git`);
+            this.snack(response.data.message || 'Git仓库初始化成功');
+            await this.refreshProjects(); // 初始化后刷新项目列表
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 
+                (error as {response?: {data?: {error?: string}}})?.response?.data?.error ?? 
+                '未知错误';
+            this.snack('Git仓库初始化失败: ' + errorMessage);
+            throw error;
+        }
+    };
+
+    @action
+    public setRemote = async (name: string, remoteUrl: string): Promise<void> => {
+        try {
+            const response = await axios.post(`${config.get('url')}version/${name}/set-remote`, {
+                remoteUrl: remoteUrl
+            });
+            this.snack(response.data.message || '远程仓库设置成功');
+            await this.refreshProjects(); // 设置后刷新项目列表
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 
+                (error as {response?: {data?: {error?: string}}})?.response?.data?.error ?? 
+                '未知错误';
+            this.snack('设置远程仓库失败: ' + errorMessage);
+            throw error;
+        }
+    };
+
+    @action
     public refreshBranches = async (projectName: string): Promise<void> => {
         this.currentProject = projectName;
         this.branches = await this.requestBranches(projectName).then((branches) => branches || []);

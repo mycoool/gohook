@@ -21,6 +21,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/gin-gonic/gin"
 	"github.com/mycoool/gohook/router"
+	wsmanager "github.com/mycoool/gohook/websocket"
 )
 
 const (
@@ -569,6 +570,7 @@ func ginHookHandler(c *gin.Context) {
 				c.String(http.StatusOK, matchedHook.ResponseMessage)
 			}
 		}
+
 		return
 	}
 
@@ -670,6 +672,28 @@ func handleHook(h *hook.Hook, r *hook.Request) (string, error) {
 	}
 
 	log.Printf("[%s] finished handling %s\n", r.ID, h.ID)
+
+	// 推送WebSocket消息通知hook执行完成
+	wsMessage := wsmanager.Message{
+		Type:      "hook_triggered",
+		Timestamp: time.Now(),
+		Data: wsmanager.HookTriggeredMessage{
+			HookID:     h.ID,
+			HookName:   h.ID,
+			Method:     r.RawRequest.Method,
+			RemoteAddr: r.RawRequest.RemoteAddr,
+			Success:    err == nil,
+			Output:     string(out),
+			Error: func() string {
+				if err != nil {
+					return err.Error()
+				} else {
+					return ""
+				}
+			}(),
+		},
+	}
+	wsmanager.Global.Broadcast(wsMessage)
 
 	return string(out), err
 }

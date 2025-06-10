@@ -18,6 +18,7 @@ import Plugins from '../plugin/Plugins';
 import PluginDetailView from '../plugin/PluginDetailView';
 import Login from '../user/Login';
 import Messages from '../message/Messages';
+import RealtimeMessages from '../message/RealtimeMessages';
 import Users from '../user/Users';
 import {observer} from 'mobx-react';
 import {observable} from 'mobx';
@@ -93,7 +94,7 @@ class Layout extends React.Component<
         } = this.props;
         const theme = themeMap[currentTheme];
         const loginRoute = () => (loggedIn ? <Redirect to="/" /> : <Login />);
-        const {version} = config.get('version');
+        const versionInfo = config.get('version');
         return (
             <MuiThemeProvider theme={theme}>
                 <HashRouter>
@@ -111,7 +112,7 @@ class Layout extends React.Component<
                                 style={{top: !connectionErrorMessage ? 0 : 64}}
                                 admin={admin}
                                 name={name}
-                                version={version}
+                                version={versionInfo.version}
                                 loggedIn={loggedIn}
                                 toggleTheme={this.toggleTheme.bind(this)}
                                 showSettings={() => (this.showSettings = true)}
@@ -171,6 +172,7 @@ class Layout extends React.Component<
                             )}
                             <ScrollUpButton />
                             <SnackBarHandler />
+                            {loggedIn && <RealtimeMessages />}
                         </div>
                     </div>
                 </HashRouter>

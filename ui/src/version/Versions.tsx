@@ -9,12 +9,19 @@ import TableRow from '@material-ui/core/TableRow';
 import Button from '@material-ui/core/Button';
 import ButtonGroup from '@material-ui/core/ButtonGroup';
 import Chip from '@material-ui/core/Chip';
+import TextField from '@material-ui/core/TextField';
+import Dialog from '@material-ui/core/Dialog';
+import DialogTitle from '@material-ui/core/DialogTitle';
+import DialogContent from '@material-ui/core/DialogContent';
+import DialogActions from '@material-ui/core/DialogActions';
 import AccountTree from '@material-ui/icons/AccountTree';
 import LocalOffer from '@material-ui/icons/LocalOffer';
 import Refresh from '@material-ui/icons/Refresh';
 import CloudDownload from '@material-ui/icons/CloudDownload';
 import Add from '@material-ui/icons/Add';
 import Delete from '@material-ui/icons/Delete';
+import Git from '@material-ui/icons/GitHub';
+import Link from '@material-ui/icons/Link';
 import React, {Component, SFC} from 'react';
 import DefaultPage from '../common/DefaultPage';
 import ConfirmDialog from '../common/ConfirmDialog';
@@ -31,6 +38,12 @@ class Versions extends Component<RouteComponentProps & Stores<'versionStore'>> {
     private showAddDialog = false;
     @observable
     private deleteProjectName: string | null = null;
+    @observable
+    private initGitProjectName: string | null = null;
+    @observable
+    private setRemoteProjectName: string | null = null;
+    @observable
+    private remoteUrl = '';
 
     public componentDidMount = () => this.props.versionStore.refreshProjects();
 
@@ -85,6 +98,8 @@ class Versions extends Component<RouteComponentProps & Stores<'versionStore'>> {
                                         onViewBranches={() => this.viewBranches(project.name)}
                                         onViewTags={() => this.viewTags(project.name)}
                                         onDelete={() => this.deleteProjectName = project.name}
+                                        onInitGit={() => this.initGitProjectName = project.name}
+                                        onSetRemote={() => this.setRemoteProjectName = project.name}
                                     />
                                 ))}
                             </TableBody>
@@ -105,6 +120,57 @@ class Versions extends Component<RouteComponentProps & Stores<'versionStore'>> {
                         fClose={() => this.deleteProjectName = null}
                         fOnSubmit={() => this.handleDeleteProject()}
                     />
+                )}
+                {this.initGitProjectName && (
+                    <ConfirmDialog
+                        title="初始化Git仓库"
+                        text={`确定要为项目 "${this.initGitProjectName}" 初始化Git仓库吗？`}
+                        fClose={() => this.initGitProjectName = null}
+                        fOnSubmit={() => this.handleInitGit()}
+                    />
+                )}
+                {this.setRemoteProjectName && (
+                    <Dialog
+                        open={true}
+                        onClose={() => {
+                            this.setRemoteProjectName = null;
+                            this.remoteUrl = '';
+                        }}
+                        maxWidth="sm"
+                        fullWidth>
+                        <DialogTitle>设置远程仓库</DialogTitle>
+                        <DialogContent>
+                            <p>为项目 {this.setRemoteProjectName} 设置远程仓库地址：</p>
+                            <TextField
+                                autoFocus
+                                margin="dense"
+                                label="远程仓库URL"
+                                placeholder="https://github.com/username/repository.git"
+                                fullWidth
+                                variant="outlined"
+                                value={this.remoteUrl}
+                                onChange={(e) => this.remoteUrl = e.target.value}
+                                helperText="请输入完整的Git远程仓库地址"
+                            />
+                        </DialogContent>
+                        <DialogActions>
+                            <Button 
+                                onClick={() => {
+                                    this.setRemoteProjectName = null;
+                                    this.remoteUrl = '';
+                                }}
+                                color="default">
+                                取消
+                            </Button>
+                            <Button 
+                                onClick={() => this.handleSetRemote()}
+                                color="primary"
+                                variant="contained"
+                                disabled={!this.remoteUrl.trim()}>
+                                确认设置
+                            </Button>
+                        </DialogActions>
+                    </Dialog>
                 )}
             </DefaultPage>
         );
@@ -134,6 +200,33 @@ class Versions extends Component<RouteComponentProps & Stores<'versionStore'>> {
         }
     };
 
+    private handleInitGit = async () => {
+        if (this.initGitProjectName) {
+            try {
+                await this.props.versionStore.initGit(this.initGitProjectName);
+                this.refreshProjects(); // 刷新项目列表
+            } catch (error) {
+                // 错误处理已在Store中完成
+            } finally {
+                this.initGitProjectName = null;
+            }
+        }
+    };
+
+    private handleSetRemote = async () => {
+        if (this.setRemoteProjectName && this.remoteUrl.trim()) {
+            try {
+                await this.props.versionStore.setRemote(this.setRemoteProjectName, this.remoteUrl.trim());
+                this.refreshProjects(); // 刷新项目列表
+            } catch (error) {
+                // 错误处理已在Store中完成
+            } finally {
+                this.setRemoteProjectName = null;
+                this.remoteUrl = '';
+            }
+        }
+    };
+
     private viewBranches = (projectName: string) => {
         this.props.history.push(`/versions/${projectName}/branches`);
     };
@@ -148,9 +241,11 @@ interface IRowProps {
     onViewBranches: VoidFunction;
     onViewTags: VoidFunction;
     onDelete: VoidFunction;
+    onInitGit: VoidFunction;
+    onSetRemote: VoidFunction;
 }
 
-const Row: SFC<IRowProps> = observer(({project, onViewBranches, onViewTags, onDelete}) => {
+const Row: SFC<IRowProps> = observer(({project, onViewBranches, onViewTags, onDelete, onInitGit, onSetRemote}) => {
     const getModeChip = (mode: string) => {
         switch (mode) {
             case 'branch':
@@ -234,28 +329,50 @@ const Row: SFC<IRowProps> = observer(({project, onViewBranches, onViewTags, onDe
                 )}
             </TableCell>
             <TableCell>
-                {project.status === 'active' && (
-                    <div style={{display: 'flex', gap: '8px'}}>
+                <div style={{display: 'flex', gap: '8px', flexWrap: 'wrap'}}>
+                    {/* Git项目操作按钮 */}
+                    {(project.status === 'active') && (
+                        <>
+                            <IconButton 
+                                onClick={onViewBranches} 
+                                title="管理分支"
+                                size="small">
+                                <AccountTree />
+                            </IconButton>
+                            <IconButton 
+                                onClick={onViewTags} 
+                                title="管理标签"
+                                size="small">
+                                <LocalOffer />
+                            </IconButton>
+                            <IconButton 
+                                onClick={onSetRemote} 
+                                title="设置远程仓库"
+                                size="small">
+                                <Link />
+                            </IconButton>
+                        </>
+                    )}
+                    
+                    {/* 非Git项目操作按钮 */}
+                    {(project.status === 'not-git' || project.mode === 'none') && (
                         <IconButton 
-                            onClick={onViewBranches} 
-                            title="管理分支"
+                            onClick={onInitGit} 
+                            title="初始化Git仓库"
                             size="small">
-                            <AccountTree />
+                            <Git />
                         </IconButton>
-                        <IconButton 
-                            onClick={onViewTags} 
-                            title="管理标签"
-                            size="small">
-                            <LocalOffer />
-                        </IconButton>
-                        <IconButton 
-                            onClick={onDelete} 
-                            title="删除项目"
-                            size="small">
-                            <Delete />
-                        </IconButton>
-                    </div>
-                )}
+                    )}
+                    
+                    {/* 所有项目都有删除按钮 */}
+                    <IconButton 
+                        onClick={onDelete} 
+                        title="删除项目"
+                        size="small"
+                        style={{color: '#f44336'}}>
+                        <Delete />
+                    </IconButton>
+                </div>
             </TableCell>
         </TableRow>
     );

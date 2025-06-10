@@ -1,9 +1,9 @@
-import {IVersion} from './types';
+import {IVersionInfo} from './types';
 
 export interface IConfig {
     url: string;
     register: boolean;
-    version: IVersion;
+    version: IVersionInfo;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
