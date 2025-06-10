@@ -19,6 +19,8 @@ import AccountTree from '@material-ui/icons/AccountTree';
 import React, {Component, CSSProperties} from 'react';
 import {Link as RouterLink} from 'react-router-dom';
 import {observer} from 'mobx-react';
+import useTranslation from '../i18n/useTranslation';
+import LanguageSwitcher from '../i18n/LanguageSwitcher';
 
 const styles = (theme: Theme) =>
     createStyles({
@@ -115,6 +117,8 @@ class Header extends Component<IProps> {
                     </div>
                     {loggedIn && this.renderButtons(name, admin, logout, width, setNavOpen)}
                     <div>
+                        <LanguageSwitcher />
+                        
                         <IconButton onClick={toggleTheme} color="inherit">
                             <Highlight />
                         </IconButton>
@@ -145,60 +149,68 @@ class Header extends Component<IProps> {
         return (
             <div className={classes.menuButtons}>
                 <Hidden smUp implementation="css">
-                    <ResponsiveButton
+                    <ResponsiveButtonWithTranslation
                         icon={<MenuIcon />}
                         onClick={() => setNavOpen(true)}
-                        label="menu"
+                        translationKey="nav.menu"
+                        fallbackLabel="menu"
                         width={width}
                         color="inherit"
                     />
                 </Hidden>
                 <RouterLink className={classes.link} to="/versions" id="navigate-versions">
-                    <ResponsiveButton
+                    <ResponsiveButtonWithTranslation
                         icon={<AccountTree />}
-                        label="versions"
+                        translationKey="nav.versions"
+                        fallbackLabel="versions"
                         width={width}
                         color="inherit"
                     />
                 </RouterLink>
                 <RouterLink className={classes.link} to="/hooks" id="navigate-hooks">
-                    <ResponsiveButton
+                    <ResponsiveButtonWithTranslation
                         icon={<Link />}
-                        label="hooks"
+                        translationKey="nav.hooks"
+                        fallbackLabel="hooks"
                         width={width}
                         color="inherit"
                     />
                 </RouterLink>
 
                 <RouterLink className={classes.link} to="/plugins" id="navigate-plugins">
-                    <ResponsiveButton
+                    <ResponsiveButtonWithTranslation
                         icon={<Apps />}
-                        label="plugins"
+                        translationKey="nav.plugins"
+                        fallbackLabel="plugins"
                         width={width}
                         color="inherit"
                     />
                 </RouterLink>
                 {admin && (
                     <RouterLink className={classes.link} to="/users" id="navigate-users">
-                        <ResponsiveButton
+                        <ResponsiveButtonWithTranslation
                             icon={<SupervisorAccount />}
-                            label="users"
+                            translationKey="nav.users"
+                            fallbackLabel="users"
                             width={width}
                             color="inherit"
                         />
                     </RouterLink>
                 )}
-                <ResponsiveButton
+                <ResponsiveButtonWithTranslation
                     icon={<AccountCircle />}
-                    label={name}
+                    translationKey="nav.settings"
+                    fallbackLabel={name}
+                    customLabel={name}
                     onClick={showSettings}
                     id="changepw"
                     width={width}
                     color="inherit"
                 />
-                <ResponsiveButton
+                <ResponsiveButtonWithTranslation
                     icon={<ExitToApp />}
-                    label="Logout"
+                    translationKey="nav.logout"
+                    fallbackLabel="Logout"
                     onClick={logout}
                     id="logout"
                     width={width}
@@ -209,14 +221,22 @@ class Header extends Component<IProps> {
     }
 }
 
-const ResponsiveButton: React.FC<{
+// 支持翻译的响应式按钮组件
+const ResponsiveButtonWithTranslation: React.FC<{
     width: Breakpoint;
     color: PropTypes.Color;
-    label: string;
+    translationKey: string;
+    fallbackLabel: string;
+    customLabel?: string;
     id?: string;
     onClick?: () => void;
     icon: React.ReactNode;
-}> = ({width, icon, label, ...rest}) => {
+}> = ({width, icon, translationKey, fallbackLabel, customLabel, ...rest}) => {
+    const { t } = useTranslation();
+    
+    // 如果有自定义标签（如用户名），优先使用
+    const label = customLabel ?? t(translationKey) ?? fallbackLabel;
+    
     if (width === 'xs' || width === 'sm') {
         return <IconButton {...rest}>{icon}</IconButton>;
     }

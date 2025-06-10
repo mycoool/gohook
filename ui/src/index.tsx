@@ -17,6 +17,7 @@ import {MessagesStore} from './message/MessagesStore';
 
 import {PluginStore} from './plugin/PluginStore';
 import {registerReactions} from './reactions';
+import './i18n';
 
 const devUrl = 'http://localhost:3000/';
 

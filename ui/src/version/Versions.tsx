@@ -1,5 +1,4 @@
 import Grid from '@material-ui/core/Grid';
-import IconButton from '@material-ui/core/IconButton';
 import Paper from '@material-ui/core/Paper';
 import Table from '@material-ui/core/Table';
 import TableBody from '@material-ui/core/TableBody';
@@ -8,20 +7,22 @@ import TableHead from '@material-ui/core/TableHead';
 import TableRow from '@material-ui/core/TableRow';
 import Button from '@material-ui/core/Button';
 import ButtonGroup from '@material-ui/core/ButtonGroup';
+import IconButton from '@material-ui/core/IconButton';
 import Chip from '@material-ui/core/Chip';
 import TextField from '@material-ui/core/TextField';
 import Dialog from '@material-ui/core/Dialog';
 import DialogTitle from '@material-ui/core/DialogTitle';
 import DialogContent from '@material-ui/core/DialogContent';
 import DialogActions from '@material-ui/core/DialogActions';
-import AccountTree from '@material-ui/icons/AccountTree';
-import LocalOffer from '@material-ui/icons/LocalOffer';
+import CircularProgress from '@material-ui/core/CircularProgress';
 import Refresh from '@material-ui/icons/Refresh';
 import CloudDownload from '@material-ui/icons/CloudDownload';
 import Add from '@material-ui/icons/Add';
 import Delete from '@material-ui/icons/Delete';
-import Git from '@material-ui/icons/GitHub';
-import Link from '@material-ui/icons/Link';
+import AccountTree from '@material-ui/icons/AccountTree';
+import LocalOffer from '@material-ui/icons/LocalOffer';
+import CloudQueue from '@material-ui/icons/CloudQueue';
+import GitHubIcon from '@material-ui/icons/GitHub';
 import React, {Component, SFC} from 'react';
 import DefaultPage from '../common/DefaultPage';
 import ConfirmDialog from '../common/ConfirmDialog';
@@ -31,6 +32,7 @@ import {observable} from 'mobx';
 import {inject, Stores} from '../inject';
 import {IVersion} from '../types';
 import {withRouter, RouteComponentProps} from 'react-router-dom';
+import useTranslation from '../i18n/useTranslation';
 
 @observer
 class Versions extends Component<RouteComponentProps & Stores<'versionStore'>> {
@@ -44,6 +46,10 @@ class Versions extends Component<RouteComponentProps & Stores<'versionStore'>> {
     private setRemoteProjectName: string | null = null;
     @observable
     private remoteUrl = '';
+    @observable
+    private currentRemoteUrl = '';
+    @observable
+    private loadingRemote = false;
 
     public componentDidMount = () => this.props.versionStore.refreshProjects();
 
@@ -52,136 +58,46 @@ class Versions extends Component<RouteComponentProps & Stores<'versionStore'>> {
         const projects = versionStore.getProjects();
         
         return (
-            <DefaultPage
-                title="版本管理 (VERS)"
-                rightControl={
-                    <ButtonGroup variant="contained" color="primary">
-                        <Button
-                            id="add-project"
-                            startIcon={<Add />}
-                            onClick={() => this.showAddDialog = true}>
-                            添加项目
-                        </Button>
-                        <Button
-                            id="refresh-versions"
-                            startIcon={<Refresh />}
-                            onClick={() => this.refreshProjects()}>
-                            刷新
-                        </Button>
-                        <Button
-                            id="reload-config"
-                            startIcon={<CloudDownload />}
-                            onClick={() => this.reloadConfig()}>
-                            重新加载配置
-                        </Button>
-                    </ButtonGroup>
-                }
-                maxWidth={1200}>
-                <Grid item xs={12}>
-                    <Paper elevation={6} style={{overflowX: 'auto'}}>
-                        <Table id="version-table">
-                            <TableHead>
-                                <TableRow>
-                                    <TableCell>项目名称</TableCell>
-                                    <TableCell>描述</TableCell>
-                                    <TableCell>当前版本状态</TableCell>
-                                    <TableCell>模式</TableCell>
-                                    <TableCell>最后提交</TableCell>
-                                    <TableCell>操作</TableCell>
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {projects.map((project: IVersion) => (
-                                    <Row
-                                        key={project.name}
-                                        project={project}
-                                        onViewBranches={() => this.viewBranches(project.name)}
-                                        onViewTags={() => this.viewTags(project.name)}
-                                        onDelete={() => this.deleteProjectName = project.name}
-                                        onInitGit={() => this.initGitProjectName = project.name}
-                                        onSetRemote={() => this.setRemoteProjectName = project.name}
-                                    />
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </Paper>
-                </Grid>
-                {this.showAddDialog && (
-                    <AddProjectDialog
-                        open={this.showAddDialog}
-                        onClose={() => this.showAddDialog = false}
-                        onSubmit={this.handleAddProject}
-                    />
-                )}
-                {this.deleteProjectName && (
-                    <ConfirmDialog
-                        title="确认删除项目"
-                        text={`确定要删除项目 "${this.deleteProjectName}" 吗？此操作不可撤销。`}
-                        fClose={() => this.deleteProjectName = null}
-                        fOnSubmit={() => this.handleDeleteProject()}
-                    />
-                )}
-                {this.initGitProjectName && (
-                    <ConfirmDialog
-                        title="初始化Git仓库"
-                        text={`确定要为项目 "${this.initGitProjectName}" 初始化Git仓库吗？`}
-                        fClose={() => this.initGitProjectName = null}
-                        fOnSubmit={() => this.handleInitGit()}
-                    />
-                )}
-                {this.setRemoteProjectName && (
-                    <Dialog
-                        open={true}
-                        onClose={() => {
-                            this.setRemoteProjectName = null;
-                            this.remoteUrl = '';
-                        }}
-                        maxWidth="sm"
-                        fullWidth>
-                        <DialogTitle>设置远程仓库</DialogTitle>
-                        <DialogContent>
-                            <p>为项目 {this.setRemoteProjectName} 设置远程仓库地址：</p>
-                            <TextField
-                                autoFocus
-                                margin="dense"
-                                label="远程仓库URL"
-                                placeholder="https://github.com/username/repository.git"
-                                fullWidth
-                                variant="outlined"
-                                value={this.remoteUrl}
-                                onChange={(e) => this.remoteUrl = e.target.value}
-                                helperText="请输入完整的Git远程仓库地址"
-                            />
-                        </DialogContent>
-                        <DialogActions>
-                            <Button 
-                                onClick={() => {
-                                    this.setRemoteProjectName = null;
-                                    this.remoteUrl = '';
-                                }}
-                                color="default">
-                                取消
-                            </Button>
-                            <Button 
-                                onClick={() => this.handleSetRemote()}
-                                color="primary"
-                                variant="contained"
-                                disabled={!this.remoteUrl.trim()}>
-                                确认设置
-                            </Button>
-                        </DialogActions>
-                    </Dialog>
-                )}
-            </DefaultPage>
+            <VersionsContainer
+                projects={projects}
+                showAddDialog={this.showAddDialog}
+                deleteProjectName={this.deleteProjectName}
+                initGitProjectName={this.initGitProjectName}
+                setRemoteProjectName={this.setRemoteProjectName}
+                remoteUrl={this.remoteUrl}
+                currentRemoteUrl={this.currentRemoteUrl}
+                loadingRemote={this.loadingRemote}
+                onShowAddDialog={() => this.showAddDialog = true}
+                onHideAddDialog={() => this.showAddDialog = false}
+                onAddProject={this.handleAddProject}
+                onRefreshProjects={this.refreshProjects}
+                onReloadConfig={this.reloadConfig}
+                onViewBranches={this.handleViewBranches}
+                onViewTags={this.handleViewTags}
+                onDelete={(name) => this.deleteProjectName = name}
+                onInitGit={(name) => this.initGitProjectName = name}
+                onSetRemote={this.handleSetRemote}
+                onRemoteUrlChange={(url) => this.remoteUrl = url}
+                onCancelDelete={() => this.deleteProjectName = null}
+                onConfirmDelete={this.handleDeleteProject}
+                onCancelInitGit={() => this.initGitProjectName = null}
+                onConfirmInitGit={this.handleInitGit}
+                onCancelSetRemote={() => {
+                    this.setRemoteProjectName = null;
+                    this.remoteUrl = '';
+                    this.currentRemoteUrl = '';
+                }}
+                onConfirmSetRemote={this.handleConfirmSetRemote}
+            />
         );
     }
 
-    private refreshProjects = () => {
-        this.props.versionStore.refreshProjects();
+    private refreshProjects = async () => {
+        await this.props.versionStore.refreshProjects();
     };
 
-    private reloadConfig = () => {
-        this.props.versionStore.reloadConfig();
+    private reloadConfig = async () => {
+        await this.props.versionStore.reloadConfig();
     };
 
     private handleAddProject = async (name: string, path: string, description: string) => {
@@ -190,68 +106,72 @@ class Versions extends Component<RouteComponentProps & Stores<'versionStore'>> {
 
     private handleDeleteProject = async () => {
         if (this.deleteProjectName) {
-            try {
-                await this.props.versionStore.deleteProject(this.deleteProjectName);
-            } catch (error) {
-                // 错误处理已在Store中完成
-            } finally {
-                this.deleteProjectName = null;
-            }
+            await this.props.versionStore.deleteProject(this.deleteProjectName);
+            this.deleteProjectName = null;
         }
     };
 
     private handleInitGit = async () => {
         if (this.initGitProjectName) {
-            try {
-                await this.props.versionStore.initGit(this.initGitProjectName);
-                this.refreshProjects(); // 刷新项目列表
-            } catch (error) {
-                // 错误处理已在Store中完成
-            } finally {
-                this.initGitProjectName = null;
-            }
+            await this.props.versionStore.initGit(this.initGitProjectName);
+            this.initGitProjectName = null;
         }
     };
 
-    private handleSetRemote = async () => {
-        if (this.setRemoteProjectName && this.remoteUrl.trim()) {
-            try {
-                await this.props.versionStore.setRemote(this.setRemoteProjectName, this.remoteUrl.trim());
-                this.refreshProjects(); // 刷新项目列表
-            } catch (error) {
-                // 错误处理已在Store中完成
-            } finally {
-                this.setRemoteProjectName = null;
-                this.remoteUrl = '';
-            }
+    private handleSetRemote = async (name: string) => {
+        this.setRemoteProjectName = name;
+        this.loadingRemote = true;
+        
+        // 尝试获取当前远程地址 (如果有的话)
+        try {
+            // 这里应该调用获取远程地址的API，暂时使用默认值
+            this.currentRemoteUrl = '';
+            this.remoteUrl = '';
+        } catch (error) {
+            console.warn('Failed to get current remote URL:', error);
+            this.currentRemoteUrl = '';
+            this.remoteUrl = '';
+        } finally {
+            this.loadingRemote = false;
         }
     };
 
-    private viewBranches = (projectName: string) => {
+    private handleConfirmSetRemote = async () => {
+        if (this.setRemoteProjectName && this.remoteUrl) {
+            await this.props.versionStore.setRemote(this.setRemoteProjectName, this.remoteUrl);
+            this.setRemoteProjectName = null;
+            this.remoteUrl = '';
+            this.currentRemoteUrl = '';
+        }
+    };
+
+    private handleViewBranches = (projectName: string) => {
         this.props.history.push(`/versions/${projectName}/branches`);
     };
 
-    private viewTags = (projectName: string) => {
+    private handleViewTags = (projectName: string) => {
         this.props.history.push(`/versions/${projectName}/tags`);
     };
 }
 
 interface IRowProps {
     project: IVersion;
-    onViewBranches: VoidFunction;
-    onViewTags: VoidFunction;
-    onDelete: VoidFunction;
-    onInitGit: VoidFunction;
-    onSetRemote: VoidFunction;
+    onViewBranches: (projectName: string) => void;
+    onViewTags: (projectName: string) => void;
+    onDelete: (projectName: string) => void;
+    onInitGit: (projectName: string) => void;
+    onSetRemote: (projectName: string) => void;
 }
 
 const Row: SFC<IRowProps> = observer(({project, onViewBranches, onViewTags, onDelete, onInitGit, onSetRemote}) => {
+    const { t } = useTranslation();
+    
     const getModeChip = (mode: string) => {
         switch (mode) {
             case 'branch':
                 return (
                     <Chip
-                        label="分支模式"
+                        label={t('version.branchMode')}
                         size="small"
                         style={{backgroundColor: '#4caf50', color: 'white'}}
                     />
@@ -259,7 +179,7 @@ const Row: SFC<IRowProps> = observer(({project, onViewBranches, onViewTags, onDe
             case 'tag':
                 return (
                     <Chip
-                        label="标签模式"
+                        label={t('version.tagMode')}
                         size="small"
                         style={{backgroundColor: '#2196f3', color: 'white'}}
                     />
@@ -267,7 +187,7 @@ const Row: SFC<IRowProps> = observer(({project, onViewBranches, onViewTags, onDe
             default:
                 return (
                     <Chip
-                        label="非Git项目"
+                        label={t('version.nonGitProject')}
                         size="small"
                         style={{backgroundColor: '#9e9e9e', color: 'white'}}
                     />
@@ -277,16 +197,16 @@ const Row: SFC<IRowProps> = observer(({project, onViewBranches, onViewTags, onDe
 
     const getCurrentVersion = () => {
         if (project.mode === 'branch') {
-            return project.currentBranch || '未知分支';
+            return project.currentBranch || t('version.unknownBranch');
         } else if (project.mode === 'tag') {
-            return project.currentTag || '未知标签';
+            return project.currentTag || t('version.unknownTag');
         }
-        return '无版本信息';
+        return t('version.noVersionInfo');
     };
 
     const getStatusChip = (status: string) => {
         const statusColor = status === 'active' ? '#4caf50' : '#f44336';
-        const statusText = status === 'active' ? '正常' : status === 'not-git' ? '非Git' : '异常';
+        const statusText = status === 'active' ? t('version.active') : status === 'not-git' ? t('version.nonGit') : t('version.inactive');
         
         return (
             <Chip
@@ -295,6 +215,58 @@ const Row: SFC<IRowProps> = observer(({project, onViewBranches, onViewTags, onDe
                 style={{backgroundColor: statusColor, color: 'white'}}
             />
         );
+    };
+
+    const renderActions = () => {
+        if (project.mode === 'none') {
+            // 非Git项目
+            return (
+                <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
+                    <IconButton 
+                        size="small"
+                        onClick={() => onInitGit(project.name)}
+                        title={t('version.initGit')}>
+                        <GitHubIcon />
+                    </IconButton>
+                    <IconButton 
+                        size="small"
+                        onClick={() => onDelete(project.name)}
+                        title={t('common.delete')}>
+                        <Delete />
+                    </IconButton>
+                </div>
+            );
+        } else {
+            // Git项目
+            return (
+                <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
+                    <IconButton 
+                        size="small"
+                        onClick={() => onViewBranches(project.name)}
+                        title={t('version.branches')}>
+                        <AccountTree />
+                    </IconButton>
+                    <IconButton 
+                        size="small"
+                        onClick={() => onViewTags(project.name)}
+                        title={t('version.tags')}>
+                        <LocalOffer />
+                    </IconButton>
+                    <IconButton 
+                        size="small"
+                        onClick={() => onSetRemote(project.name)}
+                        title={t('version.setRemote')}>
+                        <CloudQueue />
+                    </IconButton>
+                    <IconButton 
+                        size="small"
+                        onClick={() => onDelete(project.name)}
+                        title={t('common.delete')}>
+                        <Delete />
+                    </IconButton>
+                </div>
+            );
+        }
     };
 
     return (
@@ -329,53 +301,205 @@ const Row: SFC<IRowProps> = observer(({project, onViewBranches, onViewTags, onDe
                 )}
             </TableCell>
             <TableCell>
-                <div style={{display: 'flex', gap: '8px', flexWrap: 'wrap'}}>
-                    {/* Git项目操作按钮 */}
-                    {(project.status === 'active') && (
-                        <>
-                            <IconButton 
-                                onClick={onViewBranches} 
-                                title="管理分支"
-                                size="small">
-                                <AccountTree />
-                            </IconButton>
-                            <IconButton 
-                                onClick={onViewTags} 
-                                title="管理标签"
-                                size="small">
-                                <LocalOffer />
-                            </IconButton>
-                            <IconButton 
-                                onClick={onSetRemote} 
-                                title="设置远程仓库"
-                                size="small">
-                                <Link />
-                            </IconButton>
-                        </>
-                    )}
-                    
-                    {/* 非Git项目操作按钮 */}
-                    {(project.status === 'not-git' || project.mode === 'none') && (
-                        <IconButton 
-                            onClick={onInitGit} 
-                            title="初始化Git仓库"
-                            size="small">
-                            <Git />
-                        </IconButton>
-                    )}
-                    
-                    {/* 所有项目都有删除按钮 */}
-                    <IconButton 
-                        onClick={onDelete} 
-                        title="删除项目"
-                        size="small"
-                        style={{color: '#f44336'}}>
-                        <Delete />
-                    </IconButton>
-                </div>
+                {renderActions()}
             </TableCell>
         </TableRow>
     );
 });
+
+const VersionsContainer: React.FC<{
+    projects: IVersion[];
+    showAddDialog: boolean;
+    deleteProjectName: string | null;
+    initGitProjectName: string | null;
+    setRemoteProjectName: string | null;
+    remoteUrl: string;
+    currentRemoteUrl: string;
+    loadingRemote: boolean;
+    onShowAddDialog: () => void;
+    onHideAddDialog: () => void;
+    onAddProject: (name: string, path: string, description: string) => Promise<void>;
+    onRefreshProjects: () => void;
+    onReloadConfig: () => void;
+    onViewBranches: (projectName: string) => void;
+    onViewTags: (projectName: string) => void;
+    onDelete: (projectName: string) => void;
+    onInitGit: (projectName: string) => void;
+    onSetRemote: (projectName: string) => void;
+    onRemoteUrlChange: (url: string) => void;
+    onCancelDelete: () => void;
+    onConfirmDelete: () => void;
+    onCancelInitGit: () => void;
+    onConfirmInitGit: () => void;
+    onCancelSetRemote: () => void;
+    onConfirmSetRemote: () => void;
+}> = ({
+    projects,
+    showAddDialog,
+    deleteProjectName,
+    initGitProjectName,
+    setRemoteProjectName,
+    remoteUrl,
+    currentRemoteUrl,
+    loadingRemote,
+    onShowAddDialog,
+    onHideAddDialog,
+    onAddProject,
+    onRefreshProjects,
+    onReloadConfig,
+    onViewBranches,
+    onViewTags,
+    onDelete,
+    onInitGit,
+    onSetRemote,
+    onRemoteUrlChange,
+    onCancelDelete,
+    onConfirmDelete,
+    onCancelInitGit,
+    onConfirmInitGit,
+    onCancelSetRemote,
+    onConfirmSetRemote
+}) => {
+    const { t } = useTranslation();
+
+    return (
+        <DefaultPage
+            title={t('version.title')}
+            rightControl={
+                <ButtonGroup variant="contained" color="primary">
+                    <Button
+                        id="add-project"
+                        startIcon={<Add />}
+                        onClick={onShowAddDialog}>
+                        {t('version.addProject')}
+                    </Button>
+                    <Button
+                        id="refresh-versions"
+                        startIcon={<Refresh />}
+                        onClick={onRefreshProjects}>
+                        {t('common.refresh')}
+                    </Button>
+                    <Button
+                        id="reload-config"
+                        startIcon={<CloudDownload />}
+                        onClick={onReloadConfig}>
+                        {t('version.reloadConfig')}
+                    </Button>
+                </ButtonGroup>
+            }
+            maxWidth={1200}>
+            <Grid item xs={12}>
+                <Paper elevation={6} style={{overflowX: 'auto'}}>
+                    <Table id="version-table">
+                        <TableHead>
+                            <TableRow>
+                                <TableCell>{t('version.projectName')}</TableCell>
+                                <TableCell>{t('version.projectDescription')}</TableCell>
+                                <TableCell>{t('version.currentBranch')}/{t('version.currentTag')}</TableCell>
+                                <TableCell>{t('common.status')}</TableCell>
+                                <TableCell>{t('common.actions')}</TableCell>
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {projects.map((project) => (
+                                <Row
+                                    key={project.name}
+                                    project={project}
+                                    onViewBranches={() => onViewBranches(project.name)}
+                                    onViewTags={() => onViewTags(project.name)}
+                                    onDelete={() => onDelete(project.name)}
+                                    onInitGit={() => onInitGit(project.name)}
+                                    onSetRemote={() => onSetRemote(project.name)}
+                                />
+                            ))}
+                        </TableBody>
+                    </Table>
+                </Paper>
+            </Grid>
+            {showAddDialog && (
+                <AddProjectDialog
+                    open={showAddDialog}
+                    onClose={onHideAddDialog}
+                    onSubmit={onAddProject}
+                />
+            )}
+            {deleteProjectName && (
+                <ConfirmDialog
+                    title={t('version.confirmDelete')}
+                    text={t('version.confirmDeleteText', { name: deleteProjectName })}
+                    fClose={onCancelDelete}
+                    fOnSubmit={onConfirmDelete}
+                />
+            )}
+            {initGitProjectName && (
+                <ConfirmDialog
+                    title={t('version.confirmInitGit')}
+                    text={t('version.confirmInitGitText', { name: initGitProjectName })}
+                    fClose={onCancelInitGit}
+                    fOnSubmit={onConfirmInitGit}
+                />
+            )}
+            {setRemoteProjectName && (
+                <Dialog
+                    open={true}
+                    onClose={onCancelSetRemote}
+                    maxWidth="sm"
+                    fullWidth>
+                    <DialogTitle>{t('version.setRemote')}</DialogTitle>
+                    <DialogContent>
+                        <p>{t('version.setRemoteText', { name: setRemoteProjectName })}</p>
+                        
+                        {loadingRemote ? (
+                            <div style={{display: 'flex', alignItems: 'center', margin: '16px 0'}}>
+                                <CircularProgress size={20} style={{marginRight: '8px'}} />
+                                <span style={{color: '#666'}}>{t('version.loadingCurrentRemote')}</span>
+                            </div>
+                        ) : currentRemoteUrl ? (
+                            <div style={{marginBottom: '16px', padding: '12px', backgroundColor: '#f5f5f5', borderRadius: '4px'}}>
+                                <div style={{fontSize: '0.9em', color: '#666', marginBottom: '4px'}}>
+                                    {t('version.currentRemoteUrl')}:
+                                </div>
+                                <div style={{fontFamily: 'monospace', fontSize: '0.85em', wordBreak: 'break-all'}}>
+                                    {currentRemoteUrl}
+                                </div>
+                            </div>
+                        ) : (
+                            <div style={{marginBottom: '16px', padding: '12px', backgroundColor: '#fff3cd', borderRadius: '4px', border: '1px solid #ffeaa7'}}>
+                                <div style={{fontSize: '0.9em', color: '#856404'}}>
+                                    {t('version.noCurrentRemote')}
+                                </div>
+                            </div>
+                        )}
+                        
+                        <TextField
+                            autoFocus
+                            margin="dense"
+                            label={t('version.remoteUrl')}
+                            placeholder={currentRemoteUrl || "https://github.com/username/repository.git"}
+                            fullWidth
+                            variant="outlined"
+                            value={remoteUrl}
+                            onChange={(e) => onRemoteUrlChange(e.target.value)}
+                            helperText={t('version.remoteUrlPlaceholder')}
+                            disabled={loadingRemote}
+                        />
+                    </DialogContent>
+                    <DialogActions>
+                        <Button onClick={onCancelSetRemote} disabled={loadingRemote}>
+                            {t('common.cancel')}
+                        </Button>
+                        <Button
+                            onClick={onConfirmSetRemote}
+                            color="primary"
+                            variant="contained"
+                            disabled={!remoteUrl.trim() || loadingRemote}>
+                            {t('common.confirm')}
+                        </Button>
+                    </DialogActions>
+                </Dialog>
+            )}
+        </DefaultPage>
+    );
+};
 
 export default withRouter(inject('versionStore')(Versions)); 
