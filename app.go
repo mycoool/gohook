@@ -559,7 +559,15 @@ func ginHookHandler(c *gin.Context) {
 				}
 			}
 		} else {
-			go handleHook(matchedHook, req)
+			if *verbose {
+				log.Printf("[%s] executing hook in background\n", req.ID)
+			}
+			go func() {
+				_, err := handleHook(matchedHook, req)
+				if err != nil && *verbose {
+					log.Printf("[%s] background hook execution failed: %v\n", req.ID, err)
+				}
+			}()
 
 			if matchedHook.SuccessHttpResponseCode != 0 {
 				c.String(matchedHook.SuccessHttpResponseCode, matchedHook.ResponseMessage)
@@ -777,7 +785,9 @@ func watchForFileChange() {
 			} else if event.Op&fsnotify.Remove == fsnotify.Remove {
 				if _, err := os.Stat(event.Name); os.IsNotExist(err) {
 					log.Printf("hooks file %s removed, no longer watching this file for changes, removing hooks that were loaded from it\n", event.Name)
-					(*watcher).Remove(event.Name)
+					if err := (*watcher).Remove(event.Name); err != nil {
+						log.Printf("Error removing watcher for %s: %v\n", event.Name, err)
+					}
 					removeHooks(event.Name)
 				}
 			} else if event.Op&fsnotify.Rename == fsnotify.Rename {
@@ -785,14 +795,20 @@ func watchForFileChange() {
 				if _, err := os.Stat(event.Name); os.IsNotExist(err) {
 					// file was removed
 					log.Printf("hooks file %s removed, no longer watching this file for changes, and removing hooks that were loaded from it\n", event.Name)
-					(*watcher).Remove(event.Name)
+					if err := (*watcher).Remove(event.Name); err != nil {
+						log.Printf("Error removing watcher for %s: %v\n", event.Name, err)
+					}
 					removeHooks(event.Name)
 				} else {
 					// file was overwritten
 					log.Printf("hooks file %s overwritten\n", event.Name)
 					reloadHooks(event.Name)
-					(*watcher).Remove(event.Name)
-					(*watcher).Add(event.Name)
+					if err := (*watcher).Remove(event.Name); err != nil {
+						log.Printf("Error removing watcher for %s: %v\n", event.Name, err)
+					}
+					if err := (*watcher).Add(event.Name); err != nil {
+						log.Printf("Error adding watcher for %s: %v\n", event.Name, err)
+					}
 				}
 			}
 		case err := <-(*watcher).Errors:

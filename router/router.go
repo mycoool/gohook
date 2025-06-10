@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -153,20 +154,22 @@ func saveConfig() error {
 
 	// 备份原配置文件
 	if _, err := os.Stat("config.yaml"); err == nil {
-		os.Rename("config.yaml", "config.yaml.bak")
+		if err := os.Rename("config.yaml", "config.yaml.bak"); err != nil {
+			log.Printf("Warning: failed to backup config file: %v", err)
+		}
 	}
 
 	err = os.WriteFile("config.yaml", data, 0644)
 	if err != nil {
 		// 如果保存失败，恢复备份
 		if _, backupErr := os.Stat("config.yaml.bak"); backupErr == nil {
-			os.Rename("config.yaml.bak", "config.yaml")
+			if restoreErr := os.Rename("config.yaml.bak", "config.yaml"); restoreErr != nil {
+				log.Printf("Error: failed to restore backup config file: %v", restoreErr)
+			}
 		}
 		return fmt.Errorf("保存配置文件失败: %v", err)
 	}
 
-	// 删除备份文件
-	os.Remove("config.yaml.bak")
 	return nil
 }
 
@@ -529,7 +532,10 @@ func handleWebSocket(c *gin.Context) {
 					Data:      map[string]string{"message": "pong"},
 				}
 				pongData, _ := json.Marshal(pongMsg)
-				conn.WriteMessage(websocket.TextMessage, pongData)
+				if err := conn.WriteMessage(websocket.TextMessage, pongData); err != nil {
+					log.Printf("Error writing pong message: %v", err)
+					return
+				}
 			}
 		}
 	}
@@ -615,7 +621,9 @@ func InitRouter() *gin.Engine {
 			var requestBody struct {
 				Name string `json:"name"`
 			}
-			c.BindJSON(&requestBody)
+			if err := c.BindJSON(&requestBody); err != nil {
+				log.Printf("Warning: failed to parse request body: %v", err)
+			}
 
 			clientName := requestBody.Name
 			if clientName == "" {

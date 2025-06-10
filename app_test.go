@@ -214,7 +214,7 @@ func buildHookecho(t *testing.T) (binPath string, cleanupFn func()) {
 		binPath += ".exe"
 	}
 
-	gobin := filepath.Join(runtime.GOROOT(), "bin", "go")
+	gobin := "go"
 	cmd := exec.Command(gobin, "build", "-o", binPath, "test/hookecho.go")
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Building hookecho: %v", err)
@@ -273,7 +273,7 @@ func buildWebhook(t *testing.T) (binPath string, cleanupFn func()) {
 		binPath += ".exe"
 	}
 
-	gobin := filepath.Join(runtime.GOROOT(), "bin", "go")
+	gobin := "go"
 	cmd := exec.Command(gobin, "build", "-o", binPath)
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Building webhook: %v", err)
@@ -328,8 +328,12 @@ func killAndWait(cmd *exec.Cmd) {
 		return
 	}
 
-	cmd.Process.Kill()
-	cmd.Wait()
+	if err := cmd.Process.Kill(); err != nil {
+		// Process might already be dead, which is fine
+	}
+	if err := cmd.Wait(); err != nil {
+		// Expected since we killed the process
+	}
 }
 
 // webhookEnv returns the process environment without any existing hook

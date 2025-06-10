@@ -435,7 +435,7 @@ func TestHooksLoadFromFile(t *testing.T) {
 		h := &Hooks{}
 		err := h.LoadFromFile(tt.path, tt.asTemplate)
 		if (err == nil) != tt.ok {
-			t.Errorf(err.Error())
+			t.Errorf("LoadFromFile test failed: %v", err)
 		}
 	}
 }
@@ -452,7 +452,7 @@ func TestHooksTemplateLoadFromFile(t *testing.T) {
 		h := &Hooks{}
 		err := h.LoadFromFile(tt.path, tt.asTemplate)
 		if (err == nil) != tt.ok {
-			t.Errorf(err.Error())
+			t.Errorf("Template LoadFromFile test failed: %v", err)
 			continue
 		}
 
@@ -741,7 +741,10 @@ func TestHooksLoadFromFile_FilesNotExists(t *testing.T) {
 	if err != nil {
 		t.Errorf("%v", err)
 	}
-	file.WriteString("{{")
+	_, err = file.WriteString("{{")
+	if err != nil {
+		t.Errorf("%v", err)
+	}
 	file.Close()
 
 	err = hooks.LoadFromFile("hooks.json.tmp", true)
@@ -755,7 +758,10 @@ func TestHooksLoadFromFile_FilesNotExists(t *testing.T) {
 		t.Errorf("%v", err)
 	}
 
-	file.WriteString("[{\"id\":\"a\",\"execute-command\":\"b\"}]")
+	_, err = file.WriteString("[{\"id\":\"a\",\"execute-command\":\"b\"}]")
+	if err != nil {
+		t.Errorf("%v", err)
+	}
 	file.Close()
 
 	err = hooks.LoadFromFile("hooks.json.tmp", true)
