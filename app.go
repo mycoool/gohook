@@ -17,15 +17,12 @@ import (
 
 	"github.com/mycoool/gohook/internal/hook"
 	"github.com/mycoool/gohook/internal/pidfile"
+	v "github.com/mycoool/gohook/version"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/gin-gonic/gin"
 	"github.com/mycoool/gohook/router"
 	wsmanager "github.com/mycoool/gohook/websocket"
-)
-
-const (
-	version = "2.8.2"
 )
 
 var (
@@ -93,7 +90,7 @@ func main() {
 	flag.Parse()
 
 	if *justDisplayVersion {
-		fmt.Println("webhook version " + version)
+		fmt.Println("webhook version " + v.Version)
 		os.Exit(0)
 	}
 
@@ -192,7 +189,7 @@ func main() {
 		}()
 	}
 
-	log.Println("version " + version + " starting")
+	log.Println("version " + v.Version + " starting")
 
 	// set os signal watcher
 	setupSignals()

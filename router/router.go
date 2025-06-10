@@ -16,6 +16,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/mycoool/gohook/internal/hook"
 	"github.com/mycoool/gohook/ui"
+	"github.com/mycoool/gohook/version"
 	wsmanager "github.com/mycoool/gohook/websocket"
 	"gopkg.in/yaml.v2"
 )
@@ -127,9 +128,9 @@ type ProjectManageMessage struct {
 
 // 版本信息
 var vInfo = &ui.VersionInfo{
-	Version:   "2.8.2", // 与app.go中的version常量保持一致
-	Commit:    "unknown",
-	BuildDate: "unknown",
+	Version:   version.Version,
+	Commit:    version.Commit,
+	BuildDate: version.BuildDate,
 }
 
 // loadConfig 加载配置文件
@@ -546,7 +547,7 @@ func handleWebSocket(c *gin.Context) {
 		Type:      "connected",
 		Timestamp: time.Now(),
 		Data: map[string]interface{}{
-			"message": "WebSocket连接成功",
+			"message": "WebSocket connected",
 			"server":  "gohook",
 		},
 	}
@@ -605,6 +606,14 @@ func InitRouter() *gin.Engine {
 
 	g.GET("/ping", func(c *gin.Context) {
 		c.String(http.StatusOK, "OK")
+	})
+
+	// 适配前端 All Messages 页面, 暂时返回空
+	g.GET("/message", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"messages": []interface{}{},
+			"paging":   gin.H{},
+		})
 	})
 
 	// 登录接口 - 支持Basic认证

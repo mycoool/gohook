@@ -44,12 +44,12 @@ export class WebSocketStore {
         ws.onerror = (e) => {
             this.wsActive = false;
             console.log('WebSocket connection errored', e);
-            this.snack('WebSocket连接错误');
+            this.snack('WebSocket connection errored');
         };
 
         ws.onopen = () => {
             console.log('WebSocket connected');
-            this.snack('WebSocket连接成功');
+            this.snack('WebSocket connected');
             if (this.reconnectTimer) {
                 clearTimeout(this.reconnectTimer);
                 this.reconnectTimer = null;
