@@ -695,32 +695,21 @@ func handleHook(h *hook.Hook, r *hook.Request) (string, error) {
 	return string(out), err
 }
 
-func writeHttpResponseCode(w http.ResponseWriter, rid, hookId string, responseCode int) {
-	// Check if the given return code is supported by the http package
-	// by testing if there is a StatusText for this code.
-	if len(http.StatusText(responseCode)) > 0 {
-		w.WriteHeader(responseCode)
-	} else {
-		log.Printf("[%s] %s got matched, but the configured return code %d is unknown - defaulting to 200\n", rid, hookId, responseCode)
-	}
-}
-
 func reloadHooks(hooksFilePath string) {
-	hooksInFile := hook.Hooks{}
+	log.Printf("reloading hooks from %s\n", hooksFilePath)
 
-	// parse and swap
-	log.Printf("attempting to reload hooks from %s\n", hooksFilePath)
+	newHooks := hook.Hooks{}
 
-	err := hooksInFile.LoadFromFile(hooksFilePath, *asTemplate)
+	err := newHooks.LoadFromFile(hooksFilePath, *asTemplate)
 
 	if err != nil {
 		log.Printf("couldn't load hooks from file! %+v\n", err)
 	} else {
 		seenHooksIds := make(map[string]bool)
 
-		log.Printf("found %d hook(s) in file\n", len(hooksInFile))
+		log.Printf("found %d hook(s) in file\n", len(newHooks))
 
-		for _, hook := range hooksInFile {
+		for _, hook := range newHooks {
 			wasHookIDAlreadyLoaded := false
 
 			for _, loadedHook := range loadedHooksFromFiles[hooksFilePath] {
@@ -740,7 +729,7 @@ func reloadHooks(hooksFilePath string) {
 			log.Printf("\tloaded: %s\n", hook.ID)
 		}
 
-		loadedHooksFromFiles[hooksFilePath] = hooksInFile
+		loadedHooksFromFiles[hooksFilePath] = newHooks
 	}
 }
 
@@ -751,6 +740,8 @@ func ReloadAllHooks() {
 }
 
 func removeHooks(hooksFilePath string) {
+	log.Printf("removing hooks from %s\n", hooksFilePath)
+
 	for _, hook := range loadedHooksFromFiles[hooksFilePath] {
 		log.Printf("\tremoving: %s\n", hook.ID)
 	}
@@ -810,34 +801,10 @@ func watchForFileChange() {
 	}
 }
 
-// valuesToMap converts map[string][]string to a map[string]string object
-func valuesToMap(values map[string][]string) map[string]interface{} {
-	ret := make(map[string]interface{})
-
-	for key, value := range values {
-		if len(value) > 0 {
-			ret[key] = value[0]
-		}
-	}
-
-	return ret
-}
-
-// makeRoutePattern builds a pattern matching URL for the mux.
-func makeRoutePattern(prefix *string) string {
-	return makeBaseURL(prefix) + "/{id:.*}"
-}
-
 // makeHumanPattern builds a human-friendly URL for display.
 func makeHumanPattern(prefix *string) string {
-	return makeBaseURL(prefix) + "/{id}"
-}
-
-// makeBaseURL creates the base URL before any mux pattern matching.
-func makeBaseURL(prefix *string) string {
 	if prefix == nil || *prefix == "" {
-		return ""
+		return "/{id}"
 	}
-
-	return "/" + *prefix
+	return "/" + *prefix + "/{id}"
 }

@@ -1217,3 +1217,119 @@ func (b *buffer) Reset() {
 	defer b.m.Unlock()
 	b.b.Reset()
 }
+
+func TestWebhookDoesNotStartWithSameHookID(t *testing.T) {
+	hooksFile, err := os.CreateTemp("", "hooks.json")
+	if err != nil {
+		t.Fatalf("error creating temporary file: %v", err)
+	}
+
+	defer os.Remove(hooksFile.Name())
+
+	_, err = hooksFile.WriteString(`[{"id":"a"},{"id":"a"}]`)
+	if err != nil {
+		t.Fatalf("error writing to temporary file: %v", err)
+	}
+	hooksFile.Close()
+
+	gobin := "go"
+
+	cmd := exec.Command(gobin, "run", "../main.go", "-hooks", hooksFile.Name())
+
+	output, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Errorf("webhook should have failed to start, but it didn't")
+	}
+
+	if !strings.Contains(string(output), "hook with the id a has already been loaded") {
+		t.Errorf("output should have contained the reason for not starting, but it didn't. Output: %s", string(output))
+	}
+}
+
+func TestWebhookDoesNotStartWithSameHookIDAcrossMultipleFiles(t *testing.T) {
+	hooksFileA, err := os.CreateTemp("", "hooksA.json")
+	if err != nil {
+		t.Fatalf("error creating temporary file: %v", err)
+	}
+	defer os.Remove(hooksFileA.Name())
+
+	_, err = hooksFileA.WriteString(`[{"id":"a"}]`)
+	if err != nil {
+		t.Fatalf("error writing to temporary file: %v", err)
+	}
+	hooksFileA.Close()
+
+	hooksFileB, err := os.CreateTemp("", "hooksB.json")
+	if err != nil {
+		t.Fatalf("error creating temporary file: %v", err)
+	}
+	defer os.Remove(hooksFileB.Name())
+
+	_, err = hooksFileB.WriteString(`[{"id":"a"}]`)
+	if err != nil {
+		t.Fatalf("error writing to temporary file: %v", err)
+	}
+	hooksFileB.Close()
+
+	gobin := "go"
+
+	cmd := exec.Command(gobin, "run", "../main.go", "-hooks", hooksFileA.Name(), "-hooks", hooksFileB.Name())
+
+	output, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Errorf("webhook should have failed to start, but it didn't")
+	}
+
+	if !strings.Contains(string(output), "hook with the id a has already been loaded") {
+		t.Errorf("output should have contained the reason for not starting, but it didn't. Output: %s", string(output))
+	}
+}
+
+func TestWebhookReloadsFileThatIsReplacedByAnother(t *testing.T) {
+	hooksFile, err := os.CreateTemp("", "hooks.json")
+	if err != nil {
+		t.Fatalf("error creating temporary file: %v", err)
+	}
+
+	defer os.Remove(hooksFile.Name())
+
+	if _, err = hooksFile.WriteString(`[{"id":"a"}]`); err != nil {
+		t.Fatalf("error writing to temporary file: %v", err)
+	}
+
+	gobin := "go"
+
+	cmd := exec.Command(gobin, "run", "../main.go", "-hooks", hooksFile.Name(), "-hotreload", "-verbose")
+	if err = cmd.Start(); err != nil {
+		t.Fatalf("webhook should have started, but it didn't. reason: %v", err)
+	}
+
+	time.Sleep(1 * time.Second)
+
+	if err = os.Remove(hooksFile.Name()); err != nil {
+		t.Fatalf("error removing hooks file: %v", err)
+	}
+	if err = os.WriteFile(hooksFile.Name(), []byte(`[{"id":"b"}]`), 0o644); err != nil {
+		t.Fatalf("error writing new hooks file: %v", err)
+	}
+
+	time.Sleep(1 * time.Second)
+
+	resp, err := http.Get("http://0.0.0.0:9000/hooks/b")
+	if err != nil {
+		t.Errorf("error connecting to the hook: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected 200, got %d", resp.StatusCode)
+	}
+
+	if err = cmd.Process.Signal(os.Interrupt); err != nil {
+		t.Fatalf("error interrupting process: %v", err)
+	}
+
+	if err = cmd.Wait(); err != nil && !strings.Contains(err.Error(), "signal: interrupt") {
+		t.Errorf("error waiting for process to exit: %v", err)
+	}
+}

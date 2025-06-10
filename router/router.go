@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -79,22 +78,14 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-// WebSocket连接管理器
-type WSManager struct {
-	clients    map[*websocket.Conn]bool
-	clientsMux sync.RWMutex
-}
-
-// 全局WebSocket管理器
-var wsManager = &WSManager{
-	clients: make(map[*websocket.Conn]bool),
-}
-
 // WebSocket消息类型
 type WSMessage struct {
 	Type      string      `json:"type"`
 	Timestamp time.Time   `json:"timestamp"`
 	Data      interface{} `json:"data"`
+	HookID    string      `json:"hookId"`
+	HookName  string      `json:"hookName"`
+	Method    string      `json:"method"`
 }
 
 // Hook触发消息
@@ -435,24 +426,6 @@ type HookResponse struct {
 	Status                 string   `json:"status"` // active, inactive
 }
 
-// getHooksList 获取所有Hook列表
-func getHooksList() []HookResponse {
-	var hooks []HookResponse
-
-	if LoadedHooksFromFiles == nil {
-		return hooks
-	}
-
-	for _, hooksInFile := range *LoadedHooksFromFiles {
-		for _, h := range hooksInFile {
-			hookResponse := convertHookToResponse(&h)
-			hooks = append(hooks, hookResponse)
-		}
-	}
-
-	return hooks
-}
-
 // getHookByID 根据ID获取Hook
 func getHookByID(id string) *HookResponse {
 	if LoadedHooksFromFiles == nil {
@@ -535,24 +508,8 @@ func handleWebSocket(c *gin.Context) {
 		return
 	}
 	defer func() {
-		wsmanager.Global.RemoveClient(conn)
 		conn.Close()
 	}()
-
-	// 添加到连接管理器
-	wsmanager.Global.AddClient(conn)
-
-	// 发送欢迎消息
-	welcomeMsg := wsmanager.Message{
-		Type:      "connected",
-		Timestamp: time.Now(),
-		Data: map[string]interface{}{
-			"message": "WebSocket connected",
-			"server":  "gohook",
-		},
-	}
-	welcomeData, _ := json.Marshal(welcomeMsg)
-	conn.WriteMessage(websocket.TextMessage, welcomeData)
 
 	// 保持连接，处理心跳
 	for {
@@ -698,46 +655,6 @@ func InitRouter() *gin.Engine {
 	// Hooks API接口组
 	hookAPI := g.Group("/hook")
 	{
-		// 获取所有hooks
-		hookAPI.GET("", func(c *gin.Context) {
-			if LoadedHooksFromFiles == nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "hooks未加载"})
-				return
-			}
-
-			var hooks []HookResponse
-			for _, hooksInFile := range *LoadedHooksFromFiles {
-				for _, h := range hooksInFile {
-					hookResponse := convertHookToResponse(&h)
-					hooks = append(hooks, hookResponse)
-				}
-			}
-
-			c.JSON(http.StatusOK, hooks)
-		})
-
-		// 重新加载hooks配置文件的专用接口
-		hookAPI.POST("/reload-config", func(c *gin.Context) {
-			if LoadedHooksFromFiles == nil {
-				c.JSON(http.StatusInternalServerError, gin.H{
-					"error": "hooks未初始化",
-				})
-				return
-			}
-
-			// 注意：由于架构限制，这里我们只是返回当前状态
-			// 实际的热重载功能是通过文件监控实现的
-			hookCount := 0
-			for _, hooksInFile := range *LoadedHooksFromFiles {
-				hookCount += len(hooksInFile)
-			}
-
-			c.JSON(http.StatusOK, gin.H{
-				"message":   "hooks配置获取成功（文件监控自动重载）",
-				"hookCount": hookCount,
-			})
-		})
-
 		// 获取单个Hook详情
 		hookAPI.GET("/:id", func(c *gin.Context) {
 			hookID := c.Param("id")

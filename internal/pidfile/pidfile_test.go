@@ -1,30 +1,59 @@
 package pidfile
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
 )
 
-func TestNewAndRemove(t *testing.T) {
-	dir, err := ioutil.TempDir(os.TempDir(), "test-pidfile")
+func TestPIDFile(t *testing.T) {
+	// Create a temporary file
+	tmpfile, err := os.CreateTemp("", "pidfile_test")
 	if err != nil {
-		t.Fatal("Could not create test directory")
+		t.Fatal(err)
+	}
+	defer os.Remove(tmpfile.Name()) // clean up
+	tmpfile.Close()                 // close it so New can write to it
+
+	// Test New
+	pidFile, err := New(tmpfile.Name())
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	path := filepath.Join(dir, "testfile")
-	file, err := New(path)
+	// Test Write
+	if err := pidFile.Write(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Test Remove
+	if err := pidFile.Remove(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestNewAndRemove(t *testing.T) {
+	// Create a temporary dir
+	tmpDir, err := os.MkdirTemp("", "pidfile-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	pidFilePath := filepath.Join(tmpDir, "test.pid")
+
+	// Test New
+	pidFile, err := New(pidFilePath)
 	if err != nil {
 		t.Fatal("Could not create test file", err)
 	}
 
-	_, err = New(path)
+	_, err = New(pidFilePath)
 	if err == nil {
 		t.Fatal("Test file creation not blocked")
 	}
 
-	if err := file.Remove(); err != nil {
+	if err := pidFile.Remove(); err != nil {
 		t.Fatal("Could not delete created test file")
 	}
 }

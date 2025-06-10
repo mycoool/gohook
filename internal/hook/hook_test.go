@@ -351,20 +351,21 @@ func TestHookExtractCommandArguments(t *testing.T) {
 // we test both cases where the name of the data is used as the name of the
 // env key & the case where the hook definition sets the env var name to a
 // fixed value using the envname construct like so::
-//    [
-//      {
-//        "id": "push",
-//        "execute-command": "bb2mm",
-//        "command-working-directory": "/tmp",
-//        "pass-environment-to-command":
-//        [
-//          {
-//            "source": "entire-payload",
-//            "envname": "PAYLOAD"
-//          },
-//        ]
-//      }
-//    ]
+//
+//	[
+//	  {
+//	    "id": "push",
+//	    "execute-command": "bb2mm",
+//	    "command-working-directory": "/tmp",
+//	    "pass-environment-to-command":
+//	    [
+//	      {
+//	        "source": "entire-payload",
+//	        "envname": "PAYLOAD"
+//	      },
+//	    ]
+//	  }
+//	]
 var hookExtractCommandArgumentsForEnvTests = []struct {
 	exec                    string
 	args                    []Argument
@@ -724,5 +725,41 @@ func TestCompare(t *testing.T) {
 		if ok := compare(tt.a, tt.b); ok != tt.ok {
 			t.Errorf("compare failed for %q and %q: got %v\n", tt.a, tt.b, ok)
 		}
+	}
+}
+
+// files not exists
+func TestHooksLoadFromFile_FilesNotExists(t *testing.T) {
+	hooks := &Hooks{}
+	err := hooks.LoadFromFile("non-existing-file.json", false)
+	if err == nil {
+		t.Errorf("loading non existing file should cause an error")
+	}
+
+	// files not exists
+	file, err := os.Create("hooks.json.tmp")
+	if err != nil {
+		t.Errorf("%v", err)
+	}
+	file.WriteString("{{")
+	file.Close()
+
+	err = hooks.LoadFromFile("hooks.json.tmp", true)
+	if err == nil {
+		t.Errorf("loading malformed file should cause an error")
+	}
+
+	// successful
+	file, err = os.Create("hooks.json.tmp")
+	if err != nil {
+		t.Errorf("%v", err)
+	}
+
+	file.WriteString("[{\"id\":\"a\",\"execute-command\":\"b\"}]")
+	file.Close()
+
+	err = hooks.LoadFromFile("hooks.json.tmp", true)
+	if err != nil {
+		t.Errorf("%v", err)
 	}
 }
