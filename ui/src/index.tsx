@@ -6,7 +6,7 @@ import * as config from './config';
 import Layout from './layout/Layout';
 import {unregister} from './registerServiceWorker';
 import {CurrentUser} from './CurrentUser';
-import {AppStore} from './application/AppStore';
+
 import {HookStore} from './hook/HookStore';
 import {VersionStore} from './version/VersionStore';
 import {WebSocketStore} from './message/WebSocketStore';
@@ -31,19 +31,16 @@ const prodUrl = urlWithSlash;
 
 const initStores = (): StoreMapping => {
     const snackManager = new SnackManager();
-    const appStore = new AppStore(snackManager.snack);
-    const hookStore = new HookStore(snackManager.snack);
-    const versionStore = new VersionStore(snackManager.snack);
-    const userStore = new UserStore(snackManager.snack);
-    const messagesStore = new MessagesStore(appStore, snackManager.snack);
     const currentUser = new CurrentUser(snackManager.snack);
+    const hookStore = new HookStore(snackManager.snack, () => currentUser.token());
+    const versionStore = new VersionStore(snackManager.snack, () => currentUser.token());
+    const userStore = new UserStore(snackManager.snack, () => currentUser.token());
+    const messagesStore = new MessagesStore(snackManager.snack, () => currentUser.token());
 
     const wsStore = new WebSocketStore(snackManager.snack, currentUser);
     const pluginStore = new PluginStore(snackManager.snack);
-    appStore.onDelete = () => messagesStore.clearAll();
 
     return {
-        appStore,
         hookStore,
         versionStore,
         snackManager,

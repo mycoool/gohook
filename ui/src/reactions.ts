@@ -5,8 +5,6 @@ import * as Notifications from './snack/browserNotification';
 export const registerReactions = (stores: StoreMapping) => {
     const clearAll = () => {
         stores.messagesStore.clearAll();
-        stores.appStore.clear();
-        stores.clientStore.clear();
         stores.userStore.clear();
         stores.wsStore.close();
     };
@@ -20,7 +18,10 @@ export const registerReactions = (stores: StoreMapping) => {
                 audio.play();
             }
         });
-        stores.appStore.refresh();
+        // 刷新用户列表（如果当前用户是管理员）
+        if (stores.currentUser.user.admin || stores.currentUser.user.role === 'admin') {
+            stores.userStore.refresh();
+        }
     };
 
     reaction(

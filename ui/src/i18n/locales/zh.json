@@ -22,7 +22,7 @@
   },
   "nav": {
     "versions": "版本管理",
-    "hooks": "钩子",
+    "hooks": "WebHook",
     "plugins": "插件", 
     "users": "用户",
     "settings": "设置",
@@ -86,7 +86,7 @@
     "noCurrentRemote": "当前没有设置远程仓库地址"
   },
   "hook": {
-    "title": "钩子管理",
+    "title": "WebHook管理",
     "name": "名称",
     "description": "描述",
     "command": "执行命令",
@@ -95,12 +95,12 @@
     "triggerRule": "触发规则",
     "lastUsed": "最后使用",
     "status": "状态",
-    "triggerHook": "触发钩子",
-    "deleteHook": "删除钩子",
-    "confirmDelete": "确认删除钩子",
-    "confirmDeleteText": "确定要删除钩子 \"{{name}}\" 吗？",
-    "hookTriggered": "钩子触发成功",
-    "hookFailed": "钩子执行失败",
+    "triggerHook": "触发脚本",
+    "deleteHook": "删除项目",
+    "confirmDelete": "确认删除WebHook项目",
+    "confirmDeleteText": "确定要删除WebHook \"{{name}}\" 吗？",
+    "hookTriggered": "WebHook触发成功",
+    "hookFailed": "WebHook执行失败",
     "reloadConfig": "重新加载配置"
   },
   "message": {
@@ -132,12 +132,32 @@
     "deleteUser": "删除用户",
     "username": "用户名",
     "password": "密码",
+    "oldPassword": "当前密码",
+    "newPassword": "新密码",
     "confirmPassword": "确认密码",
     "admin": "管理员",
+    "role": "角色",
     "userCreated": "用户创建成功",
     "userUpdated": "用户更新成功",
     "userDeleted": "用户删除成功",
-    "confirmDeleteText": "确定要删除用户 \"{{name}}\" 吗？"
+    "confirmDeleteText": "确定要删除用户 \"{{name}}\" 吗？",
+    "editUserTitle": "编辑 {{name}}",
+    "addUserTitle": "添加用户",
+    "changePasswordTitle": "修改密码",
+    "nameLabel": "用户名 *",
+    "passwordLabel": "密码 *",
+    "passwordEditLabel": "密码（留空则不修改）",
+    "oldPasswordLabel": "当前密码 *",
+    "newPasswordLabel": "新密码 *",
+    "confirmPasswordLabel": "确认新密码 *",
+    "adminRightsLabel": "拥有管理员权限",
+    "nameRequired": "用户名不能为空",
+    "passwordRequired": "密码不能为空",
+    "passwordMismatch": "密码不匹配",
+    "changePassword": "修改密码",
+    "create": "创建",
+    "save": "保存",
+    "normalUser": "普通用户"
   },
   "validation": {
     "required": "此字段为必填项",
@@ -148,28 +168,7 @@
     "duplicateName": "名称已存在",
     "invalidFormat": "格式无效"
   },
-  "application": {
-    "title": "应用管理",
-    "createApplication": "创建应用",
-    "editApplication": "编辑应用",
-    "deleteApplication": "删除应用",
-    "name": "应用名称",
-    "token": "令牌",
-    "description": "描述",
-    "priority": "优先级",
-    "lastUsed": "最后使用",
-    "image": "图标",
-    "uploadImage": "上传图标",
-    "confirmDelete": "确认删除应用",
-    "confirmDeleteText": "确定要删除应用 \"{{name}}\" 吗？",
-    "applicationCreated": "应用创建成功",
-    "applicationUpdated": "应用更新成功",
-    "applicationDeleted": "应用删除成功",
-    "imageUploaded": "图标上传成功",
-    "invalidImageType": "上传文件必须是 PNG、JPEG 或 GIF 格式",
-    "defaultPriority": "默认优先级",
-    "internal": "内置应用"
-  },
+
   "plugin": {
     "title": "插件管理",
     "name": "插件名称",
@@ -233,7 +232,7 @@
     "gitInitFailed": "Git仓库初始化失败",
     "branchSwitchFailed": "分支切换失败",
     "tagSwitchFailed": "标签切换失败",
-    "hookExecutionFailed": "钩子执行失败",
+    "hookExecutionFailed": "WebHook脚本执行失败",
     "permissionDenied": "权限不足"
   }
 } 

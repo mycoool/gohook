@@ -86,7 +86,7 @@ class Layout extends React.Component<
             currentUser: {
                 loggedIn,
                 authenticating,
-                user: {name, admin},
+                user: {name, admin, role},
                 logout,
                 tryReconnect,
                 connectionErrorMessage,
@@ -124,6 +124,7 @@ class Layout extends React.Component<
                                     loggedIn={loggedIn}
                                     navOpen={this.navOpen}
                                     setNavOpen={this.setNavOpen.bind(this)}
+                                    user={{admin, role}}
                                 />
                                 <main className={classes.content}>
                                     <Switch>

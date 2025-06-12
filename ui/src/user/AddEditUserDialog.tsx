@@ -8,6 +8,7 @@ import Switch from '@material-ui/core/Switch';
 import TextField from '@material-ui/core/TextField';
 import Tooltip from '@material-ui/core/Tooltip';
 import React, {ChangeEvent, Component} from 'react';
+import useTranslation from '../i18n/useTranslation';
 
 interface IProps {
     name?: string;
@@ -23,7 +24,17 @@ interface IState {
     admin: boolean;
 }
 
-export default class AddEditDialog extends Component<IProps, IState> {
+// 使用函数组件包装类组件以支持Hook
+const AddEditDialogWrapper: React.FC<IProps> = (props) => {
+    const { t } = useTranslation();
+    return <AddEditDialog {...props} t={t} />;
+};
+
+interface IPropsWithTranslation extends IProps {
+    t: (key: string, params?: Record<string, string | number>) => string;
+}
+
+class AddEditDialog extends Component<IPropsWithTranslation, IState> {
     public state = {
         name: this.props.name ?? '',
         pass: '',
@@ -31,7 +42,7 @@ export default class AddEditDialog extends Component<IProps, IState> {
     };
 
     public render() {
-        const {fClose, fOnSubmit, isEdit} = this.props;
+        const {fClose, fOnSubmit, isEdit, t} = this.props;
         const {name, pass, admin} = this.state;
         const namePresent = this.state.name.length !== 0;
         const passPresent = this.state.pass.length !== 0 || isEdit;
@@ -46,17 +57,17 @@ export default class AddEditDialog extends Component<IProps, IState> {
                 aria-labelledby="form-dialog-title"
                 id="add-edit-user-dialog">
                 <DialogTitle id="form-dialog-title">
-                    {isEdit ? 'Edit ' + this.props.name : 'Add a user'}
+                    {isEdit ? t('user.editUserTitle', { name: this.props.name ?? '' }) : t('user.addUserTitle')}
                 </DialogTitle>
                 <DialogContent>
                     <TextField
                         autoFocus
                         margin="dense"
                         className="name"
-                        label="Name *"
-                        type="email"
+                        label={t('user.nameLabel')}
+                        type="text"
                         value={name}
-                        onChange={this.handleChange.bind(this, 'name')}
+                        onChange={this.handleChange('name')}
                         fullWidth
                     />
                     <TextField
@@ -65,31 +76,31 @@ export default class AddEditDialog extends Component<IProps, IState> {
                         type="password"
                         value={pass}
                         fullWidth
-                        label={isEdit ? 'Pass (empty if no change)' : 'Pass *'}
-                        onChange={this.handleChange.bind(this, 'pass')}
+                        label={isEdit ? t('user.passwordEditLabel') : t('user.passwordLabel')}
+                        onChange={this.handleChange('pass')}
                     />
                     <FormControlLabel
                         control={
                             <Switch
                                 checked={admin}
                                 className="admin-rights"
-                                onChange={this.handleChecked.bind(this, 'admin')}
+                                onChange={this.handleChecked('admin')}
                                 value="admin"
                             />
                         }
-                        label="has administrator rights"
+                        label={t('user.adminRightsLabel')}
                     />
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={fClose}>Cancel</Button>
+                    <Button onClick={fClose}>{t('common.cancel')}</Button>
                     <Tooltip
                         placement={'bottom-start'}
                         title={
                             namePresent
                                 ? passPresent
                                     ? ''
-                                    : 'password is required'
-                                : 'name is required'
+                                    : t('user.passwordRequired')
+                                : t('user.nameRequired')
                         }>
                         <div>
                             <Button
@@ -98,7 +109,7 @@ export default class AddEditDialog extends Component<IProps, IState> {
                                 onClick={submitAndClose}
                                 color="primary"
                                 variant="contained">
-                                {isEdit ? 'Save' : 'Create'}
+                                {isEdit ? t('user.save') : t('user.create')}
                             </Button>
                         </div>
                     </Tooltip>
@@ -107,15 +118,19 @@ export default class AddEditDialog extends Component<IProps, IState> {
         );
     }
 
-    private handleChange(propertyName: string, event: ChangeEvent<HTMLInputElement>) {
-        const state = this.state;
-        state[propertyName] = event.target.value;
-        this.setState(state);
+    private handleChange = (propertyName: 'name' | 'pass') => (event: ChangeEvent<HTMLInputElement>) => {
+        this.setState({
+            ...this.state,
+            [propertyName]: event.target.value
+        });
     }
 
-    private handleChecked(propertyName: string, event: ChangeEvent<HTMLInputElement>) {
-        const state = this.state;
-        state[propertyName] = event.target.checked;
-        this.setState(state);
+    private handleChecked = (propertyName: 'admin') => (event: ChangeEvent<HTMLInputElement>) => {
+        this.setState({
+            ...this.state,
+            [propertyName]: event.target.checked
+        });
     }
 }
+
+export default AddEditDialogWrapper;

@@ -17,31 +17,41 @@ export class VersionStore {
     @observable
     protected currentProject: string | null = null;
 
-    public constructor(private readonly snack: SnackReporter) {}
+    public constructor(private readonly snack: SnackReporter, private readonly tokenProvider: () => string) {}
 
     protected requestProjects = (): Promise<IVersion[]> =>
         axios
-            .get<IVersion[]>(`${config.get('url')}version`)
+            .get<IVersion[]>(`${config.get('url')}version`, {
+                headers: {'X-GoHook-Key': this.tokenProvider()}
+            })
             .then((response) => response.data);
 
     protected requestBranches = (projectName: string): Promise<IBranch[]> =>
         axios
-            .get<IBranch[]>(`${config.get('url')}version/${projectName}/branches`)
+            .get<IBranch[]>(`${config.get('url')}version/${projectName}/branches`, {
+                headers: {'X-GoHook-Key': this.tokenProvider()}
+            })
             .then((response) => response.data);
 
     protected requestTags = (projectName: string): Promise<ITag[]> =>
         axios
-            .get<ITag[]>(`${config.get('url')}version/${projectName}/tags`)
+            .get<ITag[]>(`${config.get('url')}version/${projectName}/tags`, {
+                headers: {'X-GoHook-Key': this.tokenProvider()}
+            })
             .then((response) => response.data);
 
     protected requestSwitchBranch = (projectName: string, branch: string): Promise<void> =>
         axios.post(`${config.get('url')}version/${projectName}/switch-branch`, {
             branch: branch
+        }, {
+            headers: {'X-GoHook-Key': this.tokenProvider()}
         }).then(() => this.snack('分支切换成功'));
 
     protected requestSwitchTag = (projectName: string, tag: string): Promise<void> =>
         axios.post(`${config.get('url')}version/${projectName}/switch-tag`, {
             tag: tag
+        }, {
+            headers: {'X-GoHook-Key': this.tokenProvider()}
         }).then(() => this.snack('标签切换成功'));
 
     @action
@@ -52,7 +62,9 @@ export class VersionStore {
     @action
     public reloadConfig = async (): Promise<void> => {
         try {
-            const response = await axios.post(`${config.get('url')}version/reload-config`);
+            const response = await axios.post(`${config.get('url')}version/reload-config`, {}, {
+                headers: {'X-GoHook-Key': this.tokenProvider()}
+            });
             this.snack(response.data.message || '配置文件重新加载成功');
             await this.refreshProjects(); // 重新加载后刷新数据
         } catch (error: unknown) {
@@ -70,6 +82,8 @@ export class VersionStore {
                 name,
                 path,
                 description
+            }, {
+                headers: {'X-GoHook-Key': this.tokenProvider()}
             });
             this.snack(response.data.message || '项目添加成功');
             await this.refreshProjects(); // 添加后刷新项目列表
@@ -85,7 +99,9 @@ export class VersionStore {
     @action
     public deleteProject = async (name: string): Promise<void> => {
         try {
-            const response = await axios.delete(`${config.get('url')}version/${name}`);
+            const response = await axios.delete(`${config.get('url')}version/${name}`, {
+                headers: {'X-GoHook-Key': this.tokenProvider()}
+            });
             this.snack(response.data.message || '项目删除成功');
             await this.refreshProjects(); // 删除后刷新项目列表
         } catch (error: unknown) {
@@ -100,7 +116,9 @@ export class VersionStore {
     @action
     public initGit = async (name: string): Promise<void> => {
         try {
-            const response = await axios.post(`${config.get('url')}version/${name}/init-git`);
+            const response = await axios.post(`${config.get('url')}version/${name}/init-git`, {}, {
+                headers: {'X-GoHook-Key': this.tokenProvider()}
+            });
             this.snack(response.data.message || 'Git仓库初始化成功');
             await this.refreshProjects(); // 初始化后刷新项目列表
         } catch (error: unknown) {
@@ -117,6 +135,8 @@ export class VersionStore {
         try {
             const response = await axios.post(`${config.get('url')}version/${name}/set-remote`, {
                 remoteUrl: remoteUrl
+            }, {
+                headers: {'X-GoHook-Key': this.tokenProvider()}
             });
             this.snack(response.data.message || '远程仓库设置成功');
             await this.refreshProjects(); // 设置后刷新项目列表
@@ -126,6 +146,21 @@ export class VersionStore {
                 '未知错误';
             this.snack('设置远程仓库失败: ' + errorMessage);
             throw error;
+        }
+    };
+
+    public getRemote = async (name: string): Promise<string> => {
+        try {
+            const response = await axios.get<{ url: string }>(`${config.get('url')}version/${name}/remote`, {
+                headers: {'X-GoHook-Key': this.tokenProvider()}
+            });
+            return response.data.url;
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message :
+                (error as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+                '获取远程仓库地址失败';
+            this.snack('获取远程仓库地址失败: ' + errorMessage);
+            throw new Error(errorMessage);
         }
     };
 
@@ -149,10 +184,61 @@ export class VersionStore {
     };
 
     @action
+    public syncBranches = async (projectName: string): Promise<void> => {
+        try {
+            await axios.post(`${config.get('url')}version/${projectName}/sync-branches`, {}, {
+                headers: {'X-GoHook-Key': this.tokenProvider()}
+            });
+            this.snack('分支同步成功');
+            await this.refreshBranches(projectName);
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message :
+                (error as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+                '未知错误';
+            this.snack('分支同步失败: ' + errorMessage);
+            throw error;
+        }
+    };
+
+    @action
     public switchTag = async (projectName: string, tag: string): Promise<void> => {
         await this.requestSwitchTag(projectName, tag);
         await this.refreshTags(projectName);
         await this.refreshProjects();
+    };
+
+    @action
+    public deleteBranch = async (projectName: string, branchName: string): Promise<void> => {
+        try {
+            await axios.delete(`${config.get('url')}version/${projectName}/branches/${branchName}`, {
+                headers: {'X-GoHook-Key': this.tokenProvider()}
+            });
+            this.snack('分支删除成功');
+            await this.refreshBranches(projectName);
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message :
+                (error as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+                '未知错误';
+            this.snack('分支删除失败: ' + errorMessage);
+            throw error;
+        }
+    };
+
+    @action
+    public deleteTag = async (projectName: string, tagName: string): Promise<void> => {
+        try {
+            await axios.delete(`${config.get('url')}version/${projectName}/tags/${tagName}`, {
+                headers: {'X-GoHook-Key': this.tokenProvider()}
+            });
+            this.snack('标签删除成功');
+            await this.refreshTags(projectName);
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message :
+                (error as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+                '未知错误';
+            this.snack('标签删除失败: ' + errorMessage);
+            throw error;
+        }
     };
 
     public getProjects = (): IVersion[] => this.projects;

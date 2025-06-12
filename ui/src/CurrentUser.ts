@@ -17,7 +17,7 @@ export class CurrentUser {
     @observable
     public authenticating = true;
     @observable
-    public user: IUser = {name: 'unknown', admin: false, id: -1};
+    public user: IUser = {name: 'unknown', admin: false, id: -1, username: 'unknown', role: 'user'};
     @observable
     public connectionErrorMessage: string | null = null;
 
@@ -102,7 +102,7 @@ export class CurrentUser {
             axios
                 .create()
                 // eslint-disable-next-line @typescript-eslint/naming-convention
-                .get(config.get('url') + 'current/user', {headers: {'X-Gotify-Key': this.token()}})
+                .get(config.get('url') + 'current/user', {headers: {'X-GoHook-Key': this.token()}})
                 .then((passThrough) => {
                     this.user = passThrough.data;
                     this.loggedIn = true;
@@ -136,23 +136,42 @@ export class CurrentUser {
     };
 
     public logout = async () => {
-        await axios
-            .get(config.get('url') + 'client')
-            .then((resp: AxiosResponse<IClient[]>) => {
-                resp.data
-                    .filter((client) => client.token === this.tokenCache)
-                    .forEach((client) => axios.delete(config.get('url') + 'client/' + client.id));
-            })
-            .catch(() => Promise.resolve());
+        // 获取当前会话信息并删除
+        try {
+            const resp = await axios.get(config.get('url') + 'client', {
+                headers: {'X-GoHook-Key': this.token()}
+            });
+            
+            // 找到当前会话并删除
+            const currentSession = resp.data.find((client: {id: number, current: boolean}) => client.current === true);
+            if (currentSession) {
+                await axios.delete(config.get('url') + 'client/' + currentSession.id, {
+                    headers: {'X-GoHook-Key': this.token()}
+                });
+            }
+        } catch (error) {
+            // 即使删除会话失败，也要清理本地状态
+            console.log('Failed to delete session on server:', error);
+        }
+        
+        // 清理本地状态
         window.localStorage.removeItem(tokenKey);
         this.tokenCache = null;
         this.loggedIn = false;
     };
 
-    public changePassword = (pass: string) => {
+    public changePassword = (oldPassword: string, newPassword: string) => {
         axios
-            .post(config.get('url') + 'current/user/password', {pass})
-            .then(() => this.snack('Password changed'));
+            .post(config.get('url') + 'user/password', {
+                oldPassword: oldPassword,
+                newPassword: newPassword
+            }, {
+                headers: {'X-GoHook-Key': this.token()}
+            })
+            .then(() => this.snack('Password changed'))
+            .catch((error) => {
+                this.snack('Failed to change password: ' + (error.response?.data?.error || error.message));
+            });
     };
 
     public tryReconnect = (quiet = false) => {

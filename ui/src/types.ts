@@ -1,14 +1,3 @@
-export interface IApplication {
-    id: number;
-    token: string;
-    name: string;
-    description: string;
-    image: string;
-    internal: boolean;
-    defaultPriority: number;
-    lastUsed: string | null;
-}
-
 export interface IClient {
     id: number;
     token: string;
@@ -46,6 +35,7 @@ export interface IBranch {
     isCurrent: boolean;
     lastCommit: string;
     lastCommitTime: string;
+    type: 'local' | 'remote' | 'detached';
 }
 
 export interface ITag {
@@ -98,7 +88,9 @@ export interface IPaging {
 export interface IUser {
     id: number;
     name: string;
+    username?: string;
     admin: boolean;
+    role?: string;
 }
 
 export interface IVersionInfo {

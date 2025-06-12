@@ -8,15 +8,19 @@ export class HookStore {
     @observable
     protected items: IHook[] = [];
 
-    public constructor(private readonly snack: SnackReporter) {}
+    public constructor(private readonly snack: SnackReporter, private readonly tokenProvider: () => string) {}
 
     protected requestItems = (): Promise<IHook[]> =>
         axios
-            .get<IHook[]>(`${config.get('url')}hook`)
+            .get<IHook[]>(`${config.get('url')}hook`, {
+                headers: {'X-GoHook-Key': this.tokenProvider()}
+            })
             .then((response) => response.data);
 
     protected requestDelete = (id: string): Promise<void> =>
-        axios.delete(`${config.get('url')}hook/${id}`).then(() => 
+        axios.delete(`${config.get('url')}hook/${id}`, {
+            headers: {'X-GoHook-Key': this.tokenProvider()}
+        }).then(() => 
             this.snack('Hook deleted')
         );
 
@@ -34,7 +38,9 @@ export class HookStore {
     @action
     public reloadConfig = async (): Promise<void> => {
         try {
-            const response = await axios.post(`${config.get('url')}hook/reload-config`);
+            const response = await axios.post(`${config.get('url')}hook/reload-config`, {}, {
+                headers: {'X-GoHook-Key': this.tokenProvider()}
+            });
             this.snack(response.data.message || 'Hooks配置重新加载成功');
             await this.refresh(); // 重新加载后刷新数据
         } catch (error: unknown) {
@@ -47,13 +53,17 @@ export class HookStore {
 
     @action
     public triggerHook = async (id: string): Promise<void> => {
-        await axios.post(`${config.get('url')}hook/${id}/trigger`);
+        await axios.post(`${config.get('url')}hook/${id}/trigger`, {}, {
+            headers: {'X-GoHook-Key': this.tokenProvider()}
+        });
         this.snack('Hook triggered successfully');
     };
 
     @action
     public getHookDetails = async (id: string): Promise<IHook> => {
-        const response = await axios.get<IHook>(`${config.get('url')}hook/${id}`);
+        const response = await axios.get<IHook>(`${config.get('url')}hook/${id}`, {
+            headers: {'X-GoHook-Key': this.tokenProvider()}
+        });
         return response.data;
     };
 

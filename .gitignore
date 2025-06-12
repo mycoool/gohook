@@ -6,9 +6,26 @@ coverage
 build
 hooks.json
 
-*/node_modules/
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Configurations
+/user.yaml
+/version.yaml
+/user.yaml.bak
+/version.yaml.bak
+
+# Binary
+gohook
+
+# Folders
+node_modules/
 **/*-packr.go
-app.yaml
+/hooks.json
 yarn.lock
 server.log
 

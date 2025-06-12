@@ -13,6 +13,7 @@ import TextField from '@material-ui/core/TextField';
 import Dialog from '@material-ui/core/Dialog';
 import DialogTitle from '@material-ui/core/DialogTitle';
 import DialogContent from '@material-ui/core/DialogContent';
+import DialogContentText from '@material-ui/core/DialogContentText';
 import DialogActions from '@material-ui/core/DialogActions';
 import CircularProgress from '@material-ui/core/CircularProgress';
 import Refresh from '@material-ui/icons/Refresh';
@@ -121,16 +122,17 @@ class Versions extends Component<RouteComponentProps & Stores<'versionStore'>> {
     private handleSetRemote = async (name: string) => {
         this.setRemoteProjectName = name;
         this.loadingRemote = true;
+        this.currentRemoteUrl = '';
+        this.remoteUrl = '';
         
-        // 尝试获取当前远程地址 (如果有的话)
         try {
-            // 这里应该调用获取远程地址的API，暂时使用默认值
-            this.currentRemoteUrl = '';
-            this.remoteUrl = '';
+            const remoteUrl = await this.props.versionStore.getRemote(name);
+            if (remoteUrl) {
+                this.currentRemoteUrl = remoteUrl;
+                this.remoteUrl = remoteUrl;
+            }
         } catch (error) {
             console.warn('Failed to get current remote URL:', error);
-            this.currentRemoteUrl = '';
-            this.remoteUrl = '';
         } finally {
             this.loadingRemote = false;
         }
@@ -448,7 +450,9 @@ const VersionsContainer: React.FC<{
                     fullWidth>
                     <DialogTitle>{t('version.setRemote')}</DialogTitle>
                     <DialogContent>
-                        <p>{t('version.setRemoteText', { name: setRemoteProjectName })}</p>
+                        <DialogContentText style={{ marginBottom: '16px' }}>
+                            {t('version.setRemoteText', { name: setRemoteProjectName })}
+                        </DialogContentText>
                         
                         {loadingRemote ? (
                             <div style={{display: 'flex', alignItems: 'center', margin: '16px 0'}}>
@@ -456,7 +460,7 @@ const VersionsContainer: React.FC<{
                                 <span style={{color: '#666'}}>{t('version.loadingCurrentRemote')}</span>
                             </div>
                         ) : currentRemoteUrl ? (
-                            <div style={{marginBottom: '16px', padding: '12px', backgroundColor: '#f5f5f5', borderRadius: '4px'}}>
+                            <div style={{marginBottom: '16px', padding: '12px', backgroundColor: 'rgba(0, 0, 0, 0.05)', borderRadius: '4px'}}>
                                 <div style={{fontSize: '0.9em', color: '#666', marginBottom: '4px'}}>
                                     {t('version.currentRemoteUrl')}:
                                 </div>

@@ -40,7 +40,7 @@ const UserRow: SFC<IRowProps> = ({name, admin, fDelete, fEdit}) => {
     return (
     <TableRow>
         <TableCell>{name}</TableCell>
-            <TableCell>{admin ? t('common.yes') : t('common.no')}</TableCell>
+            <TableCell>{admin ? t('user.admin') : t('user.normalUser')}</TableCell>
         <TableCell align="right" padding="none">
                 <IconButton onClick={fEdit} className="edit" title={t('user.editUser')}>
                 <Edit />
@@ -141,7 +141,7 @@ const UsersContainer: React.FC<{
                             <TableHead>
                                 <TableRow style={{textAlign: 'center'}}>
                                 <TableCell>{t('user.username')}</TableCell>
-                                <TableCell>{t('user.admin')}</TableCell>
+                                <TableCell>{t('user.role')}</TableCell>
                                     <TableCell />
                                 </TableRow>
                             </TableHead>

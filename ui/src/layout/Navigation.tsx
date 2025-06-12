@@ -4,7 +4,6 @@ import {StyleRules, Theme, WithStyles, withStyles} from '@material-ui/core/style
 import React, {Component} from 'react';
 import {Link} from 'react-router-dom';
 import {observer} from 'mobx-react';
-import {inject, Stores} from '../inject';
 import {mayAllowPermission, requestPermission} from '../snack/browserNotification';
 import {
     Button,
@@ -18,6 +17,7 @@ import {
 } from '@material-ui/core';
 import {DrawerProps} from '@material-ui/core/Drawer/Drawer';
 import CloseIcon from '@material-ui/icons/Close';
+import PeopleIcon from '@material-ui/icons/People';
 
 const styles = (theme: Theme): StyleRules<'root' | 'drawerPaper' | 'toolbar' | 'link'> => ({
     root: {
@@ -42,47 +42,21 @@ interface IProps {
     loggedIn: boolean;
     navOpen: boolean;
     setNavOpen: (open: boolean) => void;
+    user?: { admin: boolean; role?: string };
 }
 
 @observer
 class Navigation extends Component<
-    IProps & Styles & Stores<'appStore'>,
+    IProps & Styles,
     {showRequestNotification: boolean}
 > {
     public state = {showRequestNotification: mayAllowPermission()};
 
     public render() {
-        const {classes, loggedIn, appStore, navOpen, setNavOpen} = this.props;
+        const {classes, loggedIn, navOpen, setNavOpen, user} = this.props;
         const {showRequestNotification} = this.state;
-        const apps = appStore.getItems();
 
-        const userApps =
-            apps.length === 0
-                ? null
-                : apps.map((app) => (
-                      <Link
-                          onClick={() => setNavOpen(false)}
-                          className={`${classes.link} item`}
-                          to={'/messages/' + app.id}
-                          key={app.id}>
-                          <ListItem button>
-                              <ListItemAvatar style={{minWidth: 42}}>
-                                  <Avatar
-                                      style={{width: 32, height: 32}}
-                                      src={app.image}
-                                      variant="square"
-                                  />
-                              </ListItemAvatar>
-                              <ListItemText primary={app.name} />
-                          </ListItem>
-                      </Link>
-                  ));
-
-        const placeholderItems = [
-            <ListItem button disabled key={-1}>
-                <ListItemText primary="Some Server" />
-            </ListItem>,
-        ];
+        const isAdmin = user?.admin ?? user?.role === 'admin';
 
         return (
             <ResponsiveDrawer
@@ -93,12 +67,25 @@ class Navigation extends Component<
                 <div className={classes.toolbar} />
                 <Link className={classes.link} to="/" onClick={() => setNavOpen(false)}>
                     <ListItem button disabled={!loggedIn} className="all">
-                        <ListItemText primary="Local Server" />
+                        <ListItemText primary="实时消息" />
                     </ListItem>
                 </Link>
                 <Divider />
-                <div>{loggedIn ? userApps : placeholderItems}</div>
-                <Divider />
+                {loggedIn && isAdmin && (
+                    <>
+                        <Link className={classes.link} to="/users" onClick={() => setNavOpen(false)}>
+                            <ListItem button className="users">
+                                <ListItemAvatar>
+                                    <Avatar>
+                                        <PeopleIcon />
+                                    </Avatar>
+                                </ListItemAvatar>
+                                <ListItemText primary="用户管理" />
+                            </ListItem>
+                        </Link>
+                        <Divider />
+                    </>
+                )}
                 <Typography align="center" style={{marginTop: 10}}>
                     {showRequestNotification ? (
                         <Button
@@ -106,7 +93,7 @@ class Navigation extends Component<
                                 requestPermission();
                                 this.setState({showRequestNotification: false});
                             }}>
-                            Enable Notifications
+                            启用通知
                         </Button>
                     ) : null}
                 </Typography>
@@ -135,4 +122,4 @@ const ResponsiveDrawer: React.FC<
     </>
 );
 
-export default withStyles(styles, {withTheme: true})(inject('appStore')(Navigation));
+export default withStyles(styles, {withTheme: true})(Navigation);

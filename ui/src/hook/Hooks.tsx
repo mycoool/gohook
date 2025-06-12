@@ -22,6 +22,24 @@ import {inject, Stores} from '../inject';
 import {IHook} from '../types';
 import {LastUsedCell} from '../common/LastUsedCell';
 import useTranslation from '../i18n/useTranslation';
+import {withStyles, WithStyles, Theme, createStyles} from '@material-ui/core/styles';
+
+// 添加样式定义
+const styles = (theme: Theme) => createStyles({
+    codeBlock: {
+        fontSize: '0.85em',
+        backgroundColor: theme.palette.type === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+        color: theme.palette.text.primary,
+        padding: '2px 4px',
+        borderRadius: '3px',
+        border: theme.palette.type === 'dark' ? '1px solid rgba(255, 255, 255, 0.2)' : '1px solid rgba(0, 0, 0, 0.2)',
+    },
+    workingDir: {
+        fontSize: '0.8em',
+        color: theme.palette.text.secondary,
+        marginTop: '4px',
+    },
+});
 
 @observer
 class Hooks extends Component<Stores<'hookStore'>> {
@@ -128,7 +146,7 @@ const HooksContainer: React.FC<{
                         </TableHead>
                         <TableBody>
                             {hooks.map((hook: IHook) => (
-                                <Row
+                                <StyledRow
                                     key={hook.id}
                                     hook={hook}
                                     fTrigger={() => onTriggerHook(hook.id)}
@@ -151,13 +169,14 @@ const HooksContainer: React.FC<{
     );
 };
 
-interface IRowProps {
+// 更新接口定义
+interface IRowProps extends WithStyles<typeof styles> {
     hook: IHook;
     fTrigger: VoidFunction;
     fDelete: VoidFunction;
 }
 
-const Row: SFC<IRowProps> = observer(({hook, fTrigger, fDelete}) => {
+const Row: SFC<IRowProps> = observer(({hook, fTrigger, fDelete, classes}) => {
     const { t } = useTranslation();
     
     return (
@@ -171,11 +190,11 @@ const Row: SFC<IRowProps> = observer(({hook, fTrigger, fDelete}) => {
                 {hook.description}
             </TableCell>
             <TableCell>
-                <code style={{fontSize: '0.85em', backgroundColor: '#f5f5f5', padding: '2px 4px', borderRadius: '3px'}}>
+                <code className={classes.codeBlock}>
                     {hook.executeCommand}
                 </code>
                 {hook.workingDirectory && (
-                    <div style={{fontSize: '0.8em', color: '#666', marginTop: '4px'}}>
+                    <div className={classes.workingDir}>
                         {t('hook.workingDir')}: {hook.workingDirectory}
                     </div>
                 )}
@@ -243,5 +262,8 @@ function getMethodColor(method: string): string {
             return '#607d8b';
     }
 }
+
+// 使用 withStyles 包装 Row 组件
+const StyledRow = withStyles(styles)(Row);
 
 export default inject('hookStore')(Hooks); 

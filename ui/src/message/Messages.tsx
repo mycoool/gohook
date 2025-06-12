@@ -21,7 +21,7 @@ interface IState {
 }
 
 @observer
-class Messages extends Component<IProps & Stores<'messagesStore' | 'appStore'>, IState> {
+class Messages extends Component<IProps & Stores<'messagesStore'>, IState> {
     @observable
     private heights: Record<string, number> = {};
     @observable
@@ -39,7 +39,7 @@ class Messages extends Component<IProps & Stores<'messagesStore' | 'appStore'>, 
 
     private isLoadingMore = false;
 
-    public componentWillReceiveProps(nextProps: IProps & Stores<'messagesStore' | 'appStore'>) {
+    public componentWillReceiveProps(nextProps: IProps & Stores<'messagesStore'>) {
         this.updateAllWithProps(nextProps);
     }
 
@@ -57,10 +57,10 @@ class Messages extends Component<IProps & Stores<'messagesStore' | 'appStore'>, 
 
     public render() {
         const {appId} = this.state;
-        const {messagesStore, appStore} = this.props;
-        const messages = messagesStore.get(appId);
-        const hasMore = messagesStore.canLoadMore(appId);
-        const name = appStore.getName(appId);
+        const {messagesStore} = this.props;
+                        const messages = messagesStore.get();
+        const hasMore = messagesStore.canLoadMore();
+        const name = appId === -1 ? '实时消息' : '消息';
         const hasMessages = messages.length !== 0;
 
         return (
@@ -70,13 +70,13 @@ class Messages extends Component<IProps & Stores<'messagesStore' | 'appStore'>, 
                 hasMore={hasMore}
                 name={name}
                 hasMessages={hasMessages}
-                loaded={messagesStore.loaded(appId)}
+                loaded={messagesStore.loaded()}
                 deleteAll={this.deleteAll}
                 heights={this.heights}
-                onRefresh={() => messagesStore.refreshByApp(appId)}
+                onRefresh={() => messagesStore.refreshByApp()}
                 onDeleteAll={() => this.deleteAll = true}
                 onCloseDeleteAll={() => this.deleteAll = false}
-                onConfirmDeleteAll={() => messagesStore.removeByApp(appId)}
+                onConfirmDeleteAll={() => messagesStore.removeByApp()}
                 onLoadMore={() => this.checkIfLoadMore()}
                 renderMessage={this.renderMessage}
             />
@@ -86,8 +86,8 @@ class Messages extends Component<IProps & Stores<'messagesStore' | 'appStore'>, 
     private updateAllWithProps = (props: IProps & Stores<'messagesStore'>) => {
         const appId = Messages.appId(props);
         this.setState({appId});
-        if (!props.messagesStore.exists(appId)) {
-            props.messagesStore.loadMore(appId);
+        if (!props.messagesStore.exists()) {
+            props.messagesStore.loadMore();
         }
     };
 
@@ -115,10 +115,9 @@ class Messages extends Component<IProps & Stores<'messagesStore' | 'appStore'>, 
     );
 
     private checkIfLoadMore() {
-        const {appId} = this.state;
-        if (!this.isLoadingMore && this.props.messagesStore.canLoadMore(appId)) {
+        if (!this.isLoadingMore && this.props.messagesStore.canLoadMore()) {
             this.isLoadingMore = true;
-            this.props.messagesStore.loadMore(appId).then(() => (this.isLoadingMore = false));
+            this.props.messagesStore.loadMore().then(() => (this.isLoadingMore = false));
         }
     }
 
@@ -225,4 +224,4 @@ const MessagesContainer: React.FC<{
     );
 };
 
-export default inject('messagesStore', 'appStore')(Messages);
+export default inject('messagesStore')(Messages);

@@ -4,7 +4,7 @@ import {SnackManager} from './snack/SnackManager';
 import {MessagesStore} from './message/MessagesStore';
 import {CurrentUser} from './CurrentUser';
 
-import {AppStore} from './application/AppStore';
+
 import {HookStore} from './hook/HookStore';
 import {VersionStore} from './version/VersionStore';
 import {inject as mobxInject, Provider} from 'mobx-react';
@@ -16,7 +16,6 @@ export interface StoreMapping {
     snackManager: SnackManager;
     messagesStore: MessagesStore;
     currentUser: CurrentUser;
-    appStore: AppStore;
     hookStore: HookStore;
     versionStore: VersionStore;
     pluginStore: PluginStore;

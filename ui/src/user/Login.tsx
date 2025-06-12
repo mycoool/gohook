@@ -110,18 +110,19 @@ const LoginContainer: React.FC<{
     return (
         <DefaultPage 
             title={t('auth.login')} 
-            maxWidth={340}>
+            maxWidth={340}
+            centerTitle={true}>
             <Grid item xs={12} style={{textAlign: 'center'}}>
                 <Container>
                     <Paper style={{padding: '30px 20px', marginTop: 30}}>
-                        <LoginForm
-                            username={username}
-                            password={password}
-                            onUsernameChange={onUsernameChange}
-                            onPasswordChange={onPasswordChange}
-                            onLogin={onLogin}
-                            disabled={disabled}
-                        />
+                    <LoginForm
+                        username={username}
+                        password={password}
+                        onUsernameChange={onUsernameChange}
+                        onPasswordChange={onPasswordChange}
+                        onLogin={onLogin}
+                        disabled={disabled}
+                    />
                     </Paper>
                 </Container>
             </Grid>

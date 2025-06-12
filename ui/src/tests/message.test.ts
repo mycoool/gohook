@@ -122,7 +122,7 @@ describe('Messages', () => {
 
     const createMessage = (msg: Partial<IMessage>, token: string) =>
         axios.post<IMessage>(`${gotify.url}/message`, msg, {
-            headers: {'X-Gotify-Key': token},
+            headers: {'X-GoHook-Key': token},
         });
 
     const expectMessages = async (toCheck: {

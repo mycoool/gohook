@@ -1,12 +1,8 @@
-import {BaseStore} from '../common/BaseStore';
-import {action, IObservableArray, observable, reaction} from 'mobx';
+import {action, IObservableArray, observable} from 'mobx';
 import axios, {AxiosResponse} from 'axios';
 import * as config from '../config';
-import {createTransformer} from 'mobx-utils';
 import {SnackReporter} from '../snack/SnackManager';
-import {IApplication, IMessage, IPagedMessages} from '../types';
-
-const AllMessages = -1;
+import {IMessage, IPagedMessages} from '../types';
 
 interface MessagesState {
     messages: IObservableArray<IMessage>;
@@ -17,98 +13,73 @@ interface MessagesState {
 
 export class MessagesStore {
     @observable
-    private state: Record<string, MessagesState> = {};
+    private state: MessagesState;
 
     private loading = false;
 
-    public constructor(
-        private readonly appStore: BaseStore<IApplication>,
-        private readonly snack: SnackReporter
-    ) {
-        reaction(() => appStore.getItems(), this.createEmptyStatesForApps);
+    public constructor(private readonly snack: SnackReporter, private readonly tokenProvider: () => string) {
+        this.state = this.emptyState();
     }
 
-    private stateOf = (appId: number, create = true) => {
-        if (!this.state[appId] && create) {
-            this.state[appId] = this.emptyState();
-        }
-        return this.state[appId] || this.emptyState();
-    };
+    public loaded = () => this.state.loaded;
 
-    public loaded = (appId: number) => this.stateOf(appId, /*create*/ false).loaded;
-
-    public canLoadMore = (appId: number) => this.stateOf(appId, /*create*/ false).hasMore;
+    public canLoadMore = () => this.state.hasMore;
 
     @action
-    public loadMore = async (appId: number) => {
-        const state = this.stateOf(appId);
-        if (!state.hasMore || this.loading) {
+    public loadMore = async () => {
+        if (!this.state.hasMore || this.loading) {
             return Promise.resolve();
         }
         this.loading = true;
 
-        const pagedResult = await this.fetchMessages(appId, state.nextSince).then(
+        const pagedResult = await this.fetchMessages(this.state.nextSince).then(
             (resp) => resp.data
         );
 
-        state.messages.replace([...state.messages, ...pagedResult.messages]);
-        state.nextSince = pagedResult.paging.since ?? 0;
-        state.hasMore = 'next' in pagedResult.paging;
-        state.loaded = true;
+        this.state.messages.replace([...this.state.messages, ...pagedResult.messages]);
+        this.state.nextSince = pagedResult.paging.since ?? 0;
+        this.state.hasMore = 'next' in pagedResult.paging;
+        this.state.loaded = true;
         this.loading = false;
         return Promise.resolve();
     };
 
     @action
     public publishSingleMessage = (message: IMessage) => {
-        if (this.exists(AllMessages)) {
-            this.stateOf(AllMessages).messages.unshift(message);
-        }
-        if (this.exists(message.appid)) {
-            this.stateOf(message.appid).messages.unshift(message);
-        }
+        this.state.messages.unshift(message);
     };
 
     @action
-    public removeByApp = async (appId: number) => {
-        if (appId === AllMessages) {
-            await axios.delete(config.get('url') + 'message');
-            this.snack('Deleted all messages');
-            this.clearAll();
-        } else {
-            await axios.delete(config.get('url') + 'application/' + appId + '/message');
-            this.snack(`Deleted all messages from ${this.appStore.getByID(appId).name}`);
-            this.clear(AllMessages);
-            this.clear(appId);
-        }
-        await this.loadMore(appId);
+    public removeByApp = async () => {
+        await axios.delete(config.get('url') + 'message', {
+            headers: {'X-GoHook-Key': this.tokenProvider()}
+        });
+        this.snack('已删除所有消息');
+        this.clearAll();
+        await this.loadMore();
     };
 
     @action
     public removeSingle = async (message: IMessage) => {
-        await axios.delete(config.get('url') + 'message/' + message.id);
-        if (this.exists(AllMessages)) {
-            this.removeFromList(this.state[AllMessages].messages, message);
-        }
-        if (this.exists(message.appid)) {
-            this.removeFromList(this.state[message.appid].messages, message);
-        }
-        this.snack('Message deleted');
+        await axios.delete(config.get('url') + 'message/' + message.id, {
+            headers: {'X-GoHook-Key': this.tokenProvider()}
+        });
+        this.removeFromList(this.state.messages, message);
+        this.snack('消息已删除');
     };
 
     @action
     public clearAll = () => {
-        this.state = {};
-        this.createEmptyStatesForApps(this.appStore.getItems());
+        this.state = this.emptyState();
     };
 
     @action
-    public refreshByApp = async (appId: number) => {
+    public refreshByApp = async () => {
         this.clearAll();
-        this.loadMore(appId);
+        this.loadMore();
     };
 
-    public exists = (id: number) => this.stateOf(id).loaded;
+    public exists = () => this.state.loaded;
 
     private removeFromList(messages: IMessage[], messageToDelete: IMessage): false | number {
         if (messages) {
@@ -121,40 +92,16 @@ export class MessagesStore {
         return false;
     }
 
-    private clear = (appId: number) => (this.state[appId] = this.emptyState());
+    private fetchMessages = (since: number): Promise<AxiosResponse<IPagedMessages>> =>
+        axios.get(config.get('url') + 'message?since=' + since, {
+            headers: {'X-GoHook-Key': this.tokenProvider()}
+        });
 
-    private fetchMessages = (
-        appId: number,
-        since: number
-    ): Promise<AxiosResponse<IPagedMessages>> => {
-        if (appId === AllMessages) {
-            return axios.get(config.get('url') + 'message?since=' + since);
-        } else {
-            return axios.get(
-                config.get('url') + 'application/' + appId + '/message?since=' + since
-            );
-        }
-    };
-
-    private getUnCached = (appId: number): Array<IMessage & {image: string | null}> => {
-        const appToImage = this.appStore
-            .getItems()
-            .reduce((all, app) => ({...all, [app.id]: app.image}), {});
-
-        return this.stateOf(appId, false).messages.map((message: IMessage) => ({
+    public get = (): Array<IMessage & {image: string | null}> =>
+        this.state.messages.map((message: IMessage) => ({
             ...message,
-            image: appToImage[message.appid] || null,
-        }));
-    };
-
-    public get = createTransformer(this.getUnCached);
-
-    private clearCache = () => (this.get = createTransformer(this.getUnCached));
-
-    private createEmptyStatesForApps = (apps: IApplication[]) => {
-        apps.map((app) => app.id).forEach((id) => this.stateOf(id, /*create*/ true));
-        this.clearCache();
-    };
+            image: message.image ?? null, // 使用空值合并操作符
+        })) as Array<IMessage & {image: string | null}>;
 
     private emptyState = (): MessagesState => ({
         messages: observable.array(),
