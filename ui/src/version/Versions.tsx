@@ -24,10 +24,12 @@ import AccountTree from '@material-ui/icons/AccountTree';
 import LocalOffer from '@material-ui/icons/LocalOffer';
 import CloudQueue from '@material-ui/icons/CloudQueue';
 import GitHubIcon from '@material-ui/icons/GitHub';
+import Settings from '@material-ui/icons/Settings';
 import React, {Component, SFC} from 'react';
 import DefaultPage from '../common/DefaultPage';
 import ConfirmDialog from '../common/ConfirmDialog';
 import AddProjectDialog from './AddProjectDialog';
+import EnvFileDialog from './EnvFileDialog';
 import {observer} from 'mobx-react';
 import {observable} from 'mobx';
 import {inject, Stores} from '../inject';
@@ -51,6 +53,8 @@ class Versions extends Component<RouteComponentProps & Stores<'versionStore'>> {
     private currentRemoteUrl = '';
     @observable
     private loadingRemote = false;
+    @observable
+    private envDialogProjectName: string | null = null;
 
     public componentDidMount = () => this.props.versionStore.refreshProjects();
 
@@ -59,37 +63,49 @@ class Versions extends Component<RouteComponentProps & Stores<'versionStore'>> {
         const projects = versionStore.getProjects();
         
         return (
-            <VersionsContainer
-                projects={projects}
-                showAddDialog={this.showAddDialog}
-                deleteProjectName={this.deleteProjectName}
-                initGitProjectName={this.initGitProjectName}
-                setRemoteProjectName={this.setRemoteProjectName}
-                remoteUrl={this.remoteUrl}
-                currentRemoteUrl={this.currentRemoteUrl}
-                loadingRemote={this.loadingRemote}
-                onShowAddDialog={() => this.showAddDialog = true}
-                onHideAddDialog={() => this.showAddDialog = false}
-                onAddProject={this.handleAddProject}
-                onRefreshProjects={this.refreshProjects}
-                onReloadConfig={this.reloadConfig}
-                onViewBranches={this.handleViewBranches}
-                onViewTags={this.handleViewTags}
-                onDelete={(name) => this.deleteProjectName = name}
-                onInitGit={(name) => this.initGitProjectName = name}
-                onSetRemote={this.handleSetRemote}
-                onRemoteUrlChange={(url) => this.remoteUrl = url}
-                onCancelDelete={() => this.deleteProjectName = null}
-                onConfirmDelete={this.handleDeleteProject}
-                onCancelInitGit={() => this.initGitProjectName = null}
-                onConfirmInitGit={this.handleInitGit}
-                onCancelSetRemote={() => {
-                    this.setRemoteProjectName = null;
-                    this.remoteUrl = '';
-                    this.currentRemoteUrl = '';
-                }}
-                onConfirmSetRemote={this.handleConfirmSetRemote}
-            />
+            <>
+                <VersionsContainer
+                    projects={projects}
+                    showAddDialog={this.showAddDialog}
+                    deleteProjectName={this.deleteProjectName}
+                    initGitProjectName={this.initGitProjectName}
+                    setRemoteProjectName={this.setRemoteProjectName}
+                    remoteUrl={this.remoteUrl}
+                    currentRemoteUrl={this.currentRemoteUrl}
+                    loadingRemote={this.loadingRemote}
+                    onShowAddDialog={() => this.showAddDialog = true}
+                    onHideAddDialog={() => this.showAddDialog = false}
+                    onAddProject={this.handleAddProject}
+                    onRefreshProjects={this.refreshProjects}
+                    onReloadConfig={this.reloadConfig}
+                    onViewBranches={this.handleViewBranches}
+                    onViewTags={this.handleViewTags}
+                    onEditEnv={this.handleEditEnv}
+                    onDelete={(name) => this.deleteProjectName = name}
+                    onInitGit={(name) => this.initGitProjectName = name}
+                    onSetRemote={this.handleSetRemote}
+                    onRemoteUrlChange={(url) => this.remoteUrl = url}
+                    onCancelDelete={() => this.deleteProjectName = null}
+                    onConfirmDelete={this.handleDeleteProject}
+                    onCancelInitGit={() => this.initGitProjectName = null}
+                    onConfirmInitGit={this.handleInitGit}
+                    onCancelSetRemote={() => {
+                        this.setRemoteProjectName = null;
+                        this.remoteUrl = '';
+                        this.currentRemoteUrl = '';
+                    }}
+                    onConfirmSetRemote={this.handleConfirmSetRemote}
+                />
+                
+                <EnvFileDialog
+                    open={this.envDialogProjectName !== null}
+                    projectName={this.envDialogProjectName ?? ''}
+                    onClose={this.handleCloseEnvDialog}
+                    onGetEnvFile={this.handleGetEnvFile}
+                    onSaveEnvFile={this.handleSaveEnvFile}
+                    onDeleteEnvFile={this.handleDeleteEnvFile}
+                />
+            </>
         );
     }
 
@@ -154,18 +170,37 @@ class Versions extends Component<RouteComponentProps & Stores<'versionStore'>> {
     private handleViewTags = (projectName: string) => {
         this.props.history.push(`/versions/${projectName}/tags`);
     };
+
+    private handleEditEnv = (projectName: string) => {
+        this.envDialogProjectName = projectName;
+    };
+
+    private handleCloseEnvDialog = () => {
+        this.envDialogProjectName = null;
+    };
+
+    private handleGetEnvFile = async (name: string) => await this.props.versionStore.getEnvFile(name);
+
+    private handleSaveEnvFile = async (name: string, content: string) => {
+        await this.props.versionStore.saveEnvFile(name, content);
+    };
+
+    private handleDeleteEnvFile = async (name: string) => {
+        await this.props.versionStore.deleteEnvFile(name);
+    };
 }
 
 interface IRowProps {
     project: IVersion;
     onViewBranches: (projectName: string) => void;
     onViewTags: (projectName: string) => void;
+    onEditEnv: (projectName: string) => void;
     onDelete: (projectName: string) => void;
     onInitGit: (projectName: string) => void;
     onSetRemote: (projectName: string) => void;
 }
 
-const Row: SFC<IRowProps> = observer(({project, onViewBranches, onViewTags, onDelete, onInitGit, onSetRemote}) => {
+const Row: SFC<IRowProps> = observer(({project, onViewBranches, onViewTags, onEditEnv, onDelete, onInitGit, onSetRemote}) => {
     const { t } = useTranslation();
     
     const getModeChip = (mode: string) => {
@@ -226,6 +261,12 @@ const Row: SFC<IRowProps> = observer(({project, onViewBranches, onViewTags, onDe
                 <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
                     <IconButton 
                         size="small"
+                        onClick={() => onEditEnv(project.name)}
+                        title="编辑环境变量">
+                        <Settings />
+                    </IconButton>
+                    <IconButton 
+                        size="small"
                         onClick={() => onInitGit(project.name)}
                         title={t('version.initGit')}>
                         <GitHubIcon />
@@ -253,6 +294,12 @@ const Row: SFC<IRowProps> = observer(({project, onViewBranches, onViewTags, onDe
                         onClick={() => onViewTags(project.name)}
                         title={t('version.tags')}>
                         <LocalOffer />
+                    </IconButton>
+                    <IconButton 
+                        size="small"
+                        onClick={() => onEditEnv(project.name)}
+                        title="编辑环境变量">
+                        <Settings />
                     </IconButton>
                     <IconButton 
                         size="small"
@@ -325,6 +372,7 @@ const VersionsContainer: React.FC<{
     onReloadConfig: () => void;
     onViewBranches: (projectName: string) => void;
     onViewTags: (projectName: string) => void;
+    onEditEnv: (projectName: string) => void;
     onDelete: (projectName: string) => void;
     onInitGit: (projectName: string) => void;
     onSetRemote: (projectName: string) => void;
@@ -351,6 +399,7 @@ const VersionsContainer: React.FC<{
     onReloadConfig,
     onViewBranches,
     onViewTags,
+    onEditEnv,
     onDelete,
     onInitGit,
     onSetRemote,
@@ -410,6 +459,7 @@ const VersionsContainer: React.FC<{
                                     project={project}
                                     onViewBranches={() => onViewBranches(project.name)}
                                     onViewTags={() => onViewTags(project.name)}
+                                    onEditEnv={() => onEditEnv(project.name)}
                                     onDelete={() => onDelete(project.name)}
                                     onInitGit={() => onInitGit(project.name)}
                                     onSetRemote={() => onSetRemote(project.name)}

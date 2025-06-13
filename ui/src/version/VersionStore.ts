@@ -164,6 +164,69 @@ export class VersionStore {
         }
     };
 
+    // 环境变量文件管理方法
+
+    public getEnvFile = async (name: string): Promise<{ content: string; exists: boolean; path: string }> => {
+        try {
+            const response = await axios.get<{ content: string; exists: boolean; path: string }>(`${config.get('url')}version/${name}/env`, {
+                headers: {'X-GoHook-Key': this.tokenProvider()}
+            });
+            return response.data;
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message :
+                (error as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+                '获取环境变量文件失败';
+            this.snack('获取环境变量文件失败: ' + errorMessage);
+            throw new Error(errorMessage);
+        }
+    };
+
+    public saveEnvFile = async (name: string, content: string): Promise<void> => {
+        try {
+            const response = await axios.post(`${config.get('url')}version/${name}/env`, {
+                content: content
+            }, {
+                headers: {'X-GoHook-Key': this.tokenProvider()}
+            });
+            this.snack(response.data.message || '环境变量文件保存成功');
+        } catch (error: unknown) {
+            if (error && typeof error === 'object' && 'response' in error) {
+                const axiosError = error as { response?: { data?: { error?: string; details?: string[] } } };
+                const errorData = axiosError.response?.data;
+                
+                if (errorData?.details && Array.isArray(errorData.details)) {
+                    // 格式验证失败，显示详细错误信息
+                    const details = errorData.details.join('\n');
+                    this.snack(`环境变量文件格式验证失败:\n${details}`);
+                    throw new Error(`格式验证失败:\n${details}`);
+                } else {
+                    const errorMessage = errorData?.error ?? '保存环境变量文件失败';
+                    this.snack('保存环境变量文件失败: ' + errorMessage);
+                    throw new Error(errorMessage);
+                }
+            } else {
+                const errorMessage = error instanceof Error ? error.message : '未知错误';
+                this.snack('保存环境变量文件失败: ' + errorMessage);
+                throw new Error(errorMessage);
+            }
+        }
+    };
+
+    public deleteEnvFile = async (name: string): Promise<void> => {
+        try {
+            const response = await axios.delete(`${config.get('url')}version/${name}/env`, {
+                headers: {'X-GoHook-Key': this.tokenProvider()}
+            });
+            this.snack(response.data.message || '环境变量文件删除成功');
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message :
+                (error as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+                '删除环境变量文件失败';
+            this.snack('删除环境变量文件失败: ' + errorMessage);
+            throw new Error(errorMessage);
+        }
+    };
+
     @action
     public refreshBranches = async (projectName: string): Promise<void> => {
         this.currentProject = projectName;
