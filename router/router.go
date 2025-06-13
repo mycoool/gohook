@@ -175,6 +175,7 @@ func updateSessionLastUsed(token string) {
 
 // 全局变量引用，用于访问已加载的hooks
 var LoadedHooksFromFiles *map[string]hook.Hooks
+var HookManager *hook.HookManager
 var configData *Config
 var appConfig *AppConfig
 
@@ -1376,6 +1377,35 @@ func InitRouter() *gin.Engine {
 					"output":  output,
 				})
 			}
+		})
+
+		// 重新加载Hooks配置的专用接口
+		hookAPI.POST("/reload-config", func(c *gin.Context) {
+			if HookManager == nil {
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"error": "Hook管理器未初始化",
+				})
+				return
+			}
+
+			// 执行实际的重新加载
+			err := HookManager.ReloadAllHooks()
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"error":     "重新加载Hooks配置失败",
+					"details":   err.Error(),
+					"hookCount": HookManager.GetHookCount(),
+				})
+				return
+			}
+
+			// 获取重新加载后的hooks数量
+			hookCount := HookManager.GetHookCount()
+
+			c.JSON(http.StatusOK, gin.H{
+				"message":   "Hooks配置重新加载成功",
+				"hookCount": hookCount,
+			})
 		})
 	}
 

@@ -62,6 +62,11 @@ var (
 )
 
 func matchLoadedHook(id string) *hook.Hook {
+	if router.HookManager != nil {
+		return router.HookManager.MatchLoadedHook(id)
+	}
+
+	// 回退到原有逻辑
 	for _, hooks := range loadedHooksFromFiles {
 		if hook := hooks.Match(id); hook != nil {
 			return hook
@@ -72,6 +77,11 @@ func matchLoadedHook(id string) *hook.Hook {
 }
 
 func lenLoadedHooks() int {
+	if router.HookManager != nil {
+		return router.HookManager.LenLoadedHooks()
+	}
+
+	// 回退到原有逻辑
 	sum := 0
 	for _, hooks := range loadedHooksFromFiles {
 		sum += len(hooks)
@@ -265,6 +275,9 @@ func main() {
 
 	// 设置router对hooks数据的引用
 	router.LoadedHooksFromFiles = &loadedHooksFromFiles
+
+	// 初始化HookManager
+	router.HookManager = hook.NewHookManager(&loadedHooksFromFiles, hooksFiles, *asTemplate)
 
 	r := router.InitRouter()
 
@@ -723,6 +736,12 @@ func handleHook(h *hook.Hook, r *hook.Request) (string, error) {
 }
 
 func reloadHooks(hooksFilePath string) {
+	if router.HookManager != nil {
+		router.HookManager.ReloadHooks(hooksFilePath)
+		return
+	}
+
+	// 回退到原有逻辑
 	log.Printf("reloading hooks from %s\n", hooksFilePath)
 
 	newHooks := hook.Hooks{}
@@ -761,12 +780,40 @@ func reloadHooks(hooksFilePath string) {
 }
 
 func ReloadAllHooks() {
-	for _, hooksFilePath := range hooksFiles {
-		reloadHooks(hooksFilePath)
+	if router.HookManager != nil {
+		router.HookManager.ReloadAllHooks()
+	} else {
+		// 回退到原有逻辑
+		for _, hooksFilePath := range hooksFiles {
+			reloadHooks(hooksFilePath)
+		}
 	}
 }
 
 func removeHooks(hooksFilePath string) {
+	if router.HookManager != nil {
+		router.HookManager.RemoveHooks(hooksFilePath)
+
+		// 从hooksFiles列表中移除文件路径
+		newHooksFiles := hooksFiles[:0]
+		for _, filePath := range hooksFiles {
+			if filePath != hooksFilePath {
+				newHooksFiles = append(newHooksFiles, filePath)
+			}
+		}
+		hooksFiles = newHooksFiles
+
+		// 更新HookManager中的文件列表
+		router.HookManager.HooksFiles = hooksFiles
+
+		if !*verbose && !*noPanic && router.HookManager.GetHookCount() == 0 {
+			log.SetOutput(os.Stdout)
+			log.Fatalln("couldn't load any hooks from file!\naborting webhook execution since the -verbose flag is set to false.\nIf, for some reason, you want webhook to run without the hooks, either use -verbose flag, or -nopanic")
+		}
+		return
+	}
+
+	// 回退到原有逻辑
 	log.Printf("removing hooks from %s\n", hooksFilePath)
 
 	for _, hook := range loadedHooksFromFiles[hooksFilePath] {
