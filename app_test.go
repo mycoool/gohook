@@ -328,12 +328,11 @@ func killAndWait(cmd *exec.Cmd) {
 		return
 	}
 
-	if err := cmd.Process.Kill(); err != nil {
-		// Process might already be dead, which is fine
-	}
-	if err := cmd.Wait(); err != nil {
-		// Expected since we killed the process
-	}
+	// Kill the process, ignore errors as process might already be dead
+	_ = cmd.Process.Kill()
+
+	// Wait for process to exit, ignore errors as we killed it
+	_ = cmd.Wait()
 }
 
 // webhookEnv returns the process environment without any existing hook
