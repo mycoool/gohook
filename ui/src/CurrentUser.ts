@@ -4,7 +4,7 @@ import {Base64} from 'js-base64';
 import {detect} from 'detect-browser';
 import {SnackReporter} from './snack/SnackManager';
 import {observable} from 'mobx';
-import {IClient, IUser} from './types';
+import {IUser} from './types';
 
 const tokenKey = 'gohook-login-key';
 
@@ -63,33 +63,59 @@ export class CurrentUser {
                 return false;
             });
 
-    public login = async (username: string, password: string) => {
+    public login = async (username: string, password: string): Promise<boolean> => {
         this.loggedIn = false;
         this.authenticating = true;
         const browser = detect();
         const name = (browser && browser.name + ' ' + browser.version) || 'unknown browser';
-        axios
-            .create()
-            .request({
-                url: config.get('url') + 'client',
-                method: 'POST',
-                data: {name},
-                // eslint-disable-next-line @typescript-eslint/naming-convention
-                headers: {Authorization: 'Basic ' + Base64.encode(username + ':' + password)},
-            })
-            .then((resp: AxiosResponse<IClient>) => {
-                this.snack(`A client named '${name}' was created for your session.`);
-                this.setToken(resp.data.token);
-                this.tryAuthenticate().catch(() => {
-                    console.log(
-                        'create client succeeded, but authenticated with given token failed'
-                    );
+        
+        try {
+            const resp = await axios
+                .create()
+                .request({
+                    url: config.get('url') + 'client',
+                    method: 'POST',
+                    data: {name},
+                    // eslint-disable-next-line @typescript-eslint/naming-convention
+                    headers: {Authorization: 'Basic ' + Base64.encode(username + ':' + password)},
                 });
-            })
-            .catch(() => {
+            
+            this.snack(`A client named '${name}' was created for your session.`);
+            this.setToken(resp.data.token);
+            
+            try {
+                await this.tryAuthenticate();
+                return true;
+            } catch (error) {
+                console.log('create client succeeded, but authenticated with given token failed');
                 this.authenticating = false;
-                return this.snack('Login failed');
-            });
+                this.snack('Authentication failed after client creation');
+                return false;
+            }
+        } catch (error: unknown) {
+            this.authenticating = false;
+            
+            // 处理不同类型的错误
+            const axiosError = error as AxiosError;
+            if (!axiosError || !axiosError.response) {
+                this.snack('No network connection or server unavailable.');
+                return false;
+            }
+            
+            const {data, status} = axiosError.response;
+            
+            if (status === 401) {
+                // 用户名或密码错误
+                const errorMessage = data?.error || 'Invalid username or password';
+                this.snack(`Login failed: ${errorMessage}`);
+            } else if (status >= 500) {
+                this.snack(`Server error: ${axiosError.response.statusText} (code: ${status})`);
+            } else {
+                this.snack(`Login failed: ${data?.error || 'Unknown error'}`);
+            }
+            
+            return false;
+        }
     };
 
     public tryAuthenticate = async (): Promise<AxiosResponse<IUser>> => {

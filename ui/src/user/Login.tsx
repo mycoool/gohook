@@ -17,9 +17,10 @@ class Login extends Component<Stores<'currentUser'>> {
     @observable
     private password = '';
     @observable
+    private isLogging = false;
 
     public render() {
-        const {username, password} = this;
+        const {username, password, isLogging} = this;
         return (
             <LoginContainer
                 username={username}
@@ -27,14 +28,30 @@ class Login extends Component<Stores<'currentUser'>> {
                 onUsernameChange={(value: string) => (this.username = value)}
                 onPasswordChange={(value: string) => (this.password = value)}
                 onLogin={this.login}
-                disabled={!!this.props.currentUser.connectionErrorMessage}
+                disabled={!!this.props.currentUser.connectionErrorMessage || isLogging}
+                isLogging={isLogging}
             />
         );
     }
 
-
-    private login = async () => {
-        await this.props.currentUser.login(this.username, this.password);
+    private login = async (event?: React.FormEvent) => {
+        if (event) {
+            event.preventDefault();
+        }
+        
+        if (this.isLogging) {
+            return;
+        }
+        
+        this.isLogging = true;
+        
+        try {
+            await this.props.currentUser.login(this.username, this.password);
+        } catch (error) {
+            console.error('Login error:', error);
+        } finally {
+            this.isLogging = false;
+        }
     };
 }
 
@@ -44,15 +61,26 @@ const LoginForm: React.FC<{
     password: string;
     onUsernameChange: (value: string) => void;
     onPasswordChange: (value: string) => void;
-    onLogin: () => void;
+    onLogin: (event?: React.FormEvent) => void;
     disabled: boolean;
-}> = ({username, password, onUsernameChange, onPasswordChange, onLogin, disabled}) => {
+    isLogging: boolean;
+}> = ({username, password, onUsernameChange, onPasswordChange, onLogin, disabled, isLogging}) => {
     const { t } = useTranslation();
 
-    const preventDefault = (e: React.FormEvent<HTMLFormElement>) => e.preventDefault();
+    const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        onLogin(e);
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter' && !disabled) {
+            e.preventDefault();
+            onLogin();
+        }
+    };
 
     return (
-        <form onSubmit={preventDefault} id="login-form">
+        <form onSubmit={handleSubmit} id="login-form">
                             <TextField
                                 autoFocus
                                 className="name"
@@ -62,6 +90,8 @@ const LoginForm: React.FC<{
                                 autoComplete="username"
                                 value={username}
                 onChange={(e) => onUsernameChange(e.target.value)}
+                                onKeyDown={handleKeyDown}
+                                disabled={disabled}
                             />
                             <TextField
                                 type="password"
@@ -72,6 +102,8 @@ const LoginForm: React.FC<{
                                 autoComplete="current-password"
                                 value={password}
                 onChange={(e) => onPasswordChange(e.target.value)}
+                                onKeyDown={handleKeyDown}
+                                disabled={disabled}
                             />
                             <Button
                                 type="submit"
@@ -82,8 +114,8 @@ const LoginForm: React.FC<{
                 fullWidth
                 disabled={disabled}
                                 style={{marginTop: 15, marginBottom: 5}}
-                onClick={onLogin}>
-                {t('auth.login')}
+                onClick={() => onLogin()}>
+                {isLogging ? (t('auth.logging_in') || 'Logging in...') : t('auth.login')}
                             </Button>
                         </form>
     );
@@ -95,8 +127,9 @@ const LoginContainer: React.FC<{
     password: string;
     onUsernameChange: (value: string) => void;
     onPasswordChange: (value: string) => void;
-    onLogin: () => void;
+    onLogin: (event?: React.FormEvent) => void;
     disabled: boolean;
+    isLogging: boolean;
 }> = ({
     username,
     password,
@@ -104,6 +137,7 @@ const LoginContainer: React.FC<{
     onPasswordChange,
     onLogin,
     disabled,
+    isLogging,
 }) => {
     const { t } = useTranslation();
 
@@ -122,6 +156,7 @@ const LoginContainer: React.FC<{
                         onPasswordChange={onPasswordChange}
                         onLogin={onLogin}
                         disabled={disabled}
+                        isLogging={isLogging}
                     />
                     </Paper>
                 </Container>

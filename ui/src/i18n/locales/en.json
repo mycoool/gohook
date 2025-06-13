@@ -36,7 +36,8 @@
     "password": "Password",
     "register": "Register",
     "loginFailed": "Login Failed",
-    "invalidCredentials": "Invalid username or password"
+    "invalidCredentials": "Invalid username or password",
+    "logging_in": "Logging in..."
   },
   "version": {
     "title": "Version Management",

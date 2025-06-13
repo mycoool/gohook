@@ -36,7 +36,8 @@
     "password": "密码",
     "register": "注册",
     "loginFailed": "登录失败",
-    "invalidCredentials": "用户名或密码错误"
+    "invalidCredentials": "用户名或密码错误",
+    "logging_in": "登录中..."
   },
   "version": {
     "title": "版本管理",
