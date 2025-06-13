@@ -1235,9 +1235,12 @@ func TestWebhookDoesNotStartWithSameHookID(t *testing.T) {
 	}
 	hooksFile.Close()
 
+	// 获取随机可用端口
+	_, port := serverAddress(t)
+
 	gobin := "go"
 
-	cmd := exec.Command(gobin, "run", "../main.go", "-hooks", hooksFile.Name())
+	cmd := exec.Command(gobin, "run", ".", "-hooks", hooksFile.Name(), "-port", port)
 
 	output, err := cmd.CombinedOutput()
 	if err == nil {
@@ -1274,9 +1277,12 @@ func TestWebhookDoesNotStartWithSameHookIDAcrossMultipleFiles(t *testing.T) {
 	}
 	hooksFileB.Close()
 
+	// 获取随机可用端口
+	_, port := serverAddress(t)
+
 	gobin := "go"
 
-	cmd := exec.Command(gobin, "run", "../main.go", "-hooks", hooksFileA.Name(), "-hooks", hooksFileB.Name())
+	cmd := exec.Command(gobin, "run", ".", "-hooks", hooksFileA.Name(), "-hooks", hooksFileB.Name(), "-port", port)
 
 	output, err := cmd.CombinedOutput()
 	if err == nil {
@@ -1300,12 +1306,16 @@ func TestWebhookReloadsFileThatIsReplacedByAnother(t *testing.T) {
 		t.Fatalf("error writing to temporary file: %v", err)
 	}
 
+	// 获取随机可用端口
+	host, port := serverAddress(t)
+
 	gobin := "go"
 
-	cmd := exec.Command(gobin, "run", "../main.go", "-hooks", hooksFile.Name(), "-hotreload", "-verbose")
+	cmd := exec.Command(gobin, "run", ".", "-hooks", hooksFile.Name(), "-hotreload", "-verbose", "-port", port, "-ip", host)
 	if err = cmd.Start(); err != nil {
 		t.Fatalf("webhook should have started, but it didn't. reason: %v", err)
 	}
+	defer killAndWait(cmd)
 
 	time.Sleep(1 * time.Second)
 
@@ -1318,7 +1328,7 @@ func TestWebhookReloadsFileThatIsReplacedByAnother(t *testing.T) {
 
 	time.Sleep(1 * time.Second)
 
-	resp, err := http.Get("http://0.0.0.0:9000/hooks/b")
+	resp, err := http.Get(fmt.Sprintf("http://%s:%s/hooks/b", host, port))
 	if err != nil {
 		t.Errorf("error connecting to the hook: %v", err)
 	}

@@ -268,6 +268,9 @@ func main() {
 
 	r := router.InitRouter()
 
+	// 启用方法不允许处理
+	r.HandleMethodNotAllowed = true
+
 	// 设置gin中间件
 	if *debug {
 		// debug模式下使用详细的日志中间件
@@ -581,7 +584,13 @@ func ginHookHandler(c *gin.Context) {
 
 	// Check if a return code is configured for the hook
 	if matchedHook.TriggerRuleMismatchHttpResponseCode != 0 {
-		c.String(matchedHook.TriggerRuleMismatchHttpResponseCode, "Hook rules were not satisfied.")
+		// 验证HTTP状态码是否有效（100-599范围）
+		statusCode := matchedHook.TriggerRuleMismatchHttpResponseCode
+		if statusCode < 100 || statusCode > 599 {
+			// 无效的HTTP状态码，使用默认的200
+			statusCode = http.StatusOK
+		}
+		c.String(statusCode, "Hook rules were not satisfied.")
 	} else {
 		c.String(http.StatusOK, "Hook rules were not satisfied.")
 	}
@@ -683,12 +692,22 @@ func handleHook(h *hook.Hook, r *hook.Request) (string, error) {
 		Type:      "hook_triggered",
 		Timestamp: time.Now(),
 		Data: wsmanager.HookTriggeredMessage{
-			HookID:     h.ID,
-			HookName:   h.ID,
-			Method:     r.RawRequest.Method,
-			RemoteAddr: r.RawRequest.RemoteAddr,
-			Success:    err == nil,
-			Output:     string(out),
+			HookID:   h.ID,
+			HookName: h.ID,
+			Method: func() string {
+				if r.RawRequest != nil {
+					return r.RawRequest.Method
+				}
+				return ""
+			}(),
+			RemoteAddr: func() string {
+				if r.RawRequest != nil {
+					return r.RawRequest.RemoteAddr
+				}
+				return ""
+			}(),
+			Success: err == nil,
+			Output:  string(out),
 			Error: func() string {
 				if err != nil {
 					return err.Error()
