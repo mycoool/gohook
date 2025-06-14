@@ -21,7 +21,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/gin-gonic/gin"
-	"github.com/mycoool/gohook/internal/router"
+	"github.com/mycoool/gohook/router"
 	wsmanager "github.com/mycoool/gohook/websocket"
 )
 
@@ -51,7 +51,6 @@ var (
 	hooksFiles      hook.HooksFiles
 
 	loadedHooksFromFiles = make(map[string]hook.Hooks)
-	hookManager          *hook.HookManager
 
 	watcher *fsnotify.Watcher
 	signals chan os.Signal
@@ -63,8 +62,8 @@ var (
 )
 
 func matchLoadedHook(id string) *hook.Hook {
-	if hookManager != nil {
-		return hookManager.MatchLoadedHook(id)
+	if router.HookManager != nil {
+		return router.HookManager.MatchLoadedHook(id)
 	}
 
 	// 回退到原有逻辑
@@ -78,8 +77,8 @@ func matchLoadedHook(id string) *hook.Hook {
 }
 
 func lenLoadedHooks() int {
-	if hookManager != nil {
-		return hookManager.LenLoadedHooks()
+	if router.HookManager != nil {
+		return router.HookManager.LenLoadedHooks()
 	}
 
 	// 回退到原有逻辑
@@ -274,10 +273,13 @@ func main() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
-	// 初始化HookManager
-	hookManager = hook.NewHookManager(&loadedHooksFromFiles, hooksFiles, *asTemplate)
+	// 设置router对hooks数据的引用
+	router.LoadedHooksFromFiles = &loadedHooksFromFiles
 
-	r := router.SetupRouter(&loadedHooksFromFiles, hookManager)
+	// 初始化HookManager
+	router.HookManager = hook.NewHookManager(&loadedHooksFromFiles, hooksFiles, *asTemplate)
+
+	r := router.InitRouter()
 
 	// 启用方法不允许处理
 	r.HandleMethodNotAllowed = true
@@ -734,8 +736,8 @@ func handleHook(h *hook.Hook, r *hook.Request) (string, error) {
 }
 
 func reloadHooks(hooksFilePath string) {
-	if hookManager != nil {
-		if err := hookManager.ReloadHooks(hooksFilePath); err != nil {
+	if router.HookManager != nil {
+		if err := router.HookManager.ReloadHooks(hooksFilePath); err != nil {
 			log.Printf("failed to reload hooks from %s: %v", hooksFilePath, err)
 		}
 		return
@@ -780,8 +782,8 @@ func reloadHooks(hooksFilePath string) {
 }
 
 func ReloadAllHooks() {
-	if hookManager != nil {
-		if err := hookManager.ReloadAllHooks(); err != nil {
+	if router.HookManager != nil {
+		if err := router.HookManager.ReloadAllHooks(); err != nil {
 			log.Printf("failed to reload all hooks: %v", err)
 		}
 	} else {
@@ -793,8 +795,8 @@ func ReloadAllHooks() {
 }
 
 func removeHooks(hooksFilePath string) {
-	if hookManager != nil {
-		hookManager.RemoveHooks(hooksFilePath)
+	if router.HookManager != nil {
+		router.HookManager.RemoveHooks(hooksFilePath)
 
 		// 从hooksFiles列表中移除文件路径
 		newHooksFiles := hooksFiles[:0]
@@ -806,9 +808,9 @@ func removeHooks(hooksFilePath string) {
 		hooksFiles = newHooksFiles
 
 		// 更新HookManager中的文件列表
-		hookManager.HooksFiles = hooksFiles
+		router.HookManager.HooksFiles = hooksFiles
 
-		if !*verbose && !*noPanic && hookManager.GetHookCount() == 0 {
+		if !*verbose && !*noPanic && router.HookManager.GetHookCount() == 0 {
 			log.SetOutput(os.Stdout)
 			log.Fatalln("couldn't load any hooks from file!\naborting webhook execution since the -verbose flag is set to false.\nIf, for some reason, you want webhook to run without the hooks, either use -verbose flag, or -nopanic")
 		}
