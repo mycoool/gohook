@@ -19,9 +19,9 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/gorilla/websocket"
 	"github.com/mycoool/gohook/internal/hook"
+	"github.com/mycoool/gohook/internal/stream"
+	"github.com/mycoool/gohook/internal/ver"
 	"github.com/mycoool/gohook/ui"
-	"github.com/mycoool/gohook/version"
-	wsmanager "github.com/mycoool/gohook/websocket"
 	"gopkg.in/yaml.v2"
 )
 
@@ -227,9 +227,9 @@ type ProjectManageMessage struct {
 
 // 版本信息
 var vInfo = &ui.VersionInfo{
-	Version:   version.Version,
-	Commit:    version.Commit,
-	BuildDate: version.BuildDate,
+	Version:   ver.Version,
+	Commit:    ver.Commit,
+	BuildDate: ver.BuildDate,
 }
 
 // hashPassword 对密码进行哈希
@@ -930,16 +930,16 @@ func handleWebSocket(c *gin.Context) {
 	}
 	defer func() {
 		// 从管理器中移除连接
-		wsmanager.Global.RemoveClient(conn)
+		stream.Global.RemoveClient(conn)
 		conn.Close()
 	}()
 
 	// 将连接添加到全局管理器
-	wsmanager.Global.AddClient(conn)
-	log.Printf("WebSocket client connected, total clients: %d", wsmanager.Global.ClientCount())
+	stream.Global.AddClient(conn)
+	log.Printf("WebSocket client connected, total clients: %d", stream.Global.ClientCount())
 
 	// 发送连接成功消息
-	connectedMsg := wsmanager.Message{
+	connectedMsg := stream.Message{
 		Type:      "connected",
 		Timestamp: time.Now(),
 		Data:      map[string]string{"message": "WebSocket connected successfully"},
@@ -963,7 +963,7 @@ func handleWebSocket(c *gin.Context) {
 		if json.Unmarshal(message, &clientMsg) == nil {
 			if msgType, ok := clientMsg["type"].(string); ok && msgType == "ping" {
 				// 响应心跳
-				pongMsg := wsmanager.Message{
+				pongMsg := stream.Message{
 					Type:      "pong",
 					Timestamp: time.Now(),
 					Data:      map[string]string{"message": "pong"},
@@ -977,7 +977,7 @@ func handleWebSocket(c *gin.Context) {
 		}
 	}
 
-	log.Printf("WebSocket client disconnected, remaining clients: %d", wsmanager.Global.ClientCount())
+	log.Printf("WebSocket client disconnected, remaining clients: %d", stream.Global.ClientCount())
 }
 
 func InitRouter() *gin.Engine {
@@ -1369,10 +1369,10 @@ func InitRouter() *gin.Engine {
 			}
 
 			// 推送WebSocket消息
-			wsMessage := wsmanager.Message{
+			wsMessage := stream.Message{
 				Type:      "hook_triggered",
 				Timestamp: time.Now(),
-				Data: wsmanager.HookTriggeredMessage{
+				Data: stream.HookTriggeredMessage{
 					HookID:     hookID,
 					HookName:   hookResponse.Name,
 					Method:     c.Request.Method,
@@ -1382,7 +1382,7 @@ func InitRouter() *gin.Engine {
 					Error:      errorMsg,
 				},
 			}
-			wsmanager.Global.Broadcast(wsMessage)
+			stream.Global.Broadcast(wsMessage)
 
 			if success {
 				c.JSON(http.StatusOK, gin.H{
@@ -1556,10 +1556,10 @@ func InitRouter() *gin.Engine {
 			// 保存配置文件
 			if err := saveConfig(); err != nil {
 				// 推送失败消息
-				wsMessage := wsmanager.Message{
+				wsMessage := stream.Message{
 					Type:      "project_managed",
 					Timestamp: time.Now(),
-					Data: wsmanager.ProjectManageMessage{
+					Data: stream.ProjectManageMessage{
 						Action:      "add",
 						ProjectName: req.Name,
 						ProjectPath: req.Path,
@@ -1567,24 +1567,24 @@ func InitRouter() *gin.Engine {
 						Error:       "保存配置失败: " + err.Error(),
 					},
 				}
-				wsmanager.Global.Broadcast(wsMessage)
+				stream.Global.Broadcast(wsMessage)
 
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "保存配置失败: " + err.Error()})
 				return
 			}
 
 			// 推送成功消息
-			wsMessage := wsmanager.Message{
+			wsMessage := stream.Message{
 				Type:      "project_managed",
 				Timestamp: time.Now(),
-				Data: wsmanager.ProjectManageMessage{
+				Data: stream.ProjectManageMessage{
 					Action:      "add",
 					ProjectName: req.Name,
 					ProjectPath: req.Path,
 					Success:     true,
 				},
 			}
-			wsmanager.Global.Broadcast(wsMessage)
+			stream.Global.Broadcast(wsMessage)
 
 			c.JSON(http.StatusOK, gin.H{
 				"message": "项目添加成功",
@@ -1616,33 +1616,33 @@ func InitRouter() *gin.Engine {
 			// 保存配置文件
 			if err := saveConfig(); err != nil {
 				// 推送失败消息
-				wsMessage := wsmanager.Message{
+				wsMessage := stream.Message{
 					Type:      "project_managed",
 					Timestamp: time.Now(),
-					Data: wsmanager.ProjectManageMessage{
+					Data: stream.ProjectManageMessage{
 						Action:      "delete",
 						ProjectName: projectName,
 						Success:     false,
 						Error:       "保存配置失败: " + err.Error(),
 					},
 				}
-				wsmanager.Global.Broadcast(wsMessage)
+				stream.Global.Broadcast(wsMessage)
 
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "保存配置失败: " + err.Error()})
 				return
 			}
 
 			// 推送成功消息
-			wsMessage := wsmanager.Message{
+			wsMessage := stream.Message{
 				Type:      "project_managed",
 				Timestamp: time.Now(),
-				Data: wsmanager.ProjectManageMessage{
+				Data: stream.ProjectManageMessage{
 					Action:      "delete",
 					ProjectName: projectName,
 					Success:     true,
 				},
 			}
-			wsmanager.Global.Broadcast(wsMessage)
+			stream.Global.Broadcast(wsMessage)
 
 			c.JSON(http.StatusOK, gin.H{
 				"message": "项目删除成功",
@@ -1785,10 +1785,10 @@ func InitRouter() *gin.Engine {
 
 			if err := switchBranch(projectPath, req.Branch); err != nil {
 				// 推送失败消息
-				wsMessage := wsmanager.Message{
+				wsMessage := stream.Message{
 					Type:      "version_switched",
 					Timestamp: time.Now(),
-					Data: wsmanager.VersionSwitchMessage{
+					Data: stream.VersionSwitchMessage{
 						ProjectName: projectName,
 						Action:      "switch-branch",
 						Target:      req.Branch,
@@ -1796,24 +1796,24 @@ func InitRouter() *gin.Engine {
 						Error:       err.Error(),
 					},
 				}
-				wsmanager.Global.Broadcast(wsMessage)
+				stream.Global.Broadcast(wsMessage)
 
 				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 				return
 			}
 
 			// 推送成功消息
-			wsMessage := wsmanager.Message{
+			wsMessage := stream.Message{
 				Type:      "version_switched",
 				Timestamp: time.Now(),
-				Data: wsmanager.VersionSwitchMessage{
+				Data: stream.VersionSwitchMessage{
 					ProjectName: projectName,
 					Action:      "switch-branch",
 					Target:      req.Branch,
 					Success:     true,
 				},
 			}
-			wsmanager.Global.Broadcast(wsMessage)
+			stream.Global.Broadcast(wsMessage)
 
 			c.JSON(http.StatusOK, gin.H{"message": "分支切换成功", "branch": req.Branch})
 		})
@@ -1846,10 +1846,10 @@ func InitRouter() *gin.Engine {
 
 			if err := switchTag(projectPath, req.Tag); err != nil {
 				// 推送失败消息
-				wsMessage := wsmanager.Message{
+				wsMessage := stream.Message{
 					Type:      "version_switched",
 					Timestamp: time.Now(),
-					Data: wsmanager.VersionSwitchMessage{
+					Data: stream.VersionSwitchMessage{
 						ProjectName: projectName,
 						Action:      "switch-tag",
 						Target:      req.Tag,
@@ -1857,24 +1857,24 @@ func InitRouter() *gin.Engine {
 						Error:       err.Error(),
 					},
 				}
-				wsmanager.Global.Broadcast(wsMessage)
+				stream.Global.Broadcast(wsMessage)
 
 				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 				return
 			}
 
 			// 推送成功消息
-			wsMessage := wsmanager.Message{
+			wsMessage := stream.Message{
 				Type:      "version_switched",
 				Timestamp: time.Now(),
-				Data: wsmanager.VersionSwitchMessage{
+				Data: stream.VersionSwitchMessage{
 					ProjectName: projectName,
 					Action:      "switch-tag",
 					Target:      req.Tag,
 					Success:     true,
 				},
 			}
-			wsmanager.Global.Broadcast(wsMessage)
+			stream.Global.Broadcast(wsMessage)
 
 			c.JSON(http.StatusOK, gin.H{"message": "标签切换成功", "tag": req.Tag})
 		})
@@ -1900,10 +1900,10 @@ func InitRouter() *gin.Engine {
 
 			if err := deleteTag(projectPath, tagName); err != nil {
 				// 推送失败消息
-				wsMessage := wsmanager.Message{
+				wsMessage := stream.Message{
 					Type:      "version_switched",
 					Timestamp: time.Now(),
-					Data: wsmanager.VersionSwitchMessage{
+					Data: stream.VersionSwitchMessage{
 						ProjectName: projectName,
 						Action:      "delete-tag",
 						Target:      tagName,
@@ -1911,24 +1911,24 @@ func InitRouter() *gin.Engine {
 						Error:       err.Error(),
 					},
 				}
-				wsmanager.Global.Broadcast(wsMessage)
+				stream.Global.Broadcast(wsMessage)
 
 				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 				return
 			}
 
 			// 推送成功消息
-			wsMessage := wsmanager.Message{
+			wsMessage := stream.Message{
 				Type:      "version_switched",
 				Timestamp: time.Now(),
-				Data: wsmanager.VersionSwitchMessage{
+				Data: stream.VersionSwitchMessage{
 					ProjectName: projectName,
 					Action:      "delete-tag",
 					Target:      tagName,
 					Success:     true,
 				},
 			}
-			wsmanager.Global.Broadcast(wsMessage)
+			stream.Global.Broadcast(wsMessage)
 
 			c.JSON(http.StatusOK, gin.H{"message": "标签删除成功"})
 		})

@@ -17,12 +17,12 @@ import (
 
 	"github.com/mycoool/gohook/internal/hook"
 	"github.com/mycoool/gohook/internal/pidfile"
-	v "github.com/mycoool/gohook/version"
+	"github.com/mycoool/gohook/internal/ver"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/gin-gonic/gin"
-	"github.com/mycoool/gohook/router"
-	wsmanager "github.com/mycoool/gohook/websocket"
+	"github.com/mycoool/gohook/internal/router"
+	"github.com/mycoool/gohook/internal/stream"
 )
 
 var (
@@ -100,7 +100,7 @@ func main() {
 	flag.Parse()
 
 	if *justDisplayVersion {
-		fmt.Println("webhook version " + v.Version)
+		fmt.Println("webhook version " + ver.Version)
 		os.Exit(0)
 	}
 
@@ -199,7 +199,7 @@ func main() {
 		}()
 	}
 
-	log.Println("version " + v.Version + " starting")
+	log.Println("version " + ver.Version + " starting")
 
 	// set os signal watcher
 	setupSignals()
@@ -701,10 +701,10 @@ func handleHook(h *hook.Hook, r *hook.Request) (string, error) {
 	log.Printf("[%s] finished handling %s\n", r.ID, h.ID)
 
 	// 推送WebSocket消息通知hook执行完成
-	wsMessage := wsmanager.Message{
+	wsMessage := stream.Message{
 		Type:      "hook_triggered",
 		Timestamp: time.Now(),
-		Data: wsmanager.HookTriggeredMessage{
+		Data: stream.HookTriggeredMessage{
 			HookID:   h.ID,
 			HookName: h.ID,
 			Method: func() string {
@@ -730,7 +730,7 @@ func handleHook(h *hook.Hook, r *hook.Request) (string, error) {
 			}(),
 		},
 	}
-	wsmanager.Global.Broadcast(wsMessage)
+	stream.Global.Broadcast(wsMessage)
 
 	return string(out), err
 }
