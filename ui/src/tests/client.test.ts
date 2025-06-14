@@ -1,18 +1,18 @@
 import {Page} from 'puppeteer';
-import {newTest, GotifyTest} from './setup';
+import {newTest, GoHookTest} from './setup';
 import {count, innerText, waitForExists, waitToDisappear, clearField} from './utils';
 import * as auth from './authentication';
 
 import * as selector from './selector';
 
 let page: Page;
-let gotify: GotifyTest;
+let gohook: GoHookTest;
 beforeAll(async () => {
-    gotify = await newTest();
-    page = gotify.page;
+    gohook = await newTest();
+    page = gohook.page;
 });
 
-afterAll(async () => await gotify.close());
+afterAll(async () => await gohook.close());
 
 enum Col {
     Name = 1,

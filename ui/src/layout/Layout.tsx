@@ -1,4 +1,4 @@
-import {createMuiTheme, MuiThemeProvider, Theme, WithStyles, withStyles} from '@material-ui/core';
+import {createTheme, ThemeProvider, Theme, WithStyles, withStyles} from '@material-ui/core';
 import CssBaseline from '@material-ui/core/CssBaseline';
 import * as React from 'react';
 import {HashRouter, Redirect, Route, Switch} from 'react-router-dom';
@@ -37,15 +37,15 @@ const styles = (theme: Theme) => ({
     },
 });
 
-const localStorageThemeKey = 'gotify-theme';
+const localStorageThemeKey = 'gohook-theme';
 type ThemeKey = 'dark' | 'light';
 const themeMap: Record<ThemeKey, Theme> = {
-    light: createMuiTheme({
+    light: createTheme({
         palette: {
             type: 'light',
         },
     }),
-    dark: createMuiTheme({
+    dark: createTheme({
         palette: {
             type: 'dark',
         },
@@ -96,7 +96,7 @@ class Layout extends React.Component<
         const loginRoute = () => (loggedIn ? <Redirect to="/" /> : <Login />);
         const versionInfo = config.get('version');
         return (
-            <MuiThemeProvider theme={theme}>
+            <ThemeProvider theme={theme}>
                 <HashRouter>
                     <div>
                         {!connectionErrorMessage ? null : (
@@ -177,7 +177,7 @@ class Layout extends React.Component<
                         </div>
                     </div>
                 </HashRouter>
-            </MuiThemeProvider>
+            </ThemeProvider>
         );
     }
 

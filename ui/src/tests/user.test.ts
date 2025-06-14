@@ -1,17 +1,17 @@
 import {Page} from 'puppeteer';
-import {newTest, GotifyTest} from './setup';
+import {newTest, GoHookTest} from './setup';
 import {clearField, count, innerText, waitForExists, waitToDisappear} from './utils';
 import * as auth from './authentication';
 import * as selector from './selector';
 
 let page: Page;
-let gotify: GotifyTest;
+let gohook: GoHookTest;
 beforeAll(async () => {
-    gotify = await newTest();
-    page = gotify.page;
+    gohook = await newTest();
+    page = gohook.page;
 });
 
-afterAll(async () => await gotify.close());
+afterAll(async () => await gohook.close());
 
 enum Col {
     Name = 1,
@@ -25,7 +25,7 @@ const $dialog = selector.form('#add-edit-user-dialog');
 describe('User', () => {
     it('does login', async () => await auth.login(page));
     it('navigates to users through window location', async () => {
-        await page.goto(gotify.url + '/#/users');
+        await page.goto(gohook.url + '/#/users');
         await waitForExists(page, selector.heading(), 'Users');
     });
     it('has changed url', async () => {

@@ -4,23 +4,23 @@ import axios from 'axios';
 
 import * as auth from './authentication';
 import * as selector from './selector';
-import {GotifyTest, newTest, newPluginDir} from './setup';
+import {GoHookTest, newTest, newPluginDir} from './setup';
 import {innerText, waitForCount, waitForExists} from './utils';
 
 const pluginSupported = ['linux', 'darwin'].indexOf(os.platform()) !== -1;
 
 let page: Page;
-let gotify: GotifyTest;
+let gohook: GoHookTest;
 
 beforeAll(async () => {
-    const gotifyPluginDir = pluginSupported
-        ? await newPluginDir(['github.com/gotify/server/v2/plugin/example/echo'])
+    const gohookPluginDir = pluginSupported
+        ? await newPluginDir(['github.com/mycoool/gohook/internal/hook/example/echo'])
         : '';
-    gotify = await newTest(gotifyPluginDir);
-    page = gotify.page;
+    gohook = await newTest(gohookPluginDir);
+    page = gohook.page;
 });
 
-afterAll(async () => await gotify.close());
+afterAll(async () => await gohook.close());
 
 enum Col {
     ID = 1,
@@ -115,7 +115,7 @@ describe('plugin', () => {
             it('has plugin info', async () => {
                 await inDetailPage(1, async () => {
                     expect(await pluginInfo('module-path')).toBe(
-                        'github.com/gotify/server/v2/plugin/example/echo'
+                        'github.com/mycoool/gohook/internal/hook/example/echo'
                     );
                 });
             });

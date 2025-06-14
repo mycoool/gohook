@@ -8,7 +8,7 @@ import fs from 'fs';
 import wait from 'wait-on';
 import kill from 'tree-kill';
 
-export interface GotifyTest {
+export interface GoHookTest {
     url: string;
     close: () => Promise<void>;
     browser: Browser;
@@ -27,34 +27,34 @@ export const newPluginDir = async (plugins: string[]): Promise<string> => {
     return dir;
 };
 
-export const newTest = async (pluginsDir = ''): Promise<GotifyTest> => {
+export const newTest = async (pluginsDir = ''): Promise<GoHookTest> => {
     const port = await getPort();
 
-    const gotifyFile = testFilePath();
+    const gohookFile = testFilePath();
 
-    await buildGoExecutable(gotifyFile);
+    await buildGoExecutable(gohookFile);
 
-    const gotifyInstance = startGotify(gotifyFile, port, pluginsDir);
+    const gohookInstance = startGoHook(gohookFile, port, pluginsDir);
 
-    const gotifyURL = 'http://localhost:' + port;
-    await waitForGotify('http-get://localhost:' + port);
+    const gohookURL = 'http://localhost:' + port;
+    await waitForGoHook('http-get://localhost:' + port);
     const browser = await puppeteer.launch({
         headless: process.env.CI === 'true',
         args: [`--window-size=1920,1080`, '--no-sandbox'],
     });
     const page = await browser.newPage();
     await page.setViewport({width: 1920, height: 1080});
-    await page.goto(gotifyURL);
+    await page.goto(gohookURL);
 
     return {
         close: async () => {
             await Promise.all([
                 browser.close(),
-                new Promise((resolve) => kill(gotifyInstance.pid!, 'SIGKILL', () => resolve())),
+                new Promise((resolve) => kill(gohookInstance.pid!, 'SIGKILL', () => resolve())),
             ]);
-            rimraf.sync(gotifyFile, {maxBusyTries: 8});
+            rimraf.sync(gohookFile, {maxBusyTries: 8});
         },
-        url: gotifyURL,
+        url: gohookURL,
         browser,
         page,
     };
@@ -62,7 +62,7 @@ export const newTest = async (pluginsDir = ''): Promise<GotifyTest> => {
 
 const testPluginDir = (): {dir: string; generator: () => string} => {
     const random = Math.random().toString(36).substring(2, 15);
-    const dirName = 'gotifyplugin_' + random;
+    const dirName = 'gohookplugin_' + random;
     const dir = path.join(testBuildPath, dirName);
     if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, {recursive: true, mode: 0o755});
@@ -78,11 +78,11 @@ const testPluginDir = (): {dir: string; generator: () => string} => {
 
 const testFilePath = (): string => {
     const random = Math.random().toString(36).substring(2, 15);
-    const filename = 'gotifytest_' + random + windowsPrefix;
+    const filename = 'gohooktest_' + random + windowsPrefix;
     return path.join(testBuildPath, filename);
 };
 
-const waitForGotify = (url: string): Promise<void> =>
+const waitForGoHook = (url: string): Promise<void> =>
     new Promise((resolve, err) => {
         wait({resources: [url], timeout: 40000}, (error: string) => {
             if (error) {
@@ -102,16 +102,16 @@ const buildGoPlugin = (filename: string, pluginPath: string): Promise<void> => {
 };
 
 const buildGoExecutable = (filename: string): Promise<void> => {
-    const envGotify = process.env.GOTIFY_EXE;
-    if (envGotify) {
+    const envGoHook = process.env.GOHOOK_EXE;
+    if (envGoHook) {
         if (!fs.existsSync(testBuildPath)) {
             fs.mkdirSync(testBuildPath, {recursive: true});
         }
-        fs.copyFileSync(envGotify, filename);
-        process.stdout.write(`### Copying ${envGotify} to ${filename}\n`);
+        fs.copyFileSync(envGoHook, filename);
+        process.stdout.write(`### Copying ${envGoHook} to ${filename}\n`);
         return Promise.resolve();
     } else {
-        process.stdout.write(`### Building Gotify ${filename}\n`);
+        process.stdout.write(`### Building GoHook ${filename}\n`);
         return new Promise((resolve) =>
             exec(`go build -ldflags="-X main.Mode=prod" -o ${filename} ${appDotGo}`, () =>
                 resolve()
@@ -120,17 +120,17 @@ const buildGoExecutable = (filename: string): Promise<void> => {
     }
 };
 
-const startGotify = (filename: string, port: number, pluginDir: string): ChildProcess => {
-    const gotify = spawn(filename, [], {
+const startGoHook = (filename: string, port: number, pluginDir: string): ChildProcess => {
+    const gohook = spawn(filename, [], {
         env: {
-            GOTIFY_SERVER_PORT: '' + port,
-            GOTIFY_DATABASE_CONNECTION: 'file::memory:?mode=memory&cache=shared',
-            GOTIFY_PLUGINSDIR: pluginDir,
+            GOHOOK_SERVER_PORT: '' + port,
+            GOHOOK_DATABASE_CONNECTION: 'file::memory:?mode=memory&cache=shared',
+            GOHOOK_PLUGINSDIR: pluginDir,
             NODE_ENV: process.env.NODE_ENV,
             PUBLIC_URL: process.env.PUBLIC_URL,
         },
     });
-    gotify.stdout.pipe(process.stdout);
-    gotify.stderr.pipe(process.stderr);
-    return gotify;
+    gohook.stdout.pipe(process.stdout);
+    gohook.stderr.pipe(process.stderr);
+    return gohook;
 };
