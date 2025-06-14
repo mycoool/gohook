@@ -114,9 +114,37 @@ export class WebSocketStore {
             case 'version_switched': {
                 const versionMsg = message.data as IVersionSwitchMessage;
                 if (versionMsg.success) {
-                    this.snack(`项目 "${versionMsg.projectName}" ${versionMsg.action === 'switch-branch' ? '分支' : '标签'}切换成功: ${versionMsg.target}`);
+                    let actionText = '';
+                    switch (versionMsg.action) {
+                        case 'switch-branch':
+                            actionText = '分支切换';
+                            break;
+                        case 'switch-tag':
+                            actionText = '标签切换';
+                            break;
+                        case 'delete-tag':
+                            actionText = '标签删除';
+                            break;
+                        default:
+                            actionText = versionMsg.action;
+                    }
+                    this.snack(`项目 "${versionMsg.projectName}" ${actionText}成功: ${versionMsg.target}`);
                 } else {
-                    this.snack(`项目 "${versionMsg.projectName}" ${versionMsg.action === 'switch-branch' ? '分支' : '标签'}切换失败: ${versionMsg.error ?? '未知错误'}`);
+                    let actionText = '';
+                    switch (versionMsg.action) {
+                        case 'switch-branch':
+                            actionText = '分支切换';
+                            break;
+                        case 'switch-tag':
+                            actionText = '标签切换';
+                            break;
+                        case 'delete-tag':
+                            actionText = '标签删除';
+                            break;
+                        default:
+                            actionText = versionMsg.action;
+                    }
+                    this.snack(`项目 "${versionMsg.projectName}" ${actionText}失败: ${versionMsg.error ?? '未知错误'}`);
                 }
                 break;
             }

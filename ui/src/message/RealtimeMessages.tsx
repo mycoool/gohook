@@ -127,10 +127,25 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
             }
             case 'version_switched': {
                 const versionMsg = message.data as IVersionSwitchMessage;
+                let actionText = '';
+                switch (versionMsg.action) {
+                    case 'switch-branch':
+                        actionText = '分支切换';
+                        break;
+                    case 'switch-tag':
+                        actionText = '标签切换';
+                        break;
+                    case 'delete-tag':
+                        actionText = '标签删除';
+                        break;
+                    default:
+                        actionText = versionMsg.action;
+                }
+                
                 if (versionMsg.success) {
-                    return `${versionMsg.action === 'switch-branch' ? '分支' : '标签'}切换成功: ${versionMsg.target}`;
+                    return `${actionText}成功: ${versionMsg.target}`;
                 } else {
-                    return `${versionMsg.action === 'switch-branch' ? '分支' : '标签'}切换失败: ${versionMsg.error ?? '未知错误'}`;
+                    return `${actionText}失败: ${versionMsg.error ?? '未知错误'}`;
                 }
             }
             case 'project_managed': {

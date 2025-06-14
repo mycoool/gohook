@@ -120,7 +120,7 @@ export interface IHookTriggeredMessage {
 // 版本切换消息
 export interface IVersionSwitchMessage {
     projectName: string;
-    action: 'switch-branch' | 'switch-tag';
+    action: 'switch-branch' | 'switch-tag' | 'delete-tag';
     target: string;
     success: boolean;
     error?: string;

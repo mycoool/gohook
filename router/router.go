@@ -929,13 +929,32 @@ func handleWebSocket(c *gin.Context) {
 		return
 	}
 	defer func() {
+		// 从管理器中移除连接
+		wsmanager.Global.RemoveClient(conn)
 		conn.Close()
 	}()
+
+	// 将连接添加到全局管理器
+	wsmanager.Global.AddClient(conn)
+	log.Printf("WebSocket client connected, total clients: %d", wsmanager.Global.ClientCount())
+
+	// 发送连接成功消息
+	connectedMsg := wsmanager.Message{
+		Type:      "connected",
+		Timestamp: time.Now(),
+		Data:      map[string]string{"message": "WebSocket connected successfully"},
+	}
+	connectedData, _ := json.Marshal(connectedMsg)
+	if err := conn.WriteMessage(websocket.TextMessage, connectedData); err != nil {
+		log.Printf("Error writing connected message: %v", err)
+		return
+	}
 
 	// 保持连接，处理心跳
 	for {
 		_, message, err := conn.ReadMessage()
 		if err != nil {
+			log.Printf("WebSocket read error: %v", err)
 			break
 		}
 
@@ -957,6 +976,8 @@ func handleWebSocket(c *gin.Context) {
 			}
 		}
 	}
+
+	log.Printf("WebSocket client disconnected, remaining clients: %d", wsmanager.Global.ClientCount())
 }
 
 func InitRouter() *gin.Engine {
@@ -1878,9 +1899,36 @@ func InitRouter() *gin.Engine {
 			}
 
 			if err := deleteTag(projectPath, tagName); err != nil {
+				// 推送失败消息
+				wsMessage := wsmanager.Message{
+					Type:      "version_switched",
+					Timestamp: time.Now(),
+					Data: wsmanager.VersionSwitchMessage{
+						ProjectName: projectName,
+						Action:      "delete-tag",
+						Target:      tagName,
+						Success:     false,
+						Error:       err.Error(),
+					},
+				}
+				wsmanager.Global.Broadcast(wsMessage)
+
 				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 				return
 			}
+
+			// 推送成功消息
+			wsMessage := wsmanager.Message{
+				Type:      "version_switched",
+				Timestamp: time.Now(),
+				Data: wsmanager.VersionSwitchMessage{
+					ProjectName: projectName,
+					Action:      "delete-tag",
+					Target:      tagName,
+					Success:     true,
+				},
+			}
+			wsmanager.Global.Broadcast(wsMessage)
 
 			c.JSON(http.StatusOK, gin.H{"message": "标签删除成功"})
 		})
