@@ -1,10 +1,23 @@
-[webhook] 2025/06/08 21:28:01 version 2.8.2 starting
-[webhook] 2025/06/08 21:28:01 setting up os signal watcher
-[webhook] 2025/06/08 21:28:01 attempting to load hooks from hooks.json
-[webhook] 2025/06/08 21:28:01 os signal watcher ready
-[webhook] 2025/06/08 21:28:01 found 1 hook(s) in file
-[webhook] 2025/06/08 21:28:01 	loaded: test
-[webhook] 2025/06/08 21:28:01 serving hooks on http://0.0.0.0:8080/hooks/{id}
-[GIN] 2025/06/08 - 21:28:14 | 200 |      29.425µs |             ::1 | GET      "/"
-[GIN] 2025/06/08 - 21:28:20 | 200 |       17.05µs |             ::1 | GET      "/ping"
-[webhook] 2025/06/08 21:28:40 caught terminated signal; exiting
+nohup: ignoring input
+[webhook] 2025/06/14 16:17:03 version 0.1.5 starting
+[webhook] 2025/06/14 16:17:03 setting up os signal watcher
+[webhook] 2025/06/14 16:17:03 attempting to load hooks from hooks.json
+[webhook] 2025/06/14 16:17:03 os signal watcher ready
+[webhook] 2025/06/14 16:17:03 found 2 hook(s) in file
+[webhook] 2025/06/14 16:17:03 	loaded: test
+[webhook] 2025/06/14 16:17:03 	loaded: test2
+[webhook] 2025/06/14 16:17:03 serving hooks on http://0.0.0.0:9000/hooks/{id}
+[GIN] 200 |   16.452884ms | ::1 | GET /current/user
+[GIN] 2025/06/14 - 16:17:08 | 200 |     16.4901ms |             ::1 | GET      "/current/user"
+[GIN] 200 |     154.091µs | ::1 | GET /stream?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImFkbWluIiwicm9sZSI6ImFkbWluIiwiZXhwIjoxNzQ5OTcwOTY4LCJpYXQiOjE3NDk4ODQ1Njh9.Cwv7UEqjk7-RliaPMvKxGqwxQB2Su7fgy56gWS_Jqhk
+[GIN] 2025/06/14 - 16:17:08 | 200 |         220µs |             ::1 | GET      "/stream?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImFkbWluIiwicm9sZSI6ImFkbWluIiwiZXhwIjoxNzQ5OTcwOTY4LCJpYXQiOjE3NDk4ODQ1Njh9.Cwv7UEqjk7-RliaPMvKxGqwxQB2Su7fgy56gWS_Jqhk"
+[GIN] 200 |      81.858µs | ::1 | GET /current/user
+[GIN] 2025/06/14 - 16:17:08 | 200 |     131.084µs |             ::1 | GET      "/current/user"
+[GIN] 200 |     193.233µs | ::1 | GET /stream?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImFkbWluIiwicm9sZSI6ImFkbWluIiwiZXhwIjoxNzQ5OTcwOTY4LCJpYXQiOjE3NDk4ODQ1Njh9.Cwv7UEqjk7-RliaPMvKxGqwxQB2Su7fgy56gWS_Jqhk
+[GIN] 2025/06/14 - 16:17:39 | 200 |     257.125µs |             ::1 | GET      "/stream?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImFkbWluIiwicm9sZSI6ImFkbWluIiwiZXhwIjoxNzQ5OTcwOTY4LCJpYXQiOjE3NDk4ODQ1Njh9.Cwv7UEqjk7-RliaPMvKxGqwxQB2Su7fgy56gWS_Jqhk"
+[GIN] 200 |      85.342µs | ::1 | GET /current/user
+[GIN] 2025/06/14 - 16:17:39 | 200 |     127.508µs |             ::1 | GET      "/current/user"
+[GIN] 200 |      92.675µs | ::1 | GET /stream?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImFkbWluIiwicm9sZSI6ImFkbWluIiwiZXhwIjoxNzQ5OTcwOTY4LCJpYXQiOjE3NDk4ODQ1Njh9.Cwv7UEqjk7-RliaPMvKxGqwxQB2Su7fgy56gWS_Jqhk
+[GIN] 2025/06/14 - 16:18:11 | 200 |     131.083µs |             ::1 | GET      "/stream?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImFkbWluIiwicm9sZSI6ImFkbWluIiwiZXhwIjoxNzQ5OTcwOTY4LCJpYXQiOjE3NDk4ODQ1Njh9.Cwv7UEqjk7-RliaPMvKxGqwxQB2Su7fgy56gWS_Jqhk"
+[GIN] 200 |      92.217µs | ::1 | GET /current/user
+[GIN] 2025/06/14 - 16:18:11 | 200 |     130.075µs |             ::1 | GET      "/current/user"
