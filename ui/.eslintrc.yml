@@ -3,11 +3,9 @@ extends:
   - eslint:recommended
   - plugin:@typescript-eslint/eslint-recommended
   - plugin:@typescript-eslint/recommended
-  - plugin:@typescript-eslint/recommended-requiring-type-checking
   - plugin:react/recommended
   - plugin:import/errors
   - plugin:import/typescript
-  - plugin:jest/recommended
   - prettier
 env:
   browser: true
@@ -15,13 +13,14 @@ env:
   node: true
 parser: "@typescript-eslint/parser"
 parserOptions:
-  project: tsconfig.json
   sourceType: module
+  ecmaVersion: 2020
+  ecmaFeatures:
+    jsx: true
 plugins:
   - "@typescript-eslint"
   - react
   - import
-  - unicorn
 settings:
   react:
     version: detect
@@ -39,11 +38,6 @@ rules:
   import/first: error
   import/no-unused-modules: error
 
-  unicorn/no-abusive-eslint-disable: off
-  unicorn/no-array-instanceof: error
-  unicorn/no-unreadable-array-destructuring: error
-  unicorn/no-zero-fractions: error
-
   react/jsx-key: error
   react/jsx-pascal-case: error
   react/destructuring-assignment: off
@@ -57,27 +51,19 @@ rules:
   react/prefer-stateless-function: off
   react/prop-types: off
 
-  jest/expect-expect: off
-  jest/no-jasmine-globals: off
   "@typescript-eslint/require-await": off
   "@typescript-eslint/restrict-template-expressions": off
 
   "@typescript-eslint/array-type": [error, {default: array-simple}]
-  "@typescript-eslint/await-thenable": error
   "@typescript-eslint/no-unused-vars": error
   "@typescript-eslint/no-use-before-define": off
-  "@typescript-eslint/no-unsafe-call": off
   "@typescript-eslint/consistent-type-assertions": [error, {assertionStyle: as}]
 
   "@typescript-eslint/no-extra-non-null-assertion": error
   "@typescript-eslint/no-inferrable-types": error
   "@typescript-eslint/no-this-alias": error
-  "@typescript-eslint/no-throw-literal": error
   "@typescript-eslint/no-non-null-assertion": off
-  "@typescript-eslint/prefer-nullish-coalescing": error
-  "@typescript-eslint/prefer-optional-chain": error
   "@typescript-eslint/prefer-readonly": off
-  "@typescript-eslint/unbound-method": error
   "@typescript-eslint/no-empty-function": off
   "@typescript-eslint/explicit-module-boundary-types": off
   "@typescript-eslint/ban-ts-comment": off

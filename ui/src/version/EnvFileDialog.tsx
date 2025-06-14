@@ -13,7 +13,7 @@ import {
 } from '@material-ui/core';
 import { makeStyles, useTheme } from '@material-ui/core/styles';
 import { Save, Delete, FileCopy } from '@material-ui/icons';
-import MonacoEditor from 'react-monaco-editor';
+import LazyMonacoEditor from '../common/LazyMonacoEditor';
 
 const useStyles = makeStyles((theme) => ({
     content: {
@@ -317,7 +317,7 @@ DEBUG=true`;
                         )}
                         
                         <Paper className={classes.editorContainer} variant="outlined">
-                            <MonacoEditor
+                            <LazyMonacoEditor
                                 width="100%"
                                 height="100%"
                                 language="properties"

@@ -50,7 +50,7 @@ export const newTest = async (pluginsDir = ''): Promise<GoHookTest> => {
         close: async () => {
             await Promise.all([
                 browser.close(),
-                new Promise((resolve) => kill(gohookInstance.pid!, 'SIGKILL', () => resolve())),
+                new Promise<void>((resolve) => kill(gohookInstance.pid!, 'SIGKILL', () => resolve())),
             ]);
             rimraf.sync(gohookFile, {maxBusyTries: 8});
         },
