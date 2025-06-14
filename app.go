@@ -68,6 +68,39 @@ var vInfo = &ui.VersionInfo{
 	BuildDate: BuildDate,
 }
 
+// isStaticFileRequest 判断是否为静态文件请求
+func isStaticFileRequest(path string) bool {
+	// 过滤静态文件路径
+	staticPaths := []string{
+		"/static/",
+		"/manifest.json",
+		"/asset-manifest.json",
+		"/index.html",
+		"/favicon.ico",
+		"/", // 根路径也是静态文件（前端页面）
+	}
+
+	for _, staticPath := range staticPaths {
+		if strings.HasPrefix(path, staticPath) || path == staticPath {
+			return true
+		}
+	}
+
+	// 过滤常见的静态文件扩展名
+	staticExtensions := []string{
+		".css", ".js", ".png", ".jpg", ".jpeg", ".gif", ".ico", ".svg",
+		".woff", ".woff2", ".ttf", ".eot", ".map",
+	}
+
+	for _, ext := range staticExtensions {
+		if strings.HasSuffix(path, ext) {
+			return true
+		}
+	}
+
+	return false
+}
+
 func matchLoadedHook(id string) *hook.Hook {
 	if router.HookManager != nil {
 		return router.HookManager.MatchLoadedHook(id)
@@ -298,6 +331,10 @@ func main() {
 	if *debug {
 		// debug模式下使用详细的日志中间件
 		r.Use(gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
+			// 过滤静态文件请求的日志
+			if isStaticFileRequest(param.Path) {
+				return ""
+			}
 			return fmt.Sprintf("[GIN] %v | %3d | %13v | %15s | %-7s %#v\n",
 				param.TimeStamp.Format("2006/01/02 - 15:04:05"),
 				param.StatusCode,
@@ -310,6 +347,10 @@ func main() {
 	} else {
 		// 生产模式下使用简洁的日志
 		r.Use(gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
+			// 过滤静态文件请求的日志
+			if isStaticFileRequest(param.Path) {
+				return ""
+			}
 			return fmt.Sprintf("[GIN] %3d | %13v | %s | %s %s\n",
 				param.StatusCode,
 				param.Latency,
@@ -319,8 +360,6 @@ func main() {
 			)
 		}))
 	}
-
-	r.Use(gin.Recovery())
 
 	// Clean up input
 	*httpMethods = strings.ToUpper(strings.ReplaceAll(*httpMethods, " ", ""))
