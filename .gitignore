@@ -5,6 +5,7 @@ coverage
 /test/hookecho
 build
 hooks.json
+.env
 
 # Logs
 logs
