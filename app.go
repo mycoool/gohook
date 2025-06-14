@@ -737,7 +737,9 @@ func handleHook(h *hook.Hook, r *hook.Request) (string, error) {
 
 func reloadHooks(hooksFilePath string) {
 	if router.HookManager != nil {
-		router.HookManager.ReloadHooks(hooksFilePath)
+		if err := router.HookManager.ReloadHooks(hooksFilePath); err != nil {
+			log.Printf("failed to reload hooks from %s: %v", hooksFilePath, err)
+		}
 		return
 	}
 
@@ -781,7 +783,9 @@ func reloadHooks(hooksFilePath string) {
 
 func ReloadAllHooks() {
 	if router.HookManager != nil {
-		router.HookManager.ReloadAllHooks()
+		if err := router.HookManager.ReloadAllHooks(); err != nil {
+			log.Printf("failed to reload all hooks: %v", err)
+		}
 	} else {
 		// 回退到原有逻辑
 		for _, hooksFilePath := range hooksFiles {
