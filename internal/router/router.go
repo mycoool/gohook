@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -1630,6 +1631,23 @@ func InitRouter() *gin.Engine {
 		versionAPI.GET("/:name/tags", func(c *gin.Context) {
 			projectName := c.Param("name")
 
+			// 获取筛选参数
+			filter := c.Query("filter")
+
+			// 获取分页参数
+			page := 1
+			limit := 20
+			if pageStr := c.Query("page"); pageStr != "" {
+				if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+					page = p
+				}
+			}
+			if limitStr := c.Query("limit"); limitStr != "" {
+				if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 100 {
+					limit = l
+				}
+			}
+
 			// 查找项目路径
 			var projectPath string
 			for _, proj := range configData.Projects {
@@ -1644,13 +1662,58 @@ func InitRouter() *gin.Engine {
 				return
 			}
 
-			tags, err := getTags(projectPath)
+			allTags, err := getTags(projectPath)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 				return
 			}
 
-			c.JSON(http.StatusOK, tags)
+			// 如果有筛选条件，进行筛选
+			var filteredTags []TagResponse
+			if filter != "" {
+				for _, tag := range allTags {
+					if strings.HasPrefix(tag.Name, filter) {
+						filteredTags = append(filteredTags, tag)
+					}
+				}
+			} else {
+				filteredTags = allTags
+			}
+
+			// 计算分页
+			total := len(filteredTags)
+			totalPages := (total + limit - 1) / limit
+			start := (page - 1) * limit
+			end := start + limit
+
+			if start >= total {
+				// 超出范围，返回空数组
+				c.JSON(http.StatusOK, gin.H{
+					"tags":       []TagResponse{},
+					"total":      total,
+					"page":       page,
+					"limit":      limit,
+					"totalPages": totalPages,
+					"hasMore":    false,
+				})
+				return
+			}
+
+			if end > total {
+				end = total
+			}
+
+			paginatedTags := filteredTags[start:end]
+			hasMore := page < totalPages
+
+			c.JSON(http.StatusOK, gin.H{
+				"tags":       paginatedTags,
+				"total":      total,
+				"page":       page,
+				"limit":      limit,
+				"totalPages": totalPages,
+				"hasMore":    hasMore,
+			})
 		})
 
 		// 同步分支

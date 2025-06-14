@@ -2,7 +2,7 @@ import axios from 'axios';
 import * as config from '../config';
 import {action, observable} from 'mobx';
 import {SnackReporter} from '../snack/SnackManager';
-import {IVersion, IBranch, ITag} from '../types';
+import {IVersion, IBranch, ITag, ITagsResponse} from '../types';
 
 export class VersionStore {
     @observable
@@ -13,6 +13,18 @@ export class VersionStore {
 
     @observable
     protected tags: ITag[] = [];
+
+    @observable
+    protected tagsTotal = 0;
+
+    @observable
+    protected tagsPage = 1;
+
+    @observable
+    protected tagsHasMore = false;
+
+    @observable
+    protected tagsLoading = false;
 
     @observable
     protected currentProject: string | null = null;
@@ -33,10 +45,15 @@ export class VersionStore {
             })
             .then((response) => response.data);
 
-    protected requestTags = (projectName: string): Promise<ITag[]> =>
+    protected requestTags = (projectName: string, filter?: string, page = 1): Promise<ITagsResponse> =>
         axios
-            .get<ITag[]>(`${config.get('url')}version/${projectName}/tags`, {
-                headers: {'X-GoHook-Key': this.tokenProvider()}
+            .get<ITagsResponse>(`${config.get('url')}version/${projectName}/tags`, {
+                headers: {'X-GoHook-Key': this.tokenProvider()},
+                params: { 
+                    page: page.toString(),
+                    limit: '20',
+                    ...(filter ? { filter } : {})
+                }
             })
             .then((response) => response.data);
 
@@ -234,9 +251,47 @@ export class VersionStore {
     };
 
     @action
-    public refreshTags = async (projectName: string): Promise<void> => {
+    public refreshTags = async (projectName: string, filter?: string): Promise<void> => {
         this.currentProject = projectName;
-        this.tags = await this.requestTags(projectName).then((tags) => tags || []);
+        this.tagsLoading = true;
+        this.tagsPage = 1;
+        
+        try {
+            const response = await this.requestTags(projectName, filter, 1);
+            this.tags = response.tags || [];
+            this.tagsTotal = response.total;
+            this.tagsPage = response.page;
+            this.tagsHasMore = response.hasMore;
+        } catch (error) {
+            this.tags = [];
+            this.tagsTotal = 0;
+            this.tagsHasMore = false;
+        } finally {
+            this.tagsLoading = false;
+        }
+    };
+
+    @action
+    public loadMoreTags = async (projectName: string, filter?: string): Promise<void> => {
+        if (this.tagsLoading || !this.tagsHasMore) {
+            return;
+        }
+
+        this.tagsLoading = true;
+        const nextPage = this.tagsPage + 1;
+
+        try {
+            const response = await this.requestTags(projectName, filter, nextPage);
+            this.tags = [...this.tags, ...(response.tags || [])];
+            this.tagsTotal = response.total;
+            this.tagsPage = response.page;
+            this.tagsHasMore = response.hasMore;
+        } catch (error) {
+            // 加载失败时不更新状态
+            console.error('加载更多标签失败:', error);
+        } finally {
+            this.tagsLoading = false;
+        }
     };
 
     @action
@@ -310,6 +365,12 @@ export class VersionStore {
 
     public getTags = (): ITag[] => this.tags;
 
+    public getTagsTotal = (): number => this.tagsTotal;
+
+    public getTagsHasMore = (): boolean => this.tagsHasMore;
+
+    public getTagsLoading = (): boolean => this.tagsLoading;
+
     public getCurrentProject = (): string | null => this.currentProject;
 
     public getProjectByName = (name: string): IVersion | undefined =>
@@ -320,6 +381,10 @@ export class VersionStore {
         this.projects = [];
         this.branches = [];
         this.tags = [];
+        this.tagsTotal = 0;
+        this.tagsPage = 1;
+        this.tagsHasMore = false;
+        this.tagsLoading = false;
         this.currentProject = null;
     };
 } 

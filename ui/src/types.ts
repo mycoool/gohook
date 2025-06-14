@@ -46,6 +46,15 @@ export interface ITag {
     message: string;
 }
 
+export interface ITagsResponse {
+    tags: ITag[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    hasMore: boolean;
+}
+
 export interface IPlugin {
     id: number;
     token: string;

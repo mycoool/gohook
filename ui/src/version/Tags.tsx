@@ -9,10 +9,17 @@ import TableRow from '@material-ui/core/TableRow';
 import Button from '@material-ui/core/Button';
 import ButtonGroup from '@material-ui/core/ButtonGroup';
 import Chip from '@material-ui/core/Chip';
+import TextField from '@material-ui/core/TextField';
+import InputAdornment from '@material-ui/core/InputAdornment';
+import CircularProgress from '@material-ui/core/CircularProgress';
+import Typography from '@material-ui/core/Typography';
+import Box from '@material-ui/core/Box';
 import ArrowBack from '@material-ui/icons/ArrowBack';
 import Cached from '@material-ui/icons/Cached';
 import Refresh from '@material-ui/icons/Refresh';
 import Delete from '@material-ui/icons/Delete';
+import Search from '@material-ui/icons/Search';
+import Clear from '@material-ui/icons/Clear';
 import React, {Component, SFC} from 'react';
 import DefaultPage from '../common/DefaultPage';
 import ConfirmDialog from '../common/ConfirmDialog';
@@ -33,27 +40,67 @@ const styles = (theme: Theme) => createStyles({
         borderRadius: '3px',
         border: theme.palette.type === 'dark' ? '1px solid rgba(255, 255, 255, 0.2)' : '1px solid rgba(0, 0, 0, 0.2)',
     },
+    filterContainer: {
+        marginBottom: theme.spacing(2),
+        padding: theme.spacing(2),
+    },
+    filterInput: {
+        maxWidth: 400,
+    },
+    loadingContainer: {
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: theme.spacing(2),
+    },
+    statsContainer: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: theme.spacing(1, 2),
+        backgroundColor: theme.palette.type === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
+    },
 });
 
 @observer
-class Tags extends Component<RouteComponentProps<{projectName: string}> & Stores<'versionStore'>> {
+class Tags extends Component<RouteComponentProps<{projectName: string}> & Stores<'versionStore'> & WithStyles<typeof styles>> {
     @observable
     private switchTag: string | false = false;
 
     @observable
     private deleteTag: string | false = false;
 
+    @observable
+    private filterText = '';
+
+    @observable
+    private filterTimeout: NodeJS.Timeout | null = null;
+
     public componentDidMount = () => {
         const projectName = this.props.match.params.projectName;
         this.props.versionStore.refreshTags(projectName);
+        
+        // 添加滚动监听器
+        window.addEventListener('scroll', this.handleScroll);
+    };
+
+    public componentWillUnmount = () => {
+        // 清理滚动监听器和定时器
+        window.removeEventListener('scroll', this.handleScroll);
+        if (this.filterTimeout) {
+            clearTimeout(this.filterTimeout);
+        }
     };
 
     public render() {
         const {
-            props: {versionStore, match},
+            props: {versionStore, match, classes},
         } = this;
         const projectName = match.params.projectName;
         const tags = versionStore.getTags();
+        const tagsTotal = versionStore.getTagsTotal();
+        const tagsHasMore = versionStore.getTagsHasMore();
+        const tagsLoading = versionStore.getTagsLoading();
         
         return (
             <DefaultPage
@@ -76,7 +123,49 @@ class Tags extends Component<RouteComponentProps<{projectName: string}> & Stores
                 }
                 maxWidth={1200}>
                 <Grid item xs={12}>
+                    <Paper elevation={2} className={classes.filterContainer}>
+                        <TextField
+                            className={classes.filterInput}
+                            label="筛选标签"
+                            placeholder="输入标签前缀，如 v0.1, v1.0 等"
+                            value={this.filterText}
+                            onChange={this.handleFilterChange}
+                            variant="outlined"
+                            size="small"
+                            InputProps={{
+                                startAdornment: (
+                                    <InputAdornment position="start">
+                                        <Search />
+                                    </InputAdornment>
+                                ),
+                                endAdornment: this.filterText ? (
+                                    <InputAdornment position="end">
+                                        <IconButton
+                                            size="small"
+                                            onClick={this.clearFilter}
+                                            title="清除筛选">
+                                            <Clear />
+                                        </IconButton>
+                                    </InputAdornment>
+                                ) : null,
+                            }}
+                        />
+                    </Paper>
+                </Grid>
+                <Grid item xs={12}>
                     <Paper elevation={6} style={{overflowX: 'auto'}}>
+                        {/* 统计信息 */}
+                        <div className={classes.statsContainer}>
+                            <Typography variant="body2" color="textSecondary">
+                                共 {tagsTotal} 个标签，已显示 {tags.length} 个
+                            </Typography>
+                            {this.filterText && (
+                                <Typography variant="body2" color="textSecondary">
+                                    筛选条件: &quot;{this.filterText}&quot;
+                                </Typography>
+                            )}
+                        </div>
+                        
                         <Table id="tag-table">
                             <TableHead>
                                 <TableRow>
@@ -99,6 +188,36 @@ class Tags extends Component<RouteComponentProps<{projectName: string}> & Stores
                                 ))}
                             </TableBody>
                         </Table>
+                        
+                        {/* 加载状态 */}
+                        {tagsLoading && (
+                            <div className={classes.loadingContainer}>
+                                <CircularProgress size={24} />
+                                <Box ml={1}>
+                                    <Typography variant="body2" color="textSecondary">
+                                        加载中...
+                                    </Typography>
+                                </Box>
+                            </div>
+                        )}
+                        
+                        {/* 没有更多数据提示 */}
+                        {!tagsLoading && !tagsHasMore && tags.length > 0 && (
+                            <div className={classes.loadingContainer}>
+                                <Typography variant="body2" color="textSecondary">
+                                    已显示全部标签
+                                </Typography>
+                            </div>
+                        )}
+                        
+                        {/* 空状态 */}
+                        {!tagsLoading && tags.length === 0 && (
+                            <div className={classes.loadingContainer}>
+                                <Typography variant="body2" color="textSecondary">
+                                    {this.filterText ? '没有找到匹配的标签' : '暂无标签'}
+                                </Typography>
+                            </div>
+                        )}
                     </Paper>
                 </Grid>
                 {this.switchTag !== false && (
@@ -123,11 +242,49 @@ class Tags extends Component<RouteComponentProps<{projectName: string}> & Stores
 
     private refreshTags = () => {
         const projectName = this.props.match.params.projectName;
-        this.props.versionStore.refreshTags(projectName);
+        this.props.versionStore.refreshTags(projectName, this.filterText || undefined);
     };
 
     private goBack = () => {
         this.props.history.push('/versions');
+    };
+
+    private handleFilterChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const value = event.target.value;
+        this.filterText = value;
+
+        // 清除之前的定时器
+        if (this.filterTimeout) {
+            clearTimeout(this.filterTimeout);
+        }
+
+        // 设置新的定时器，延迟500ms后执行筛选
+        this.filterTimeout = setTimeout(() => {
+            const projectName = this.props.match.params.projectName;
+            this.props.versionStore.refreshTags(projectName, value || undefined);
+        }, 500);
+    };
+
+    private clearFilter = () => {
+        this.filterText = '';
+        if (this.filterTimeout) {
+            clearTimeout(this.filterTimeout);
+        }
+        const projectName = this.props.match.params.projectName;
+        this.props.versionStore.refreshTags(projectName);
+    };
+
+    private handleScroll = () => {
+        // 检查是否滚动到页面底部
+        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        const windowHeight = window.innerHeight;
+        const documentHeight = document.documentElement.scrollHeight;
+        
+        // 当滚动到距离底部100px时开始加载
+        if (scrollTop + windowHeight >= documentHeight - 100) {
+            const projectName = this.props.match.params.projectName;
+            this.props.versionStore.loadMoreTags(projectName, this.filterText || undefined);
+        }
     };
 
     private performSwitchTag = (tagName: string) => {
@@ -202,4 +359,4 @@ const Row: SFC<IRowProps> = observer(({tag, onSwitch, onDelete, classes}) => (
 // 使用 withStyles 包装 Row 组件
 const StyledRow = withStyles(styles)(Row);
 
-export default withRouter(inject('versionStore')(Tags)); 
+export default withRouter(inject('versionStore')(withStyles(styles)(Tags))); 
