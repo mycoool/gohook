@@ -12,10 +12,10 @@ require (
 	github.com/ghodss/yaml v1.0.0
 	github.com/gin-contrib/gzip v1.2.3
 	github.com/gin-gonic/gin v1.10.1
+	github.com/golang-jwt/jwt/v4 v4.5.2
 	github.com/gorilla/websocket v1.5.3
 	golang.org/x/sys v0.31.0
 	gopkg.in/yaml.v2 v2.4.0
-	github.com/golang-jwt/jwt/v4 v4.5.2
 )
 
 require (
