@@ -65,13 +65,13 @@ export class VersionStore {
             const response = await axios.post(`${config.get('url')}version/reload-config`, {}, {
                 headers: {'X-GoHook-Key': this.tokenProvider()}
             });
-            this.snack(response.data.message || '配置文件重新加载成功');
-            await this.refreshProjects(); // 重新加载后刷新数据
+            this.snack(response.data.message || '加载项目成功');
+            await this.refreshProjects(); // 加载后刷新数据
         } catch (error: unknown) {
             const errorMessage = error instanceof Error ? error.message : 
                 (error as {response?: {data?: {error?: string}}})?.response?.data?.error ?? 
                 '未知错误';
-            this.snack('重新加载配置文件失败: ' + errorMessage);
+            this.snack('加载项目失败: ' + errorMessage);
         }
     };
 

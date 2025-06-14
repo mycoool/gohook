@@ -41,13 +41,13 @@ export class HookStore {
             const response = await axios.post(`${config.get('url')}hook/reload-config`, {}, {
                 headers: {'X-GoHook-Key': this.tokenProvider()}
             });
-            this.snack(response.data.message || 'Hooks配置重新加载成功');
-            await this.refresh(); // 重新加载后刷新数据
+            this.snack(response.data.message || 'Hooks配置加载成功');
+            await this.refresh(); // 加载后刷新数据
         } catch (error: unknown) {
             const errorMessage = error instanceof Error ? error.message : 
                 (error as {response?: {data?: {error?: string}}})?.response?.data?.error ?? 
                 '未知错误';
-            this.snack('重新加载Hooks配置失败: ' + errorMessage);
+            this.snack('加载Hook失败: ' + errorMessage);
         }
     };
 

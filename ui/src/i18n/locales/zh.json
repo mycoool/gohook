@@ -61,7 +61,7 @@
     "active": "正常",
     "inactive": "异常",
     "nonGit": "非Git",
-    "reloadConfig": "重新加载配置",
+    "reloadConfig": "加载项目",
     "confirmDelete": "确认删除项目",
     "confirmDeleteText": "确定要删除项目 \"{{name}}\" 吗？此操作不可撤销。",
     "confirmInitGit": "初始化Git仓库",
@@ -102,7 +102,7 @@
     "confirmDeleteText": "确定要删除WebHook \"{{name}}\" 吗？",
     "hookTriggered": "WebHook触发成功",
     "hookFailed": "WebHook执行失败",
-    "reloadConfig": "重新加载配置"
+    "reloadConfig": "加载配置"
   },
   "message": {
     "title": "实时消息",

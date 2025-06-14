@@ -73,7 +73,7 @@ class Branches extends Component<RouteComponentProps<{projectName: string}> & St
                             id="sync-branches"
                             startIcon={<Sync />}
                             onClick={() => this.syncBranches()}>
-                            同步分支
+                            同步
                         </Button>
                         <Button
                             id="refresh-branches"

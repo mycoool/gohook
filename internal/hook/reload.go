@@ -4,7 +4,7 @@ import (
 	"log"
 )
 
-// HookManager 管理hook的加载和重新加载
+// HookManager 管理hook和配置文件的加载
 type HookManager struct {
 	LoadedHooksFromFiles *map[string]Hooks
 	HooksFiles           []string
@@ -47,7 +47,7 @@ func (hm *HookManager) LenLoadedHooks() int {
 	return sum
 }
 
-// ReloadHooks 重新加载指定文件的hooks
+// ReloadHooks 加载指定文件的hooks
 func (hm *HookManager) ReloadHooks(hooksFilePath string) error {
 	log.Printf("reloading hooks from %s\n", hooksFilePath)
 
@@ -96,7 +96,7 @@ func (hm *HookManager) ReloadHooks(hooksFilePath string) error {
 	return nil
 }
 
-// ReloadAllHooks 重新加载所有hooks文件
+// ReloadAllHooks 加载所有hooks文件
 func (hm *HookManager) ReloadAllHooks() error {
 	var lastError error
 

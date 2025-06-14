@@ -1400,7 +1400,7 @@ func InitRouter() *gin.Engine {
 			}
 		})
 
-		// 重新加载Hooks配置的专用接口
+		// 加载Hooks配置的专用接口
 		hookAPI.POST("/reload-config", func(c *gin.Context) {
 			if HookManager == nil {
 				c.JSON(http.StatusInternalServerError, gin.H{
@@ -1409,22 +1409,22 @@ func InitRouter() *gin.Engine {
 				return
 			}
 
-			// 执行实际的重新加载
+			// 执行实际的加载
 			err := HookManager.ReloadAllHooks()
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{
-					"error":     "重新加载Hooks配置失败",
+					"error":     "加载Hook失败",
 					"details":   err.Error(),
 					"hookCount": HookManager.GetHookCount(),
 				})
 				return
 			}
 
-			// 获取重新加载后的hooks数量
+			// 获取加载后的hooks数量
 			hookCount := HookManager.GetHookCount()
 
 			c.JSON(http.StatusOK, gin.H{
-				"message":   "Hooks配置重新加载成功",
+				"message":   "Hooks配置加载成功",
 				"hookCount": hookCount,
 			})
 		})
@@ -1453,7 +1453,7 @@ func InitRouter() *gin.Engine {
 	{
 		// 获取所有项目列表
 		versionAPI.GET("", func(c *gin.Context) {
-			// 每次获取项目列表时重新加载配置文件
+			// 每次获取项目列表时加载配置文件
 			if err := loadConfig(); err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "配置文件加载失败: " + err.Error()})
 				return
@@ -1492,11 +1492,11 @@ func InitRouter() *gin.Engine {
 			c.JSON(http.StatusOK, projects)
 		})
 
-		// 重新加载配置文件的专用接口
+		// 加载配置文件的专用接口
 		versionAPI.POST("/reload-config", func(c *gin.Context) {
 			if err := loadConfig(); err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{
-					"error": "配置文件重新加载失败: " + err.Error(),
+					"error": "配置文件加载失败: " + err.Error(),
 				})
 				return
 			}
@@ -1511,7 +1511,7 @@ func InitRouter() *gin.Engine {
 			}
 
 			c.JSON(http.StatusOK, gin.H{
-				"message":      "配置文件重新加载成功",
+				"message":      "配置文件加载成功",
 				"projectCount": projectCount,
 			})
 		})
