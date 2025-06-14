@@ -933,10 +933,7 @@ func handleWebSocket(c *gin.Context) {
 }
 
 func InitRouter() *gin.Engine {
-	g := gin.New()
-
-	// 添加恢复中间件（但不添加日志中间件，日志中间件在app.go中添加）
-	g.Use(gin.Recovery())
+	g := gin.Default()
 
 	// 加载配置文件
 	if err := loadConfig(); err != nil {
