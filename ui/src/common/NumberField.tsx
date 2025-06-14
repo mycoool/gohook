@@ -14,16 +14,12 @@ export const NumberField = ({
     const [stringValue, setStringValue] = React.useState<string>(value.toString());
     const [error, setError] = React.useState('');
 
-    // 确保variant属性的类型安全
-    const { variant = 'outlined', ...restProps } = props;
-
     return (
         <TextField
             value={stringValue}
             type="number"
             helperText={error}
             error={error !== ''}
-            variant={variant as 'outlined' | 'filled' | 'standard'}
             onChange={(event) => {
                 setStringValue(event.target.value);
                 const i = parseInt(event.target.value, 10);
@@ -34,7 +30,7 @@ export const NumberField = ({
                     setError('Invalid number');
                 }
             }}
-            {...restProps}
+            {...props}
         />
     );
 };

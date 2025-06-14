@@ -13,7 +13,62 @@ import {
 } from '@material-ui/core';
 import { makeStyles, useTheme } from '@material-ui/core/styles';
 import { Save, Delete, FileCopy } from '@material-ui/icons';
-import LazyMonacoEditor from '../common/LazyMonacoEditor';
+import Editor from 'react-simple-code-editor';
+import 'prismjs/themes/prism.css';
+import 'prismjs/themes/prism-dark.css';
+
+// 自定义.env文件语法高亮
+const highlightEnvSyntax = (code: string, isDark = false) => {
+    // 基于行的高亮处理
+    const lines = code.split('\n');
+    const highlightedLines = lines.map(line => {
+        const trimmedLine = line.trim();
+        
+        // 注释行
+        if (trimmedLine.startsWith('#')) {
+            return `<span style="color: ${isDark ? '#6a9955' : '#008000'}; font-style: italic;">${line}</span>`;
+        }
+        
+        // 空行
+        if (trimmedLine === '') {
+            return line;
+        }
+        
+        // 键值对
+        const match = line.match(/^(\s*)([^=]+?)\s*=\s*(.*)$/);
+        if (match) {
+            const [, indent, key, value] = match;
+            const keyColor = isDark ? '#9cdcfe' : '#0451a5';
+            const valueColor = isDark ? '#ce9178' : '#a31515';
+            const operatorColor = isDark ? '#d4d4d4' : '#000000';
+            
+            // 处理引号包围的值
+            let highlightedValue = value;
+            if ((value.startsWith('"') && value.endsWith('"')) || 
+                (value.startsWith("'") && value.endsWith("'"))) {
+                highlightedValue = `<span style="color: ${valueColor};">${value}</span>`;
+            } else if (value === '') {
+                highlightedValue = '';
+            } else {
+                // 检查是否是布尔值或数字
+                if (['true', 'false'].includes(value.toLowerCase())) {
+                    highlightedValue = `<span style="color: ${isDark ? '#569cd6' : '#0000ff'};">${value}</span>`;
+                } else if (/^\d+$/.test(value)) {
+                    highlightedValue = `<span style="color: ${isDark ? '#b5cea8' : '#098658'};">${value}</span>`;
+                } else {
+                    highlightedValue = `<span style="color: ${valueColor};">${value}</span>`;
+                }
+            }
+            
+            return `${indent}<span style="color: ${keyColor};">${key}</span><span style="color: ${operatorColor};">=</span>${highlightedValue}`;
+        }
+        
+        // 其他行（可能是格式错误）
+        return `<span style="color: ${isDark ? '#f44747' : '#e45454'};">${line}</span>`;
+    });
+    
+    return highlightedLines.join('\n');
+};
 
 const useStyles = makeStyles((theme) => ({
     content: {
@@ -23,6 +78,7 @@ const useStyles = makeStyles((theme) => ({
         flexDirection: 'column',
         paddingTop: theme.spacing(1),
         paddingBottom: 0,
+        overflow: 'hidden',
     },
     editorContainer: {
         flexGrow: 1,
@@ -30,6 +86,76 @@ const useStyles = makeStyles((theme) => ({
         borderRadius: theme.shape.borderRadius,
         overflow: 'hidden',
         backgroundColor: theme.palette.type === 'dark' ? '#1e1e1e' : '#ffffff',
+        position: 'relative',
+        display: 'flex',
+        height: '800px',
+        minHeight: '800px',
+        maxHeight: '800px',
+    },
+    lineNumbers: {
+        backgroundColor: theme.palette.type === 'dark' ? '#2d2d30' : '#f8f8f8',
+        borderRight: `1px solid ${theme.palette.divider}`,
+        padding: `${theme.spacing(1)}px ${theme.spacing(0.5)}px`,
+        fontFamily: '"Fira Code", "Consolas", "Monaco", "Courier New", monospace',
+        fontSize: '14px',
+        lineHeight: 1.5,
+        color: theme.palette.type === 'dark' ? '#858585' : '#999999',
+        textAlign: 'right',
+        userSelect: 'none',
+        minWidth: '48px',
+        whiteSpace: 'pre-line',
+        overflow: 'hidden',
+        flexShrink: 0,
+        height: '100%',
+    },
+    editorWrapper: {
+        flexGrow: 1,
+        position: 'relative',
+        overflow: 'hidden',
+        height: '100%',
+        flex: '1 1 auto',
+    },
+    editor: {
+        fontFamily: '"Fira Code", "Consolas", "Monaco", "Courier New", monospace',
+        fontSize: '14px',
+        lineHeight: 1.5,
+        outline: 'none',
+        backgroundColor: 'transparent',
+        color: theme.palette.type === 'dark' ? '#d4d4d4' : '#000000',
+        caretColor: theme.palette.type === 'dark' ? '#ffffff' : '#000000',
+        padding: `${theme.spacing(1)}px ${theme.spacing(1.5)}px`,
+        border: 'none',
+        resize: 'none' as any,
+        width: '100%',
+        height: '100%',
+        overflow: 'hidden',
+        '& textarea': {
+            outline: 'none !important',
+            resize: 'none !important',
+            height: '100% !important',
+            width: '100% !important',
+            border: 'none !important',
+            backgroundColor: 'transparent !important',
+            fontFamily: 'inherit !important',
+            fontSize: 'inherit !important',
+            lineHeight: 'inherit !important',
+            color: 'inherit !important',
+            padding: '0 !important',
+            margin: '0 !important',
+        },
+        '& pre': {
+            margin: '0 !important',
+            padding: '0 !important',
+            outline: 'none !important',
+            whiteSpace: 'pre-wrap !important',
+            wordWrap: 'break-word !important',
+            backgroundColor: 'transparent !important',
+            border: 'none !important',
+            fontFamily: 'inherit !important',
+            fontSize: 'inherit !important',
+            lineHeight: 'inherit !important',
+            color: 'inherit !important',
+        }
     },
     pathInfo: {
         backgroundColor: theme.palette.type === 'dark' ? 'rgba(255, 255, 255, 0.05)' : theme.palette.grey[100],
@@ -96,6 +222,19 @@ const useStyles = makeStyles((theme) => ({
         '&:hover': {
             backgroundColor: theme.palette.type === 'dark' ? 'rgba(144, 202, 249, 0.1)' : 'rgba(33, 150, 243, 0.1)',
         }
+    },
+    syntaxHelpText: {
+        position: 'absolute',
+        bottom: theme.spacing(1),
+        right: theme.spacing(1.5),
+        fontSize: '11px',
+        color: theme.palette.type === 'dark' ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.5)',
+        backgroundColor: theme.palette.type === 'dark' ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.8)',
+        padding: '2px 6px',
+        borderRadius: '3px',
+        userSelect: 'none',
+        pointerEvents: 'none',
+        zIndex: 1,
     }
 }));
 
@@ -118,6 +257,7 @@ const EnvFileDialog: React.FC<EnvFileDialogProps> = ({
 }) => {
     const classes = useStyles();
     const theme = useTheme();
+    const isDark = theme.palette.type === 'dark';
     
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -127,6 +267,10 @@ const EnvFileDialog: React.FC<EnvFileDialogProps> = ({
     const [filePath, setFilePath] = useState('');
     const [error, setError] = useState<string | null>(null);
     const [showExample, setShowExample] = useState(false);
+    
+    // 编辑器引用
+    const editorRef = React.useRef<HTMLDivElement>(null);
+    const lineNumbersRef = React.useRef<HTMLDivElement>(null);
 
     const exampleEnvContent = `# 环境变量配置文件示例
 # 这是注释行，以#开头
@@ -159,6 +303,23 @@ DEBUG=true`;
             setExists(false);
         }
     }, [open, projectName]);
+
+    // 设置滚动同步
+    useEffect(() => {
+        const editorTextarea = document.getElementById('env-editor');
+        if (editorTextarea && lineNumbersRef.current) {
+            const handleScroll = () => {
+                if (lineNumbersRef.current) {
+                    lineNumbersRef.current.scrollTop = editorTextarea.scrollTop;
+                }
+            };
+            
+            editorTextarea.addEventListener('scroll', handleScroll);
+            return () => {
+                editorTextarea.removeEventListener('scroll', handleScroll);
+            };
+        }
+    }, [open, content]);
 
     const loadEnvFile = async () => {
         setLoading(true);
@@ -225,20 +386,16 @@ DEBUG=true`;
         onClose();
     };
 
-    // 根据主题选择编辑器主题
-    const editorTheme = theme.palette.type === 'dark' ? 'vs-dark' : 'vs-light';
-    
-    const editorOptions = {
-        minimap: { enabled: false },
-        scrollBeyondLastLine: false,
-        fontSize: 14,
-        wordWrap: 'on' as const,
-        lineNumbers: 'on' as const,
-        renderLineHighlight: 'line' as const,
-        selectOnLineNumbers: true,
-        automaticLayout: true,
-        tabSize: 2,
+    // 生成行号
+    const generateLineNumbers = (text: string) => {
+        if (!text) return '1';
+        const lines = text.split('\n');
+        // 确保至少有一行
+        const lineCount = Math.max(lines.length, 1);
+        return Array.from({ length: lineCount }, (_, index) => index + 1).join('\n');
     };
+
+
 
     return (
         <Dialog 
@@ -317,15 +474,45 @@ DEBUG=true`;
                         )}
                         
                         <Paper className={classes.editorContainer} variant="outlined">
-                            <LazyMonacoEditor
-                                width="100%"
-                                height="100%"
-                                language="properties"
-                                theme={editorTheme}
-                                value={content}
-                                options={editorOptions}
-                                onChange={handleEditorChange}
-                            />
+                            {/* 行号区域 */}
+                            <div 
+                                ref={lineNumbersRef}
+                                className={classes.lineNumbers}
+                            >
+                                {generateLineNumbers(content || '')}
+                            </div>
+                            
+                            {/* 编辑器区域 */}
+                            <div 
+                                ref={editorRef}
+                                className={classes.editorWrapper}
+                            >
+                                <Editor
+                                    value={content}
+                                    onValueChange={handleEditorChange}
+                                    highlight={code => `<pre>${highlightEnvSyntax(code, isDark)}</pre>`}
+                                    padding={theme.spacing(1)}
+                                    style={{
+                                        backgroundColor: 'transparent',
+                                        fontFamily: '"Fira Code", "Consolas", "Monaco", "Courier New", monospace',
+                                        fontSize: 14,
+                                        lineHeight: 1.5,
+                                        height: '800px',
+                                        overflow: 'auto',
+                                        border: 'none',
+                                        outline: 'none',
+                                    }}
+                                    textareaId="env-editor"
+                                    placeholder="# 在这里输入环境变量
+# 格式: KEY=value
+APP_NAME=MyApp
+DEBUG=true"
+                                />
+                            </div>
+                            
+                            <span className={classes.syntaxHelpText}>
+                                支持语法: KEY=value | # 注释 | 引号值
+                            </span>
                         </Paper>
                     </>
                 )}
