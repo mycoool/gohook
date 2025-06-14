@@ -17,12 +17,12 @@ import (
 
 	"github.com/mycoool/gohook/internal/hook"
 	"github.com/mycoool/gohook/internal/pidfile"
-	"github.com/mycoool/gohook/internal/ver"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/gin-gonic/gin"
 	"github.com/mycoool/gohook/internal/router"
 	"github.com/mycoool/gohook/internal/stream"
+	"github.com/mycoool/gohook/ui"
 )
 
 var (
@@ -60,6 +60,13 @@ var (
 	socket  = ""
 	addr    = ""
 )
+
+// 版本信息
+var vInfo = &ui.VersionInfo{
+	Version:   Version,
+	Commit:    Commit,
+	BuildDate: BuildDate,
+}
 
 func matchLoadedHook(id string) *hook.Hook {
 	if router.HookManager != nil {
@@ -100,7 +107,7 @@ func main() {
 	flag.Parse()
 
 	if *justDisplayVersion {
-		fmt.Println("webhook version " + ver.Version)
+		fmt.Println("webhook version " + Version)
 		os.Exit(0)
 	}
 
@@ -199,7 +206,7 @@ func main() {
 		}()
 	}
 
-	log.Println("version " + ver.Version + " starting")
+	log.Println("version " + Version + " starting")
 
 	// set os signal watcher
 	setupSignals()
@@ -280,6 +287,9 @@ func main() {
 	router.HookManager = hook.NewHookManager(&loadedHooksFromFiles, hooksFiles, *asTemplate)
 
 	r := router.InitRouter()
+
+	// 注册前端UI路由，这将接管根路径 "/"
+	ui.Register(r, *vInfo, true)
 
 	// 启用方法不允许处理
 	r.HandleMethodNotAllowed = true
