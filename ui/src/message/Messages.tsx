@@ -198,13 +198,12 @@ const MessagesContainer: React.FC<{
                 <LoadingSpinner />
             ) : hasMessages ? (
                 <div style={{width: '100%'}} id="messages">
-                    <ReactInfinite
-                        key={appId}
-                        useWindowAsScrollContainer
-                        preloadBatchSize={window.innerHeight * 3}
-                        elementHeight={messages.map((m) => heights[m.id] || 1)}>
-                        {messages.map(renderMessage)}
-                    </ReactInfinite>
+                    {React.createElement(ReactInfinite as any, {
+                        key: appId,
+                        useWindowAsScrollContainer: true,
+                        preloadBatchSize: window.innerHeight * 3,
+                        elementHeight: messages.map((m) => heights[m.id] || 1)
+                    }, messages.map(renderMessage))}
 
                     {hasMore ? <LoadingSpinner /> : label(t('message.reachedEnd'))}
                 </div>
