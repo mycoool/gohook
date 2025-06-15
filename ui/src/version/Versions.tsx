@@ -25,11 +25,13 @@ import LocalOffer from '@material-ui/icons/LocalOffer';
 import CloudQueue from '@material-ui/icons/CloudQueue';
 import GitHubIcon from '@material-ui/icons/GitHub';
 import Settings from '@material-ui/icons/Settings';
+import Link from '@material-ui/icons/Link';
 import React, {Component, SFC} from 'react';
 import DefaultPage from '../common/DefaultPage';
 import ConfirmDialog from '../common/ConfirmDialog';
 import AddProjectDialog from './AddProjectDialog';
 import EnvFileDialog from './EnvFileDialog';
+import GitHookDialog, { GitHookConfig } from './GitHookDialog';
 import {observer} from 'mobx-react';
 import {observable} from 'mobx';
 import {inject, Stores} from '../inject';
@@ -55,6 +57,8 @@ class Versions extends Component<RouteComponentProps & Stores<'versionStore'>> {
     private loadingRemote = false;
     @observable
     private envDialogProjectName: string | null = null;
+    @observable
+    private gitHookDialogProject: IVersion | null = null;
 
     public componentDidMount = () => this.props.versionStore.refreshProjects();
 
@@ -81,6 +85,7 @@ class Versions extends Component<RouteComponentProps & Stores<'versionStore'>> {
                     onViewBranches={this.handleViewBranches}
                     onViewTags={this.handleViewTags}
                     onEditEnv={this.handleEditEnv}
+                    onConfigGitHook={this.handleConfigGitHook}
                     onDelete={(name) => this.deleteProjectName = name}
                     onInitGit={(name) => this.initGitProjectName = name}
                     onSetRemote={this.handleSetRemote}
@@ -104,6 +109,13 @@ class Versions extends Component<RouteComponentProps & Stores<'versionStore'>> {
                     onGetEnvFile={this.handleGetEnvFile}
                     onSaveEnvFile={this.handleSaveEnvFile}
                     onDeleteEnvFile={this.handleDeleteEnvFile}
+                />
+                
+                <GitHookDialog
+                    open={this.gitHookDialogProject !== null}
+                    project={this.gitHookDialogProject}
+                    onClose={this.handleCloseGitHookDialog}
+                    onSave={this.handleSaveGitHookConfig}
                 />
             </>
         );
@@ -188,6 +200,18 @@ class Versions extends Component<RouteComponentProps & Stores<'versionStore'>> {
     private handleDeleteEnvFile = async (name: string) => {
         await this.props.versionStore.deleteEnvFile(name);
     };
+
+    private handleConfigGitHook = (project: IVersion) => {
+        this.gitHookDialogProject = project;
+    };
+
+    private handleCloseGitHookDialog = () => {
+        this.gitHookDialogProject = null;
+    };
+
+    private handleSaveGitHookConfig = async (projectName: string, config: GitHookConfig) => {
+        await this.props.versionStore.saveGitHookConfig(projectName, config);
+    };
 }
 
 interface IRowProps {
@@ -195,12 +219,13 @@ interface IRowProps {
     onViewBranches: (projectName: string) => void;
     onViewTags: (projectName: string) => void;
     onEditEnv: (projectName: string) => void;
+    onConfigGitHook: (project: IVersion) => void;
     onDelete: (projectName: string) => void;
     onInitGit: (projectName: string) => void;
     onSetRemote: (projectName: string) => void;
 }
 
-const Row: SFC<IRowProps> = observer(({project, onViewBranches, onViewTags, onEditEnv, onDelete, onInitGit, onSetRemote}) => {
+const Row: SFC<IRowProps> = observer(({project, onViewBranches, onViewTags, onEditEnv, onConfigGitHook, onDelete, onInitGit, onSetRemote}) => {
     const { t } = useTranslation();
     
     const getModeChip = (mode: string) => {
@@ -309,6 +334,15 @@ const Row: SFC<IRowProps> = observer(({project, onViewBranches, onViewTags, onEd
                     </IconButton>
                     <IconButton 
                         size="small"
+                        onClick={() => onConfigGitHook(project)}
+                        title="配置 GitHook"
+                        style={{
+                            color: project.enhook ? '#4caf50' : '#666'
+                        }}>
+                        <Link />
+                    </IconButton>
+                    <IconButton 
+                        size="small"
                         onClick={() => onDelete(project.name)}
                         title={t('common.delete')}>
                         <Delete />
@@ -335,7 +369,34 @@ const Row: SFC<IRowProps> = observer(({project, onViewBranches, onViewTags, onEd
                 {getStatusChip(project.status)}
             </TableCell>
             <TableCell>
-                {getModeChip(project.mode)}
+                <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
+                    <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
+                        <span style={{fontSize: '0.75rem', color: '#666'}}>Git:</span>
+                        {getModeChip(project.mode)}
+                    </div>
+                    {project.mode !== 'none' && (
+                        <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
+                            <span style={{fontSize: '0.75rem', color: '#666'}}>Hook:</span>
+                            {project.enhook ? (
+                                <Chip
+                                    label={`${project.hookmode === 'branch' ? '分支' : '标签'}${
+                                        project.hookmode === 'branch' && project.hookbranch !== '*' 
+                                            ? `(${project.hookbranch})` 
+                                            : project.hookmode === 'branch' ? '(任意)' : ''
+                                    }`}
+                                    size="small"
+                                    style={{backgroundColor: '#4caf50', color: 'white', fontSize: '0.7rem', height: '20px'}}
+                                />
+                            ) : (
+                                <Chip
+                                    label="未启用"
+                                    size="small"
+                                    style={{backgroundColor: '#9e9e9e', color: 'white', fontSize: '0.7rem', height: '20px'}}
+                                />
+                            )}
+                        </div>
+                    )}
+                </div>
             </TableCell>
             <TableCell>
                 {project.lastCommit && (
@@ -373,6 +434,7 @@ const VersionsContainer: React.FC<{
     onViewBranches: (projectName: string) => void;
     onViewTags: (projectName: string) => void;
     onEditEnv: (projectName: string) => void;
+    onConfigGitHook: (project: IVersion) => void;
     onDelete: (projectName: string) => void;
     onInitGit: (projectName: string) => void;
     onSetRemote: (projectName: string) => void;
@@ -400,6 +462,7 @@ const VersionsContainer: React.FC<{
     onViewBranches,
     onViewTags,
     onEditEnv,
+    onConfigGitHook,
     onDelete,
     onInitGit,
     onSetRemote,
@@ -460,6 +523,7 @@ const VersionsContainer: React.FC<{
                                     onViewBranches={() => onViewBranches(project.name)}
                                     onViewTags={() => onViewTags(project.name)}
                                     onEditEnv={() => onEditEnv(project.name)}
+                                    onConfigGitHook={() => onConfigGitHook(project)}
                                     onDelete={() => onDelete(project.name)}
                                     onInitGit={() => onInitGit(project.name)}
                                     onSetRemote={() => onSetRemote(project.name)}

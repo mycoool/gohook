@@ -3,6 +3,7 @@ import * as config from '../config';
 import {action, observable} from 'mobx';
 import {SnackReporter} from '../snack/SnackManager';
 import {IVersion, IBranch, ITag, ITagsResponse} from '../types';
+import {GitHookConfig} from './GitHookDialog';
 
 export class VersionStore {
     @observable
@@ -240,6 +241,29 @@ export class VersionStore {
                 (error as { response?: { data?: { error?: string } } })?.response?.data?.error ??
                 '删除环境变量文件失败';
             this.snack('删除环境变量文件失败: ' + errorMessage);
+            throw new Error(errorMessage);
+        }
+    };
+
+    // GitHook配置管理方法
+    @action
+    public saveGitHookConfig = async (projectName: string, gitHookConfig: GitHookConfig): Promise<void> => {
+        try {
+            const response = await axios.post(`${config.get('url')}version/${projectName}/githook`, {
+                enhook: gitHookConfig.enhook,
+                hookmode: gitHookConfig.hookmode,
+                hookbranch: gitHookConfig.hookbranch,
+                hooksecret: gitHookConfig.hooksecret
+            }, {
+                headers: {'X-GoHook-Key': this.tokenProvider()}
+            });
+            this.snack(response.data.message || 'GitHook配置保存成功');
+            await this.refreshProjects(); // 保存后刷新项目列表
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message :
+                (error as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+                '保存GitHook配置失败';
+            this.snack('保存GitHook配置失败: ' + errorMessage);
             throw new Error(errorMessage);
         }
     };
