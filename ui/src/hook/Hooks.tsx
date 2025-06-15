@@ -140,8 +140,7 @@ const HooksContainer: React.FC<{
                                 <TableCell>{t('hook.triggerRule')}</TableCell>
                                 <TableCell>{t('hook.status')}</TableCell>
                                 <TableCell>{t('hook.lastUsed')}</TableCell>
-                                <TableCell />
-                                <TableCell />
+                                <TableCell align="center">{t('common.actions')}</TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
@@ -231,13 +230,11 @@ const Row: SFC<IRowProps> = observer(({hook, fTrigger, fDelete, classes}) => {
             <TableCell>
                 <LastUsedCell lastUsed={hook.lastUsed} />
             </TableCell>
-            <TableCell align="right" padding="none">
-                <IconButton onClick={fTrigger} className="trigger" title={t('hook.triggerHook')}>
+            <TableCell align="center" padding="none">
+                <IconButton onClick={fTrigger} className="trigger" title={t('hook.triggerHook')} size="small">
                     <PlayArrow />
                 </IconButton>
-            </TableCell>
-            <TableCell align="right" padding="none">
-                <IconButton onClick={fDelete} className="delete" title={t('hook.deleteHook')}>
+                <IconButton onClick={fDelete} className="delete" title={t('hook.deleteHook')} size="small">
                     <Delete />
                 </IconButton>
             </TableCell>
