@@ -4,7 +4,6 @@ import rimraf from 'rimraf';
 import path from 'path';
 import puppeteer, {Browser, Page} from 'puppeteer';
 import fs from 'fs';
-// @ts-ignore
 import wait from 'wait-on';
 import kill from 'tree-kill';
 
@@ -50,7 +49,18 @@ export const newTest = async (pluginsDir = ''): Promise<GoHookTest> => {
         close: async () => {
             await Promise.all([
                 browser.close(),
-                new Promise<void>((resolve) => kill(gohookInstance.pid!, 'SIGKILL', () => resolve())),
+                new Promise<void>((resolve, reject) => {
+                    if (gohookInstance.pid) {
+                        kill(gohookInstance.pid, 'SIGKILL', (err) => {
+                            if (err) {
+                                return reject(err);
+                            }
+                            resolve();
+                        });
+                    } else {
+                        resolve(); // No PID, resolve immediately
+                    }
+                }),
             ]);
             rimraf.sync(gohookFile, {maxBusyTries: 8});
         },

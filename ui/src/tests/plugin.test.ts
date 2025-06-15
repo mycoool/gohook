@@ -131,11 +131,11 @@ describe('plugin', () => {
             });
             it('updates configurer', async () => {
                 await inDetailPage(1, async () => {
-                    expect(
-                        await (
-                            await (await page.$('.config-save'))!.getProperty('disabled')
-                        ).jsonValue()
-                    ).toBe(true);
+                    const configSaveButton = await page.$('.config-save');
+                    expect(configSaveButton).toBeTruthy();
+                    if (configSaveButton) {
+                        expect(await (await configSaveButton.getProperty('disabled')).jsonValue()).toBe(true);
+                    }
                     await page.waitForSelector('.CodeMirror .CodeMirror-code');
                     await page.waitForFunction(
                         'document.querySelector(".CodeMirror .CodeMirror-code").innerText.toLowerCase().indexOf("loading")<0'
@@ -151,11 +151,11 @@ describe('plugin', () => {
             });
             it('configurer updated', async () => {
                 await inDetailPage(1, async () => {
-                    expect(
-                        await (
-                            await (await page.$('.config-save'))!.getProperty('disabled')
-                        ).jsonValue()
-                    ).toBe(true);
+                    const configSaveButton = await page.$('.config-save');
+                    expect(configSaveButton).toBeTruthy();
+                    if (configSaveButton) {
+                        expect(await (await configSaveButton.getProperty('disabled')).jsonValue()).toBe(true);
+                    }
                     await page.waitForSelector('.CodeMirror .CodeMirror-code > div');
                     await page.waitForFunction(
                         'document.querySelector(".CodeMirror .CodeMirror-code > div").innerText.toLowerCase().indexOf("loading")<0'

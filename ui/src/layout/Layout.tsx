@@ -1,7 +1,7 @@
 import {createTheme, ThemeProvider, Theme, WithStyles, withStyles} from '@material-ui/core';
 import CssBaseline from '@material-ui/core/CssBaseline';
 import * as React from 'react';
-import {HashRouter, Redirect, Route, Switch} from 'react-router-dom';
+import {HashRouter, Route, Switch, useHistory} from 'react-router-dom';
 import Header from './Header';
 import LoadingSpinner from '../common/LoadingSpinner';
 import Navigation from './Navigation';
@@ -55,6 +55,16 @@ const themeMap: Record<ThemeKey, Theme> = {
 const isThemeKey = (value: string | null): value is ThemeKey =>
     value === 'light' || value === 'dark';
 
+// 自定义重定向组件
+const CustomRedirect: React.FC<{to: string}> = ({to}) => {
+    React.useEffect(() => {
+        window.location.hash = to.startsWith('#') ? to : `#${to}`;
+    }, [to]);
+    return null;
+};
+
+
+
 @observer
 class Layout extends React.Component<
     WithStyles<'content'> & Stores<'currentUser' | 'snackManager'>
@@ -93,7 +103,7 @@ class Layout extends React.Component<
             },
         } = this.props;
         const theme = themeMap[currentTheme];
-        const loginRoute = () => (loggedIn ? <Redirect to="/" /> : <Login />);
+        const loginRoute = () => (loggedIn ? <CustomRedirect to="/" /> : <Login />);
         const versionInfo = config.get('version');
         return (
             <ThemeProvider theme={theme}>
@@ -134,7 +144,7 @@ class Layout extends React.Component<
                                             </Route>
                                         ) : null}
                                         <Route exact path="/login" render={loginRoute} />
-                                        {loggedIn ? null : <Redirect to="/login" />}
+                                        {loggedIn ? null : <CustomRedirect to="/login" />}
                                         <Route exact path="/" component={Messages} />
                                         <Route exact path="/messages/:id" component={Messages} />
                                         <Route

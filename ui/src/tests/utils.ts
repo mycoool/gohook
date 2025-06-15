@@ -2,7 +2,10 @@ import {ElementHandle, JSHandle, Page} from 'puppeteer';
 
 export const innerText = async (page: ElementHandle | Page, selector: string): Promise<string> => {
     const element = await page.$(selector);
-    const handle = await element!.getProperty('innerText');
+    if (!element) {
+        throw new Error(`Element with selector "${selector}" not found.`);
+    }
+    const handle = await element.getProperty('innerText');
     const value = await handle.jsonValue();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (value as any).toString().trim();
@@ -13,11 +16,14 @@ export const clickByText = async (page: Page, selector: string, text: string): P
     text = text.toLowerCase();
     await page.evaluate(
         (_selector, _text) => {
-            (
-                Array.from(document.querySelectorAll(_selector)).filter(
-                    (element) => element.textContent?.toLowerCase().trim() === _text
-                )[0] as HTMLButtonElement
-            ).click();
+            const element = Array.from(document.querySelectorAll(_selector)).find(
+                (el) => el.textContent?.toLowerCase().trim() === _text
+            );
+            if (element) {
+                (element as HTMLElement).click();
+            } else {
+                throw new Error(`Element with selector "${_selector}" and text "${_text}" not found for clicking.`);
+            }
         },
         selector,
         text
@@ -47,9 +53,9 @@ export const waitForExists = async (page: Page, selector: string, text: string):
     text = text.toLowerCase();
     await page.waitForFunction(
         (_selector: string, _text: string) =>
-            Array.from(document.querySelectorAll(_selector)).filter(
-                (element) => element.textContent!.toLowerCase().trim() === _text
-            ).length > 0,
+            Array.from(document.querySelectorAll(_selector)).some(
+                (element) => (element.textContent || '').toLowerCase().trim() === _text
+            ),
         {},
         selector,
         text
@@ -59,7 +65,7 @@ export const waitForExists = async (page: Page, selector: string, text: string):
 export const clearField = async (element: ElementHandle | Page, selector: string) => {
     const elementHandle = await element.$(selector);
     if (!elementHandle) {
-        fail();
+        throw new Error(`Element with selector "${selector}" not found for clearing.`);
     }
     await elementHandle.click();
     await elementHandle.focus();
