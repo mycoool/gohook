@@ -107,7 +107,7 @@ class Layout extends React.Component<
         const versionInfo = config.get('version');
         return (
             <ThemeProvider theme={theme}>
-                <HashRouter>
+                {React.createElement(HashRouter, null,
                     <div>
                         {!connectionErrorMessage ? null : (
                             <ConnectionErrorBanner
@@ -186,7 +186,7 @@ class Layout extends React.Component<
                             {loggedIn && <RealtimeMessages />}
                         </div>
                     </div>
-                </HashRouter>
+                )}
             </ThemeProvider>
         );
     }
