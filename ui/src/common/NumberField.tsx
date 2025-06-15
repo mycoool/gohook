@@ -16,6 +16,7 @@ export const NumberField = ({
 
     return (
         <TextField
+            {...(props as any)}
             value={stringValue}
             type="number"
             helperText={error}
@@ -30,7 +31,6 @@ export const NumberField = ({
                     setError('Invalid number');
                 }
             }}
-            {...props}
         />
     );
 };

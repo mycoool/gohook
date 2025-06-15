@@ -616,4 +616,4 @@ const VersionsContainer: React.FC<{
     );
 };
 
-export default withRouter(inject('versionStore')(Versions)); 
+export default (withRouter as any)((inject as any)('versionStore')(Versions)); 

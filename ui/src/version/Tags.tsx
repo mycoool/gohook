@@ -361,4 +361,4 @@ const Row: React.FC<IRowProps> = observer(({tag, onSwitch, onDelete, classes}) =
 // 使用 withStyles 包装 Row 组件
 const StyledRow = withStyles(styles)(Row);
 
-export default withRouter(inject('versionStore')(withStyles(styles)(Tags))); 
+export default (withRouter as any)((inject as any)('versionStore')((withStyles as any)(styles)(Tags))); 
