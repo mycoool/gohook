@@ -1,0 +1,78 @@
+# 版本管理配置文件模板 / Version Management Configuration Template
+# 
+# 配置说明 / Configuration Instructions:
+# 本文件用于配置项目的版本管理和Git Hook功能
+# This file is used to configure project version management and Git Hook functionality
+#
+# 项目配置结构 / Project Configuration Structure:
+# projects: 项目列表 / List of projects
+#   - name: 项目名称（必填，唯一标识符） / Project name (required, unique identifier)
+#     path: 项目路径（必填，绝对路径） / Project path (required, absolute path)
+#     description: 项目描述（可选） / Project description (optional)
+#     enabled: 是否启用项目（true/false） / Whether to enable the project (true/false)
+#     enhook: 是否启用Git Hook（true/false） / Whether to enable Git Hook (true/false)
+#     hookmode: Hook模式（tag/branch） / Hook mode (tag/branch)
+#       - tag: 标签模式，监听标签推送 / Tag mode, listen for tag pushes
+#       - branch: 分支模式，监听分支推送 / Branch mode, listen for branch pushes
+#     hookbranch: 监听的分支名（仅在hookmode为branch时需要） / Branch to monitor (required only when hookmode is branch)
+#     hooksecret: Webhook密钥（可选，用于验证请求安全性） / Webhook secret (optional, for request verification)
+#
+# 使用步骤 / Usage Steps:
+# 1. 复制此模板文件为 version.yaml / Copy this template file to version.yaml
+# 2. 根据实际项目信息修改配置 / Modify configuration according to actual project information
+# 3. 确保项目路径存在且可访问 / Ensure project paths exist and are accessible
+# 4. 重启服务以使配置生效 / Restart service to apply configuration
+#
+# 安全建议 / Security Recommendations:
+# 1. 为每个启用Hook的项目设置独立的密钥 / Set independent secrets for each Hook-enabled project
+# 2. 定期更换密钥以提高安全性 / Regularly rotate secrets for better security
+# 3. 确保项目路径权限设置正确 / Ensure proper permissions for project paths
+
+projects:
+  # 示例项目1：标签模式 / Example Project 1: Tag Mode
+  - name: YOUR-PROJECT-NAME                    # 项目名称，替换为实际项目名 / Project name, replace with actual name
+    path: /path/to/your/project                # 项目绝对路径 / Absolute path to your project
+    description: 项目描述信息                   # 项目描述 / Project description
+    enabled: true                              # 启用项目 / Enable project
+    enhook: true                               # 启用Git Hook / Enable Git Hook
+    hookmode: tag                              # 标签模式 / Tag mode
+    hooksecret: YOUR-SECRET-KEY                # Webhook密钥，16位随机字符串 / Webhook secret, 16-character random string
+
+  # 示例项目2：分支模式 / Example Project 2: Branch Mode
+  - name: ANOTHER-PROJECT                      # 另一个项目名称 / Another project name
+    path: /path/to/another/project             # 另一个项目路径 / Another project path
+    description: 另一个项目的描述               # 项目描述 / Project description
+    enabled: true                              # 启用项目 / Enable project
+    enhook: true                               # 启用Git Hook / Enable Git Hook
+    hookmode: branch                           # 分支模式 / Branch mode
+    hookbranch: main                           # 监听main分支 / Monitor main branch
+    hooksecret: ANOTHER-SECRET-KEY             # 另一个密钥 / Another secret key
+
+  # 示例项目3：禁用Hook / Example Project 3: Hook Disabled
+  - name: SIMPLE-PROJECT                       # 简单项目名称 / Simple project name
+    path: /path/to/simple/project              # 简单项目路径 / Simple project path
+    description: 不使用Hook功能的项目           # 项目描述 / Project without Hook functionality
+    enabled: true                              # 启用项目 / Enable project
+    enhook: false                              # 禁用Git Hook / Disable Git Hook
+
+# 配置示例说明 / Configuration Example Notes:
+# 
+# 标签模式项目 / Tag Mode Projects:
+# - 适用于使用语义化版本标签发布的项目 / Suitable for projects using semantic version tags
+# - 当推送新标签时自动部署 / Automatically deploy when new tags are pushed
+# - 支持标签删除检测 / Supports tag deletion detection
+#
+# 分支模式项目 / Branch Mode Projects:
+# - 适用于基于分支进行持续集成的项目 / Suitable for projects using branch-based CI
+# - 当指定分支更新时自动部署 / Automatically deploy when specified branch is updated
+# - 支持分支删除检测和智能清理 / Supports branch deletion detection and intelligent cleanup
+#
+# Webhook URL格式 / Webhook URL Format:
+# http://your-server.com/githook/{project-name}
+# 例如 / For example: http://localhost:8080/githook/YOUR-PROJECT-NAME
+#
+# 支持的Git平台 / Supported Git Platforms:
+# - GitHub (HMAC-SHA256, HMAC-SHA1)
+# - GitLab (Token验证 / Token verification)
+# - Gitea (HMAC-SHA256)
+# - Gogs (HMAC-SHA256) 

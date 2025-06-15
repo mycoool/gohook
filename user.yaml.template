@@ -1,0 +1,80 @@
+# 用户管理配置文件模板 / User Management Configuration Template
+#
+# 配置说明 / Configuration Instructions:
+# 本文件用于配置系统用户账户和权限
+# This file is used to configure system user accounts and permissions
+#
+# 用户配置结构 / User Configuration Structure:
+# users: 用户列表 / List of users
+#   - username: 用户名（必填，唯一标识符） / Username (required, unique identifier)
+#     password: 密码哈希值（必填，SHA256加密） / Password hash (required, SHA256 encrypted)
+#     role: 用户角色（admin/user） / User role (admin/user)
+#
+# 密码加密说明 / Password Encryption Instructions:
+# 系统使用SHA256算法对密码进行加密存储
+# The system uses SHA256 algorithm to encrypt and store passwords
+# 
+# 生成密码哈希的方法 / Methods to generate password hash:
+# 1. 使用在线SHA256工具 / Use online SHA256 tools
+# 2. 使用命令行：echo -n "your_password" | sha256sum
+# 3. 使用系统管理界面生成 / Use system admin interface to generate
+#
+# 角色权限说明 / Role Permission Description:
+# - admin: 管理员权限，可以管理所有项目和用户 / Administrator privileges, can manage all projects and users
+# - user: 普通用户权限，只能查看和操作授权项目 / Regular user privileges, can only view and operate authorized projects
+#
+# 使用步骤 / Usage Steps:
+# 1. 复制此模板文件为 user.yaml / Copy this template file to user.yaml
+# 2. 根据实际需求添加用户账户 / Add user accounts according to actual needs
+# 3. 生成密码的SHA256哈希值 / Generate SHA256 hash for passwords
+# 4. 重启服务以使配置生效 / Restart service to apply configuration
+#
+# 安全建议 / Security Recommendations:
+# 1. 使用强密码（至少8位，包含字母数字特殊字符） / Use strong passwords (at least 8 characters, including letters, numbers, special characters)
+# 2. 定期更换密码 / Change passwords regularly
+# 3. 限制管理员账户数量 / Limit the number of admin accounts
+# 4. 妥善保管配置文件，避免泄露 / Keep configuration files secure to prevent leakage
+
+users:
+  # 示例管理员账户 / Example Admin Account
+  - username: admin                            # 管理员用户名 / Admin username
+    password: YOUR-PASSWORD-HASH               # 密码哈希值，替换为实际SHA256值 / Password hash, replace with actual SHA256 value
+    role: admin                                # 管理员角色 / Admin role
+
+  # 示例普通用户账户 / Example Regular User Account
+  - username: developer                        # 开发者用户名 / Developer username
+    password: ANOTHER-PASSWORD-HASH            # 另一个密码哈希值 / Another password hash
+    role: user                                 # 普通用户角色 / Regular user role
+
+  # 示例运维用户账户 / Example Operations User Account
+  - username: operator                         # 运维用户名 / Operations username
+    password: OPERATOR-PASSWORD-HASH           # 运维密码哈希值 / Operations password hash
+    role: user                                 # 普通用户角色 / Regular user role
+
+# 配置示例说明 / Configuration Example Notes:
+#
+# 常用密码哈希示例 / Common Password Hash Examples:
+# (仅供参考，请勿在生产环境使用 / For reference only, do not use in production)
+#
+# password "admin123" -> SHA256: 240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9
+# password "user123"  -> SHA256: ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f
+# password "demo123"  -> SHA256: 2bb80d537b1da3e38bd30361aa855686bde0eacd7162fef6a25fe97bf527a25b
+#
+# 生成新密码哈希的Linux命令 / Linux command to generate new password hash:
+# echo -n "your_new_password" | sha256sum | cut -d' ' -f1
+#
+# 用户管理功能 / User Management Features:
+# - 支持多用户同时登录 / Support multiple users login simultaneously
+# - 基于JWT的身份验证 / JWT-based authentication
+# - 角色基础的权限控制 / Role-based access control
+# - 安全的密码存储机制 / Secure password storage mechanism
+#
+# 默认登录地址 / Default Login URL:
+# http://your-server.com/login
+# 例如 / For example: http://localhost:8080/login
+#
+# 注意事项 / Important Notes:
+# 1. 至少保留一个管理员账户 / Keep at least one admin account
+# 2. 用户名不能重复 / Usernames must be unique
+# 3. 删除用户前请确保没有正在使用的会话 / Ensure no active sessions before deleting users
+# 4. 修改配置后需要重启服务 / Service restart required after configuration changes 
