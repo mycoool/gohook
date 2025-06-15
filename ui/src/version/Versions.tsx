@@ -233,7 +233,7 @@ const Row: SFC<IRowProps> = observer(({project, onViewBranches, onViewTags, onEd
             case 'branch':
                 return (
                     <Chip
-                        label={t('version.branchMode')}
+                        label={t('version.branch')}
                         size="small"
                         style={{backgroundColor: '#4caf50', color: 'white'}}
                     />
@@ -241,7 +241,7 @@ const Row: SFC<IRowProps> = observer(({project, onViewBranches, onViewTags, onEd
             case 'tag':
                 return (
                     <Chip
-                        label={t('version.tagMode')}
+                        label={t('version.tag')}
                         size="small"
                         style={{backgroundColor: '#2196f3', color: 'white'}}
                     />
@@ -249,7 +249,7 @@ const Row: SFC<IRowProps> = observer(({project, onViewBranches, onViewTags, onEd
             default:
                 return (
                     <Chip
-                        label={t('version.nonGitProject')}
+                        label={t('version.nonGit')}
                         size="small"
                         style={{backgroundColor: '#9e9e9e', color: 'white'}}
                     />
@@ -369,34 +369,28 @@ const Row: SFC<IRowProps> = observer(({project, onViewBranches, onViewTags, onEd
                 {getStatusChip(project.status)}
             </TableCell>
             <TableCell>
-                <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
-                    <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
-                        <span style={{fontSize: '0.75rem', color: '#666'}}>Git:</span>
-                        {getModeChip(project.mode)}
-                    </div>
-                    {project.mode !== 'none' && (
-                        <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
-                            <span style={{fontSize: '0.75rem', color: '#666'}}>Hook:</span>
-                            {project.enhook ? (
-                                <Chip
-                                    label={`${project.hookmode === 'branch' ? '分支' : '标签'}${
-                                        project.hookmode === 'branch' && project.hookbranch !== '*' 
-                                            ? `(${project.hookbranch})` 
-                                            : project.hookmode === 'branch' ? '(任意)' : ''
-                                    }`}
-                                    size="small"
-                                    style={{backgroundColor: '#4caf50', color: 'white', fontSize: '0.7rem', height: '20px'}}
-                                />
-                            ) : (
-                                <Chip
-                                    label="未启用"
-                                    size="small"
-                                    style={{backgroundColor: '#9e9e9e', color: 'white', fontSize: '0.7rem', height: '20px'}}
-                                />
-                            )}
-                        </div>
-                    )}
-                </div>
+                {getModeChip(project.mode)}
+            </TableCell>
+            <TableCell>
+                {project.mode !== 'none' && (
+                    project.enhook ? (
+                        <Chip
+                            label={`${project.hookmode === 'branch' ? t('version.branch') : t('version.tag')}${
+                                project.hookmode === 'branch' && project.hookbranch !== '*' 
+                                    ? `(${project.hookbranch})` 
+                                    : project.hookmode === 'branch' ? `(${t('githook.anyBranchShort')})` : ''
+                            }`}
+                            size="small"
+                            style={{backgroundColor: '#4caf50', color: 'white', fontSize: '0.7rem', height: '20px'}}
+                        />
+                    ) : (
+                        <Chip
+                            label={t('githook.notEnabled')}
+                            size="small"
+                            style={{backgroundColor: '#9e9e9e', color: 'white', fontSize: '0.7rem', height: '20px'}}
+                        />
+                    )
+                )}
             </TableCell>
             <TableCell>
                 {project.lastCommit && (
@@ -510,7 +504,8 @@ const VersionsContainer: React.FC<{
                                 <TableCell>{t('version.projectName')}</TableCell>
                                 <TableCell>{t('version.projectDescription')}</TableCell>
                                 <TableCell>{t('version.currentBranch')}/{t('version.currentTag')}</TableCell>
-                                <TableCell>{t('common.status')}</TableCell>
+                                <TableCell>{t('version.gitStatus')}</TableCell>
+                                <TableCell>{t('version.hookStatus')}</TableCell>
                                 <TableCell>{t('version.lastCommit')}</TableCell>
                                 <TableCell>{t('common.actions')}</TableCell>
                             </TableRow>

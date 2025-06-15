@@ -24,6 +24,7 @@ import {
 import { makeStyles } from '@material-ui/core/styles';
 import { FileCopy, Refresh } from '@material-ui/icons';
 import { IVersion } from '../types';
+import { useTranslation } from '../i18n/useTranslation';
 
 const useStyles = makeStyles((theme) => ({
     content: {
@@ -91,6 +92,7 @@ const GitHookDialog: React.FC<GitHookDialogProps> = ({
     onSave
 }) => {
     const classes = useStyles();
+    const { t } = useTranslation();
     const [enhook, setEnhook] = useState(false);
     const [hookmode, setHookmode] = useState<'branch' | 'tag'>('branch');
     const [hookbranch, setHookbranch] = useState('*');
@@ -117,7 +119,7 @@ const GitHookDialog: React.FC<GitHookDialogProps> = ({
             setSnackbarOpen(true);
         } catch (error) {
             console.error('Failed to copy to clipboard:', error);
-            setSnackbarMessage('复制失败');
+            setSnackbarMessage(t('githook.copyFailed'));
             setSnackbarOpen(true);
         }
     };
@@ -169,9 +171,9 @@ const GitHookDialog: React.FC<GitHookDialogProps> = ({
     return (
         <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
             <DialogTitle>
-                GitHook 配置 - {project.name}
+                {t('githook.title')} - {project.name}
                 <Chip
-                    label={enhook ? '已启用' : '已禁用'}
+                    label={enhook ? t('githook.enabled') : t('githook.disabled')}
                     size="small"
                     color={enhook ? 'primary' : 'default'}
                     className={classes.statusChip}
@@ -187,19 +189,18 @@ const GitHookDialog: React.FC<GitHookDialogProps> = ({
                                 color="primary"
                             />
                         }
-                        label="启用 GitHook"
+                        label={t('githook.enable')}
                     />
                     <Typography className={classes.description}>
-                        启用后，Git仓库的webhook将自动触发代码拉取和部署
+                        {t('githook.enableDescription')}
                     </Typography>
                 </Box>
 
                 {enhook && (
                     <>
-                        <Divider />
                         <Box className={classes.section}>
                             <FormControl component="fieldset">
-                                <FormLabel component="legend">运行模式</FormLabel>
+                                <FormLabel component="legend">{t('githook.runMode')}</FormLabel>
                                 <RadioGroup
                                     value={hookmode}
                                     onChange={(e) => setHookmode(e.target.value as 'branch' | 'tag')}
@@ -207,19 +208,19 @@ const GitHookDialog: React.FC<GitHookDialogProps> = ({
                                     <FormControlLabel
                                         value="branch"
                                         control={<Radio />}
-                                        label="分支模式"
+                                        label={t('githook.branchMode')}
                                     />
                                     <FormControlLabel
                                         value="tag"
                                         control={<Radio />}
-                                        label="标签模式"
+                                        label={t('githook.tagMode')}
                                     />
                                 </RadioGroup>
                             </FormControl>
                             <Typography className={classes.description}>
                                 {hookmode === 'branch' 
-                                    ? '当指定分支有新提交时触发部署'
-                                    : '当创建新标签时触发部署'
+                                    ? t('githook.branchModeDescription')
+                                    : t('githook.tagModeDescription')
                                 }
                             </Typography>
                         </Box>
@@ -227,7 +228,7 @@ const GitHookDialog: React.FC<GitHookDialogProps> = ({
                         {hookmode === 'branch' && (
                             <Box className={classes.section}>
                                 <FormControl component="fieldset" fullWidth>
-                                    <FormLabel component="legend">分支设置</FormLabel>
+                                    <FormLabel component="legend">{t('githook.branchSettings')}</FormLabel>
                                     <RadioGroup
                                         value={hookbranch === '*' ? 'all' : 'specific'}
                                         onChange={(e) => {
@@ -241,22 +242,22 @@ const GitHookDialog: React.FC<GitHookDialogProps> = ({
                                         <FormControlLabel
                                             value="all"
                                             control={<Radio />}
-                                            label="任意分支（webhook触发哪个分支就切换到哪个分支）"
+                                            label={t('githook.anyBranch')}
                                         />
                                         <FormControlLabel
                                             value="specific"
                                             control={<Radio />}
-                                            label="指定分支"
+                                            label={t('githook.specificBranch')}
                                         />
                                     </RadioGroup>
                                     
                                     {hookbranch !== '*' && (
                                         <TextField
                                             className={classes.branchInput}
-                                            label="分支名称"
+                                            label={t('githook.branchName')}
                                             value={hookbranch}
                                             onChange={(e) => setHookbranch(e.target.value)}
-                                            placeholder="例如: main, develop, master"
+                                            placeholder={t('githook.branchNamePlaceholder')}
                                             variant="outlined"
                                             size="small"
                                         />
@@ -264,43 +265,42 @@ const GitHookDialog: React.FC<GitHookDialogProps> = ({
                                 </FormControl>
                                 <Typography className={classes.description}>
                                     {hookbranch === '*' 
-                                        ? '任意分支模式：webhook触发时会自动切换到对应分支并拉取最新代码'
-                                        : `指定分支模式：只有 ${hookbranch} 分支的webhook才会触发部署`
+                                        ? t('githook.anyBranchDescription')
+                                        : t('githook.specificBranchDescription', { branch: hookbranch })
                                     }
                                 </Typography>
                             </Box>
                         )}
 
-                        <Divider />
                         <Box className={classes.section}>
                             <Typography variant="subtitle2" gutterBottom>
-                                Webhook 密码
+                                {t('githook.webhookPassword')}
                             </Typography>
                             <TextField
                                 fullWidth
-                                label="Webhook 密码"
+                                label={t('githook.webhookPassword')}
                                 value={hooksecret}
                                 onChange={(e) => setHooksecret(e.target.value)}
-                                placeholder="设置webhook验证密码（可选）"
+                                placeholder={t('githook.webhookPasswordPlaceholder')}
                                 variant="outlined"
                                 size="small"
-                                type="password"
+                                type="text"
                                 className={classes.passwordField}
                                 InputProps={{
                                     endAdornment: (
                                         <InputAdornment position="end">
                                             <IconButton
-                                                onClick={() => copyToClipboard(hooksecret, '密码已复制到剪贴板')}
+                                                onClick={() => copyToClipboard(hooksecret, t('githook.passwordCopied'))}
                                                 disabled={!hooksecret}
                                                 size="small"
-                                                title="复制密码"
+                                                title={t('githook.copyPassword')}
                                             >
                                                 <FileCopy fontSize="small" />
                                             </IconButton>
                                             <IconButton
                                                 onClick={() => setHooksecret(generatePassword())}
                                                 size="small"
-                                                title="生成随机密码"
+                                                title={t('githook.generatePassword')}
                                             >
                                                 <Refresh fontSize="small" />
                                             </IconButton>
@@ -309,26 +309,26 @@ const GitHookDialog: React.FC<GitHookDialogProps> = ({
                                 }}
                             />
                             <Typography className={classes.description}>
-                                设置后，webhook请求需要包含此密码才能触发部署。可使用右侧按钮生成随机密码或复制当前密码。
+                                {t('githook.webhookPasswordDescription')}
                             </Typography>
                         </Box>
 
-                        <Divider />
                         <Box className={classes.section}>
                             <Typography variant="subtitle2" gutterBottom>
-                                Webhook URL
+                                {t('githook.webhookUrl')}
                             </Typography>
                             <Box className={classes.webhookUrl}>
                                 <span className={classes.webhookUrlText}>{getWebhookUrl()}</span>
                                 <IconButton
-                                    onClick={() => copyToClipboard(getWebhookUrl(), 'Webhook URL已复制到剪贴板')}
+                                    onClick={() => copyToClipboard(getWebhookUrl(), t('githook.urlCopied'))}
                                     size="small"
+                                    title={t('githook.copyUrl')}
                                 >
                                     <FileCopy fontSize="small" />
                                 </IconButton>
                             </Box>
                             <Typography className={classes.description}>
-                                请将此URL配置到您的Git仓库的webhook设置中
+                                {t('githook.webhookUrlDescription')}
                             </Typography>
                         </Box>
                     </>
@@ -336,7 +336,7 @@ const GitHookDialog: React.FC<GitHookDialogProps> = ({
             </DialogContent>
             <DialogActions>
                 <Button onClick={onClose} disabled={saving}>
-                    取消
+                    {t('common.cancel')}
                 </Button>
                 <Button 
                     onClick={handleSave} 
@@ -344,7 +344,7 @@ const GitHookDialog: React.FC<GitHookDialogProps> = ({
                     variant="contained"
                     disabled={saving}
                 >
-                    {saving ? '保存中...' : '保存'}
+                    {saving ? t('githook.saving') : t('common.save')}
                 </Button>
             </DialogActions>
             <Snackbar
