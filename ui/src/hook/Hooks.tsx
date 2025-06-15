@@ -11,7 +11,7 @@ import PlayArrow from '@material-ui/icons/PlayArrow';
 import Refresh from '@material-ui/icons/Refresh';
 import CloudDownload from '@material-ui/icons/CloudDownload';
 import ButtonGroup from '@material-ui/core/ButtonGroup';
-import React, {Component, SFC} from 'react';
+import React, {Component} from 'react';
 import ConfirmDialog from '../common/ConfirmDialog';
 import DefaultPage from '../common/DefaultPage';
 import Button from '@material-ui/core/Button';
@@ -175,7 +175,7 @@ interface IRowProps extends WithStyles<typeof styles> {
     fDelete: VoidFunction;
 }
 
-const Row: SFC<IRowProps> = observer(({hook, fTrigger, fDelete, classes}) => {
+const Row: React.FC<IRowProps> = observer(({hook, fTrigger, fDelete, classes}) => {
     const { t } = useTranslation();
     
     return (

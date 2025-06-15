@@ -9,7 +9,7 @@ import TableHead from '@material-ui/core/TableHead';
 import TableRow from '@material-ui/core/TableRow';
 import Delete from '@material-ui/icons/Delete';
 import Edit from '@material-ui/icons/Edit';
-import React, {Component, SFC} from 'react';
+import React, {Component} from 'react';
 import ConfirmDialog from '../common/ConfirmDialog';
 import DefaultPage from '../common/DefaultPage';
 import Button from '@material-ui/core/Button';
@@ -34,7 +34,7 @@ interface IRowProps {
     fEdit: VoidFunction;
 }
 
-const UserRow: SFC<IRowProps> = ({name, admin, fDelete, fEdit}) => {
+const UserRow: React.FC<IRowProps> = ({name, admin, fDelete, fEdit}) => {
     const { t } = useTranslation();
     
     return (

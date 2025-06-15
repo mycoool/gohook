@@ -1,7 +1,7 @@
 import {createTheme, ThemeProvider, Theme, WithStyles, withStyles} from '@material-ui/core';
 import CssBaseline from '@material-ui/core/CssBaseline';
 import * as React from 'react';
-import {HashRouter, Route, Switch, useHistory} from 'react-router-dom';
+import {HashRouter, Route, Switch} from 'react-router-dom';
 import Header from './Header';
 import LoadingSpinner from '../common/LoadingSpinner';
 import Navigation from './Navigation';
@@ -63,8 +63,6 @@ const CustomRedirect: React.FC<{to: string}> = ({to}) => {
     return null;
 };
 
-
-
 @observer
 class Layout extends React.Component<
     WithStyles<'content'> & Stores<'currentUser' | 'snackManager'>
@@ -107,7 +105,7 @@ class Layout extends React.Component<
         const versionInfo = config.get('version');
         return (
             <ThemeProvider theme={theme}>
-                {React.createElement(HashRouter, null,
+                <HashRouter>
                     <div>
                         {!connectionErrorMessage ? null : (
                             <ConnectionErrorBanner
@@ -186,7 +184,7 @@ class Layout extends React.Component<
                             {loggedIn && <RealtimeMessages />}
                         </div>
                     </div>
-                )}
+                </HashRouter>
             </ThemeProvider>
         );
     }

@@ -16,7 +16,7 @@ import Refresh from '@material-ui/icons/Refresh';
 import Computer from '@material-ui/icons/Computer';
 import CloudQueue from '@material-ui/icons/CloudQueue';
 import Delete from '@material-ui/icons/Delete';
-import React, {Component, SFC} from 'react';
+import React, {Component} from 'react';
 import DefaultPage from '../common/DefaultPage';
 import ConfirmDialog from '../common/ConfirmDialog';
 import {observer} from 'mobx-react';
@@ -38,8 +38,10 @@ const styles = (theme: Theme) => createStyles({
     },
 });
 
+type BranchesProps = RouteComponentProps<{projectName: string}> & Stores<'versionStore'>;
+
 @observer
-class Branches extends Component<RouteComponentProps<{projectName: string}> & Stores<'versionStore'>> {
+class Branches extends Component<BranchesProps> {
     @observable
     private switchBranch: string | false = false;
 
@@ -163,7 +165,7 @@ interface IRowProps extends WithStyles<typeof styles> {
     onDelete: VoidFunction;
 }
 
-const Row: SFC<IRowProps> = observer(({branch, onSwitch, onDelete, classes}) => {
+const Row: React.FC<IRowProps> = observer(({branch, onSwitch, onDelete, classes}) => {
     const renderBranchName = () => {
         let icon = null;
         let title = '';

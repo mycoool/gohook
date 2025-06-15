@@ -26,7 +26,7 @@ import CloudQueue from '@material-ui/icons/CloudQueue';
 import GitHubIcon from '@material-ui/icons/GitHub';
 import Settings from '@material-ui/icons/Settings';
 import Link from '@material-ui/icons/Link';
-import React, {Component, SFC} from 'react';
+import React, {Component} from 'react';
 import DefaultPage from '../common/DefaultPage';
 import ConfirmDialog from '../common/ConfirmDialog';
 import AddProjectDialog from './AddProjectDialog';
@@ -225,7 +225,7 @@ interface IRowProps {
     onSetRemote: (projectName: string) => void;
 }
 
-const Row: SFC<IRowProps> = observer(({project, onViewBranches, onViewTags, onEditEnv, onConfigGitHook, onDelete, onInitGit, onSetRemote}) => {
+const Row: React.FC<IRowProps> = observer(({project, onViewBranches, onViewTags, onEditEnv, onConfigGitHook, onDelete, onInitGit, onSetRemote}) => {
     const { t } = useTranslation();
     
     const getModeChip = (mode: string) => {

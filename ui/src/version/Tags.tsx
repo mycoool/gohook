@@ -20,7 +20,7 @@ import Refresh from '@material-ui/icons/Refresh';
 import Delete from '@material-ui/icons/Delete';
 import Search from '@material-ui/icons/Search';
 import Clear from '@material-ui/icons/Clear';
-import React, {Component, SFC} from 'react';
+import React, {Component} from 'react';
 import DefaultPage from '../common/DefaultPage';
 import ConfirmDialog from '../common/ConfirmDialog';
 import {observer} from 'mobx-react';
@@ -62,8 +62,10 @@ const styles = (theme: Theme) => createStyles({
     },
 });
 
+type TagsProps = RouteComponentProps<{projectName: string}> & Stores<'versionStore'> & WithStyles<typeof styles>;
+
 @observer
-class Tags extends Component<RouteComponentProps<{projectName: string}> & Stores<'versionStore'> & WithStyles<typeof styles>> {
+class Tags extends Component<TagsProps> {
     @observable
     private switchTag: string | false = false;
 
@@ -306,7 +308,7 @@ interface IRowProps extends WithStyles<typeof styles> {
     onDelete: VoidFunction;
 }
 
-const Row: SFC<IRowProps> = observer(({tag, onSwitch, onDelete, classes}) => (
+const Row: React.FC<IRowProps> = observer(({tag, onSwitch, onDelete, classes}) => (
     <TableRow>
         <TableCell>
             <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>

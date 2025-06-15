@@ -1,4 +1,4 @@
-import React, {Component, SFC} from 'react';
+import React, {Component} from 'react';
 import {Link} from 'react-router-dom';
 import Grid from '@material-ui/core/Grid';
 import Paper from '@material-ui/core/Paper';
@@ -71,7 +71,7 @@ interface IRowProps {
     fToggleStatus: VoidFunction;
 }
 
-const Row: SFC<IRowProps> = observer(({name, id, token, enabled, fToggleStatus}) => (
+const Row: React.FC<IRowProps> = observer(({name, id, token, enabled, fToggleStatus}) => (
     <TableRow>
         <TableCell>{id}</TableCell>
         <TableCell>
