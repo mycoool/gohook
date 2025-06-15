@@ -138,6 +138,14 @@ func main() {
 	// log file opening prior to writing our first log message.
 	var logQueue []string
 
+	// 根据debug参数设置gin模式，需要在InitRouter之前设置
+	if *ginDebug {
+		gin.SetMode(gin.DebugMode)
+		log.Printf("running in debug mode")
+	} else {
+		gin.SetMode(gin.ReleaseMode)
+	}
+
 	// 首先尝试加载应用配置以获取端口设置
 	// 创建一个临时router实例来加载配置
 	router.LoadedHooksFromFiles = &loadedHooksFromFiles
@@ -294,13 +302,7 @@ func main() {
 		go watchForFileChange()
 	}
 
-	// 根据debug参数设置gin模式
-	if *ginDebug {
-		gin.SetMode(gin.DebugMode)
-		log.Printf("running in debug mode")
-	} else {
-		gin.SetMode(gin.ReleaseMode)
-	}
+	// gin模式已经在前面设置过了
 
 	// router已经在前面初始化过了，这里直接获取实例
 	r := router.GetRouter()
