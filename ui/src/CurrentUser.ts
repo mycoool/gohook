@@ -162,28 +162,28 @@ export class CurrentUser {
     };
 
     public logout = async () => {
-        // 获取当前会话信息并删除
+        const token = this.token();
+
         try {
-            const resp = await axios.get(config.get('url') + 'client', {
-                headers: {'X-GoHook-Key': this.token()}
-            });
-            
-            // 找到当前会话并删除
-            const currentSession = resp.data.find((client: {id: number, current: boolean}) => client.current === true);
-            if (currentSession) {
-                await axios.delete(config.get('url') + 'client/' + currentSession.id, {
-                    headers: {'X-GoHook-Key': this.token()}
+            if (token) {
+                // 优先尝试删除服务器上的会话
+                await axios.delete(config.get('url') + 'client/current', {
+                    headers: {'X-GoHook-Key': token}
                 });
+                console.log('Session deletion request sent to server.');
             }
         } catch (error) {
-            // 即使删除会话失败，也要清理本地状态
-            console.log('Failed to delete session on server:', error);
+            // 即使请求失败，我们也不关心，因为最终会清理本地状态
+            if (process.env.NODE_ENV === 'development') {
+                console.warn('Failed to delete session on server. This can be ignored as user will be logged out locally.', error);
+            }
+        } finally {
+            // 无论如何，都确保清理本地状态，完成登出
+            window.localStorage.removeItem(tokenKey);
+            this.tokenCache = null;
+            this.loggedIn = false;
+            this.user = {name: 'unknown', admin: false, id: -1, username: 'unknown', role: 'user'};
         }
-        
-        // 清理本地状态
-        window.localStorage.removeItem(tokenKey);
-        this.tokenCache = null;
-        this.loggedIn = false;
     };
 
     public changePassword = (oldPassword: string, newPassword: string) => {

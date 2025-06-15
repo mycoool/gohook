@@ -2339,42 +2339,45 @@ func InitRouter() *gin.Engine {
 	})
 
 	// 删除客户端API (注销指定会话)
-	g.DELETE("/client/:id", authMiddleware(), func(c *gin.Context) {
-		id := c.Param("id")
-		username, _ := c.Get("username")
-		currentToken, _ := c.Get("token")
+	g.DELETE("/client/:id", authMiddleware(), adminMiddleware(), func(c *gin.Context) {
+		id, err := strconv.Atoi(c.Param("id"))
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid client ID"})
+			return
+		}
 
-		// 查找要删除的会话
-		sessions := getClientSessionsByUser(username.(string))
-		var targetToken string
-		var targetSession *ClientSession
+		sessionMutex.Lock()
+		defer sessionMutex.Unlock()
 
-		for _, session := range sessions {
-			if fmt.Sprintf("%d", session.ID) == id {
-				targetToken = session.Token
-				targetSession = session
+		var tokenToDelete string
+		for token, session := range clientSessions {
+			if session.ID == id {
+				tokenToDelete = token
 				break
 			}
 		}
 
-		if targetSession == nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "会话未找到"})
-			return
-		}
-
-		// 不能删除当前会话
-		if targetToken == currentToken.(string) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "不能删除当前会话，请使用注销功能"})
-			return
-		}
-
-		// 删除会话
-		if removeClientSession(targetToken) {
-			c.JSON(http.StatusOK, gin.H{
-				"message": fmt.Sprintf("会话 '%s' 已被注销", targetSession.Name),
-			})
+		if tokenToDelete != "" {
+			delete(clientSessions, tokenToDelete)
+			c.JSON(http.StatusOK, gin.H{"message": "Client session deleted"})
 		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "删除会话失败"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Client session not found"})
+		}
+	})
+
+	// 删除当前用户的会话
+	g.DELETE("/client/current", authMiddleware(), func(c *gin.Context) {
+		token := c.GetHeader("X-GoHook-Key")
+		if token == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Token not provided"})
+			return
+		}
+
+		if removeClientSession(token) {
+			c.JSON(http.StatusOK, gin.H{"message": "Current session deleted successfully"})
+		} else {
+			// 即使找不到会话，也返回成功，因为客户端的目标是退出
+			c.JSON(http.StatusOK, gin.H{"message": "Session not found, but logout process can continue"})
 		}
 	})
 
