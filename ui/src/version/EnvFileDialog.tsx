@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     Dialog,
     DialogTitle,
@@ -16,6 +16,8 @@ import { Save, Delete, FileCopy } from '@material-ui/icons';
 import Editor from 'react-simple-code-editor';
 import 'prismjs/themes/prism.css';
 import 'prismjs/themes/prism-dark.css';
+
+type Editor = any;
 
 // 自定义.env文件语法高亮
 const highlightEnvSyntax = (code: string, isDark = false) => {
@@ -78,83 +80,27 @@ const useStyles = makeStyles((theme) => ({
         flexDirection: 'column',
         paddingTop: theme.spacing(1),
         paddingBottom: 0,
-        overflow: 'hidden',
     },
     editorContainer: {
         flexGrow: 1,
         border: `1px solid ${theme.palette.divider}`,
         borderRadius: theme.shape.borderRadius,
-        overflow: 'hidden',
         backgroundColor: theme.palette.type === 'dark' ? '#1e1e1e' : '#ffffff',
         position: 'relative',
-        display: 'flex',
-        height: '800px',
-        minHeight: '800px',
-        maxHeight: '800px',
-    },
-    lineNumbers: {
-        backgroundColor: theme.palette.type === 'dark' ? '#2d2d30' : '#f8f8f8',
-        borderRight: `1px solid ${theme.palette.divider}`,
-        padding: `${theme.spacing(1)}px ${theme.spacing(0.5)}px`,
+        maxHeight: '70vh',
+        overflow: 'auto',
         fontFamily: '"Fira Code", "Consolas", "Monaco", "Courier New", monospace',
         fontSize: '14px',
-        lineHeight: 1.5,
-        color: theme.palette.type === 'dark' ? '#858585' : '#999999',
-        textAlign: 'right',
-        userSelect: 'none',
-        minWidth: '48px',
-        whiteSpace: 'pre-line',
-        overflow: 'hidden',
-        flexShrink: 0,
-        height: '100%',
+        lineHeight: '21px',
     },
     editorWrapper: {
-        flexGrow: 1,
-        position: 'relative',
-        overflow: 'hidden',
         height: '100%',
-        flex: '1 1 auto',
-    },
-    editor: {
-        fontFamily: '"Fira Code", "Consolas", "Monaco", "Courier New", monospace',
-        fontSize: '14px',
-        lineHeight: 1.5,
-        outline: 'none',
-        backgroundColor: 'transparent',
-        color: theme.palette.type === 'dark' ? '#d4d4d4' : '#000000',
-        caretColor: theme.palette.type === 'dark' ? '#ffffff' : '#000000',
-        padding: `${theme.spacing(1)}px ${theme.spacing(1.5)}px`,
-        border: 'none',
-        resize: 'none' as any,
-        width: '100%',
-        height: '100%',
-        overflow: 'hidden',
-        '& textarea': {
+        '& textarea, & pre': {
+            padding: `10px !important`,
             outline: 'none !important',
-            resize: 'none !important',
-            height: '100% !important',
-            width: '100% !important',
-            border: 'none !important',
-            backgroundColor: 'transparent !important',
-            fontFamily: 'inherit !important',
-            fontSize: 'inherit !important',
-            lineHeight: 'inherit !important',
-            color: 'inherit !important',
-            padding: '0 !important',
-            margin: '0 !important',
         },
-        '& pre': {
-            margin: '0 !important',
-            padding: '0 !important',
-            outline: 'none !important',
-            whiteSpace: 'pre-wrap !important',
-            wordWrap: 'break-word !important',
-            backgroundColor: 'transparent !important',
-            border: 'none !important',
-            fontFamily: 'inherit !important',
-            fontSize: 'inherit !important',
-            lineHeight: 'inherit !important',
-            color: 'inherit !important',
+        '& textarea': {
+            caretColor: theme.palette.text.primary,
         }
     },
     pathInfo: {
@@ -211,9 +157,9 @@ const useStyles = makeStyles((theme) => ({
         color: theme.palette.text.secondary,
     },
     dialogPaper: {
-        maxWidth: '90vw',
-        width: '1000px',
-        maxHeight: '90vh',
+        maxWidth: '850px',
+        width: '100%',
+        height: '90vh',
     },
     exampleButton: {
         marginTop: theme.spacing(1),
@@ -267,10 +213,6 @@ const EnvFileDialog: React.FC<EnvFileDialogProps> = ({
     const [filePath, setFilePath] = useState('');
     const [error, setError] = useState<string | null>(null);
     const [showExample, setShowExample] = useState(false);
-    
-    // 编辑器引用
-    const editorRef = React.useRef<HTMLDivElement>(null);
-    const lineNumbersRef = React.useRef<HTMLDivElement>(null);
 
     const exampleEnvContent = `# 环境变量配置文件示例
 # 这是注释行，以#开头
@@ -303,23 +245,6 @@ DEBUG=true`;
             setExists(false);
         }
     }, [open, projectName]);
-
-    // 设置滚动同步
-    useEffect(() => {
-        const editorTextarea = document.getElementById('env-editor');
-        if (editorTextarea && lineNumbersRef.current) {
-            const handleScroll = () => {
-                if (lineNumbersRef.current) {
-                    lineNumbersRef.current.scrollTop = editorTextarea.scrollTop;
-                }
-            };
-            
-            editorTextarea.addEventListener('scroll', handleScroll);
-            return () => {
-                editorTextarea.removeEventListener('scroll', handleScroll);
-            };
-        }
-    }, [open, content]);
 
     const loadEnvFile = async () => {
         setLoading(true);
@@ -385,17 +310,6 @@ DEBUG=true`;
     const handleClose = () => {
         onClose();
     };
-
-    // 生成行号
-    const generateLineNumbers = (text: string) => {
-        if (!text) return '1';
-        const lines = text.split('\n');
-        // 确保至少有一行
-        const lineCount = Math.max(lines.length, 1);
-        return Array.from({ length: lineCount }, (_, index) => index + 1).join('\n');
-    };
-
-
 
     return (
         <Dialog 
@@ -474,35 +388,20 @@ DEBUG=true`;
                         )}
                         
                         <Paper className={classes.editorContainer} variant="outlined">
-                            {/* 行号区域 */}
-                            <div 
-                                ref={lineNumbersRef}
-                                className={classes.lineNumbers}
-                            >
-                                {generateLineNumbers(content || '')}
-                            </div>
-                            
-                            {/* 编辑器区域 */}
-                            <div 
-                                ref={editorRef}
-                                className={classes.editorWrapper}
-                            >
+                            <div className={classes.editorWrapper}>
                                 <Editor
                                     value={content}
                                     onValueChange={handleEditorChange}
-                                    highlight={code => `<pre>${highlightEnvSyntax(code, isDark)}</pre>`}
-                                    padding={theme.spacing(1)}
+                                    highlight={code => highlightEnvSyntax(code, isDark)}
+                                    padding={10}
+                                    textareaId="env-editor"
+                                    className="react-simple-code-editor"
                                     style={{
-                                        backgroundColor: 'transparent',
                                         fontFamily: '"Fira Code", "Consolas", "Monaco", "Courier New", monospace',
                                         fontSize: 14,
-                                        lineHeight: 1.5,
-                                        height: '800px',
-                                        overflow: 'auto',
-                                        border: 'none',
-                                        outline: 'none',
+                                        lineHeight: '21px',
+                                        background: 'transparent',
                                     }}
-                                    textareaId="env-editor"
                                     placeholder="# 在这里输入环境变量
 # 格式: KEY=value
 APP_NAME=MyApp
