@@ -1,7 +1,7 @@
 import {createTheme, ThemeProvider, Theme, WithStyles, withStyles} from '@material-ui/core';
 import CssBaseline from '@material-ui/core/CssBaseline';
 import * as React from 'react';
-import {HashRouter, Route, Switch} from 'react-router-dom';
+import * as ReactRouter from 'react-router-dom';
 import Header from './Header';
 import LoadingSpinner from '../common/LoadingSpinner';
 import Navigation from './Navigation';
@@ -24,6 +24,8 @@ import {observer} from 'mobx-react';
 import {observable} from 'mobx';
 import {inject, Stores} from '../inject';
 import {ConnectionErrorBanner} from '../common/ConnectionErrorBanner';
+
+const { HashRouter, Route, Switch } = ReactRouter;
 
 const styles = (theme: Theme) => ({
     content: {
@@ -105,7 +107,7 @@ class Layout extends React.Component<
         const versionInfo = config.get('version');
         return (
             <ThemeProvider theme={theme}>
-                <HashRouter>
+                {React.createElement(HashRouter as any, null,
                     <div>
                         {!connectionErrorMessage ? null : (
                             <ConnectionErrorBanner
@@ -135,45 +137,20 @@ class Layout extends React.Component<
                                     user={{admin, role}}
                                 />
                                 <main className={classes.content}>
-                                    <Switch>
-                                        {authenticating ? (
-                                            <Route path="/">
-                                                <LoadingSpinner />
-                                            </Route>
-                                        ) : null}
-                                        <Route exact path="/login" render={loginRoute} />
-                                        {loggedIn ? null : <CustomRedirect to="/login" />}
-                                        <Route exact path="/" component={Messages} />
-                                        <Route exact path="/messages/:id" component={Messages} />
-                                        <Route
-                                            exact
-                                            path="/versions"
-                                            component={Versions}
-                                        />
-                                        <Route
-                                            exact
-                                            path="/versions/:projectName/branches"
-                                            component={Branches}
-                                        />
-                                        <Route
-                                            exact
-                                            path="/versions/:projectName/tags"
-                                            component={Tags}
-                                        />
-                                        <Route
-                                            exact
-                                            path="/hooks"
-                                            component={Hooks}
-                                        />
-                
-                                        <Route exact path="/users" component={Users} />
-                                        <Route exact path="/plugins" component={Plugins} />
-                                        <Route
-                                            exact
-                                            path="/plugins/:id"
-                                            component={PluginDetailView}
-                                        />
-                                    </Switch>
+                                    {React.createElement(Switch as any, null,
+                                        authenticating ? React.createElement(Route as any, { path: "/" }, React.createElement(LoadingSpinner)) : null,
+                                        React.createElement(Route as any, { exact: true, path: "/login", render: loginRoute }),
+                                        loggedIn ? null : React.createElement(CustomRedirect, { to: "/login" }),
+                                        React.createElement(Route as any, { exact: true, path: "/", component: Messages }),
+                                        React.createElement(Route as any, { exact: true, path: "/messages/:id", component: Messages }),
+                                        React.createElement(Route as any, { exact: true, path: "/versions", component: Versions }),
+                                        React.createElement(Route as any, { exact: true, path: "/versions/:projectName/branches", component: Branches }),
+                                        React.createElement(Route as any, { exact: true, path: "/versions/:projectName/tags", component: Tags }),
+                                        React.createElement(Route as any, { exact: true, path: "/hooks", component: Hooks }),
+                                        React.createElement(Route as any, { exact: true, path: "/users", component: Users }),
+                                        React.createElement(Route as any, { exact: true, path: "/plugins", component: Plugins }),
+                                        React.createElement(Route as any, { exact: true, path: "/plugins/:id", component: PluginDetailView })
+                                    )}
                                 </main>
                             </div>
                             {showSettings && (
@@ -184,7 +161,7 @@ class Layout extends React.Component<
                             {loggedIn && <RealtimeMessages />}
                         </div>
                     </div>
-                </HashRouter>
+                )}
             </ThemeProvider>
         );
     }
