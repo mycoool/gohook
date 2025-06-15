@@ -138,9 +138,31 @@ func main() {
 	// log file opening prior to writing our first log message.
 	var logQueue []string
 
-	// by default the listen address is ip:port (default 0.0.0.0:9000), but
-	// this may be modified by trySocketListener
-	addr = fmt.Sprintf("%s:%d", *ip, *port)
+	// 首先尝试加载应用配置以获取端口设置
+	// 创建一个临时router实例来加载配置
+	router.LoadedHooksFromFiles = &loadedHooksFromFiles
+	router.HookManager = hook.NewHookManager(&loadedHooksFromFiles, hooksFiles, *asTemplate)
+	router.InitRouter() // 这会加载app.yaml配置文件
+
+	// 确定最终使用的端口：配置文件 > 命令行参数 > 默认值
+	finalPort := *port // 默认使用命令行参数
+
+	// 检查配置文件是否实际存在
+	if _, err := os.Stat("app.yaml"); err == nil {
+		// 配置文件存在，使用配置文件中的端口
+		if appConfig := router.GetAppConfig(); appConfig != nil {
+			finalPort = appConfig.Port
+			log.Printf("using port %d from app.yaml config file", finalPort)
+		} else {
+			log.Printf("using port %d from command line flag (failed to load app.yaml)", finalPort)
+		}
+	} else {
+		// 配置文件不存在，使用命令行参数
+		log.Printf("using port %d from command line flag (no app.yaml found)", finalPort)
+	}
+
+	// by default the listen address is ip:port, but this may be modified by trySocketListener
+	addr = fmt.Sprintf("%s:%d", *ip, finalPort)
 
 	ln, err := trySocketListener()
 	if err != nil {
@@ -280,13 +302,8 @@ func main() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
-	// 设置router对hooks数据的引用
-	router.LoadedHooksFromFiles = &loadedHooksFromFiles
-
-	// 初始化HookManager
-	router.HookManager = hook.NewHookManager(&loadedHooksFromFiles, hooksFiles, *asTemplate)
-
-	r := router.InitRouter()
+	// router已经在前面初始化过了，这里直接获取实例
+	r := router.GetRouter()
 
 	// 注册前端UI路由，这将接管根路径 "/"
 	ui.Register(r, *vInfo, true)

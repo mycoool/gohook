@@ -29,12 +29,6 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-// JWT密钥 - 在生产环境中应该使用环境变量
-var jwtSecret = []byte("gohook-secret-key-change-in-production")
-
-// Token有效期
-const tokenExpiryDuration = 24 * time.Hour
-
 // UserConfig 用户配置结构
 type UserConfig struct {
 	Username string `yaml:"username"`
@@ -42,9 +36,16 @@ type UserConfig struct {
 	Role     string `yaml:"role"`
 }
 
-// AppConfig 应用配置结构
-type AppConfig struct {
+// UsersConfig 用户配置文件结构（原AppConfig）
+type UsersConfig struct {
 	Users []UserConfig `yaml:"users"`
+}
+
+// AppConfig 应用程序配置结构
+type AppConfig struct {
+	Port              int    `yaml:"port"`
+	JWTSecret         string `yaml:"jwt_secret"`
+	JWTExpiryDuration int    `yaml:"jwt_expiry_duration"`
 }
 
 // Claims JWT声明结构
@@ -189,7 +190,8 @@ func updateSessionLastUsed(token string) {
 var LoadedHooksFromFiles *map[string]hook.Hooks
 var HookManager *hook.HookManager
 var configData *Config
-var appConfig *AppConfig
+var appConfig *AppConfig     // 应用程序配置
+var usersConfig *UsersConfig // 用户配置
 
 // WebSocket升级器
 var upgrader = websocket.Upgrader{
@@ -250,7 +252,7 @@ func verifyPassword(password, hashedPassword string) bool {
 
 // generateToken 生成JWT token
 func generateToken(username, role string) (string, error) {
-	expirationTime := time.Now().Add(tokenExpiryDuration)
+	expirationTime := time.Now().Add(time.Duration(appConfig.JWTExpiryDuration) * time.Hour)
 	claims := &Claims{
 		Username: username,
 		Role:     role,
@@ -261,7 +263,7 @@ func generateToken(username, role string) (string, error) {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString(jwtSecret)
+	tokenString, err := token.SignedString([]byte(appConfig.JWTSecret))
 	if err != nil {
 		return "", err
 	}
@@ -272,7 +274,7 @@ func generateToken(username, role string) (string, error) {
 func validateToken(tokenString string) (*Claims, error) {
 	claims := &Claims{}
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
-		return jwtSecret, nil
+		return []byte(appConfig.JWTSecret), nil
 	})
 
 	if err != nil {
@@ -286,56 +288,85 @@ func validateToken(tokenString string) (*Claims, error) {
 	return claims, nil
 }
 
-// loadAppConfig 加载用户配置文件
-func loadAppConfig() error {
-	data, err := os.ReadFile("user.yaml")
+// loadUsersConfig 加载用户配置文件
+func loadUsersConfig() error {
+	filePath := "user.yaml"
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		return fmt.Errorf("用户配置文件 %s 不存在", filePath)
+	}
+
+	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return fmt.Errorf("读取用户配置文件失败: %v", err)
 	}
 
-	config := &AppConfig{}
+	config := &UsersConfig{}
 	if err := yaml.Unmarshal(data, config); err != nil {
 		return fmt.Errorf("解析用户配置文件失败: %v", err)
 	}
 
-	// 如果密码不是哈希格式，则进行哈希处理
-	for i := range config.Users {
-		if len(config.Users[i].Password) != 64 { // SHA256哈希长度为64字符
-			config.Users[i].Password = hashPassword(config.Users[i].Password)
+	usersConfig = config
+	return nil
+}
+
+// saveUsersConfig 保存用户配置文件
+func saveUsersConfig() error {
+	if usersConfig == nil {
+		return fmt.Errorf("用户配置为空")
+	}
+
+	data, err := yaml.Marshal(usersConfig)
+	if err != nil {
+		return fmt.Errorf("序列化用户配置失败: %v", err)
+	}
+
+	if err := os.WriteFile("user.yaml", data, 0644); err != nil {
+		return fmt.Errorf("保存用户配置文件失败: %v", err)
+	}
+
+	return nil
+}
+
+// loadAppConfig 加载应用程序配置文件
+func loadAppConfig() error {
+	filePath := "app.yaml"
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		// 如果配置文件不存在，只在内存中创建默认配置，不保存到文件
+		appConfig = &AppConfig{
+			Port:              9000,
+			JWTSecret:         "gohook-secret-key-change-in-production",
+			JWTExpiryDuration: 24,
 		}
+		return nil
+	}
+
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return fmt.Errorf("读取应用配置文件失败: %v", err)
+	}
+
+	config := &AppConfig{}
+	if err := yaml.Unmarshal(data, config); err != nil {
+		return fmt.Errorf("解析应用配置文件失败: %v", err)
 	}
 
 	appConfig = config
 	return nil
 }
 
-// saveAppConfig 保存用户配置文件
+// saveAppConfig 保存应用程序配置文件
 func saveAppConfig() error {
 	if appConfig == nil {
-		return fmt.Errorf("用户配置数据为空")
+		return fmt.Errorf("应用配置为空")
 	}
 
 	data, err := yaml.Marshal(appConfig)
 	if err != nil {
-		return fmt.Errorf("序列化用户配置失败: %v", err)
+		return fmt.Errorf("序列化应用配置失败: %v", err)
 	}
 
-	// 备份原配置文件
-	if _, err := os.Stat("user.yaml"); err == nil {
-		if err := os.Rename("user.yaml", "user.yaml.bak"); err != nil {
-			log.Printf("Warning: failed to backup user config file: %v", err)
-		}
-	}
-
-	err = os.WriteFile("user.yaml", data, 0644)
-	if err != nil {
-		// 如果保存失败，恢复备份
-		if _, backupErr := os.Stat("user.yaml.bak"); backupErr == nil {
-			if restoreErr := os.Rename("user.yaml.bak", "user.yaml"); restoreErr != nil {
-				log.Printf("Error: failed to restore backup user config file: %v", restoreErr)
-			}
-		}
-		return fmt.Errorf("保存用户配置文件失败: %v", err)
+	if err := os.WriteFile("app.yaml", data, 0644); err != nil {
+		return fmt.Errorf("保存应用配置文件失败: %v", err)
 	}
 
 	return nil
@@ -343,14 +374,16 @@ func saveAppConfig() error {
 
 // findUser 查找用户
 func findUser(username string) *UserConfig {
-	if appConfig == nil {
+	if usersConfig == nil {
 		return nil
 	}
-	for i := range appConfig.Users {
-		if appConfig.Users[i].Username == username {
-			return &appConfig.Users[i]
+
+	for i := range usersConfig.Users {
+		if usersConfig.Users[i].Username == username {
+			return &usersConfig.Users[i]
 		}
 	}
+
 	return nil
 }
 
@@ -956,8 +989,19 @@ func InitRouter() *gin.Engine {
 
 	// 加载应用配置文件
 	if err := loadAppConfig(); err != nil {
-		// 如果应用配置文件加载失败，创建默认管理员用户
+		// 如果应用配置文件加载失败，创建默认配置
 		appConfig = &AppConfig{
+			Port:              9000,
+			JWTSecret:         "gohook-secret-key-change-in-production",
+			JWTExpiryDuration: 24,
+		}
+		log.Printf("Warning: failed to load app config, using default settings")
+	}
+
+	// 加载用户配置文件
+	if err := loadUsersConfig(); err != nil {
+		// 如果用户配置文件加载失败，创建默认管理员用户
+		usersConfig = &UsersConfig{
 			Users: []UserConfig{
 				{
 					Username: "admin",
@@ -966,7 +1010,11 @@ func InitRouter() *gin.Engine {
 				},
 			},
 		}
-		log.Printf("Warning: failed to load app config, using default admin user")
+		// 保存默认用户配置
+		if saveErr := saveUsersConfig(); saveErr != nil {
+			log.Printf("Error: failed to save default user config: %v", saveErr)
+		}
+		log.Printf("Warning: failed to load user config, created default admin user")
 	}
 
 	// CORS中间件 - 在路由注册后添加，避免通配符冲突
@@ -1092,7 +1140,7 @@ func InitRouter() *gin.Engine {
 		// 获取所有用户列表 (仅管理员)
 		userAPI.GET("", adminMiddleware(), func(c *gin.Context) {
 			var users []UserResponse
-			for _, user := range appConfig.Users {
+			for _, user := range usersConfig.Users {
 				users = append(users, UserResponse{
 					Username: user.Username,
 					Role:     user.Role,
@@ -1133,10 +1181,10 @@ func InitRouter() *gin.Engine {
 				Role:     req.Role,
 			}
 
-			appConfig.Users = append(appConfig.Users, newUser)
+			usersConfig.Users = append(usersConfig.Users, newUser)
 
 			// 保存配置文件
-			if err := saveAppConfig(); err != nil {
+			if err := saveUsersConfig(); err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save config: " + err.Error()})
 				return
 			}
@@ -1163,7 +1211,7 @@ func InitRouter() *gin.Engine {
 
 			// 查找用户索引
 			userIndex := -1
-			for i, user := range appConfig.Users {
+			for i, user := range usersConfig.Users {
 				if user.Username == username {
 					userIndex = i
 					break
@@ -1176,10 +1224,10 @@ func InitRouter() *gin.Engine {
 			}
 
 			// 删除用户
-			appConfig.Users = append(appConfig.Users[:userIndex], appConfig.Users[userIndex+1:]...)
+			usersConfig.Users = append(usersConfig.Users[:userIndex], usersConfig.Users[userIndex+1:]...)
 
 			// 保存配置文件
-			if err := saveAppConfig(); err != nil {
+			if err := saveUsersConfig(); err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save config: " + err.Error()})
 				return
 			}
@@ -1218,7 +1266,7 @@ func InitRouter() *gin.Engine {
 			user.Password = hashPassword(req.NewPassword)
 
 			// 保存配置文件
-			if err := saveAppConfig(); err != nil {
+			if err := saveUsersConfig(); err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save config: " + err.Error()})
 				return
 			}
@@ -1250,7 +1298,7 @@ func InitRouter() *gin.Engine {
 			user.Password = hashPassword(req.NewPassword)
 
 			// 保存配置文件
-			if err := saveAppConfig(); err != nil {
+			if err := saveUsersConfig(); err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save config: " + err.Error()})
 				return
 			}
@@ -2388,6 +2436,9 @@ func InitRouter() *gin.Engine {
 		})
 	})
 
+	// 保存router实例
+	routerInstance = g
+
 	return g
 }
 
@@ -2967,4 +3018,30 @@ func switchToTag(projectPath, tagName string) error {
 
 	log.Printf("成功切换到标签: %s", tagName)
 	return nil
+}
+
+// GetAppConfig 获取应用程序配置
+func GetAppConfig() *AppConfig {
+	return appConfig
+}
+
+// GetUsersConfig 获取用户配置
+func GetUsersConfig() *UsersConfig {
+	return usersConfig
+}
+
+// GetConfiguredPort 获取配置的端口号
+func GetConfiguredPort() int {
+	if appConfig != nil {
+		return appConfig.Port
+	}
+	return 9000 // 默认端口
+}
+
+// 全局router实例
+var routerInstance *gin.Engine
+
+// GetRouter 获取当前的router实例
+func GetRouter() *gin.Engine {
+	return routerInstance
 }
