@@ -207,7 +207,7 @@ func InitRouter() *gin.Engine {
 	// 加载配置文件
 	if err := config.LoadConfig(); err != nil {
 		// 如果配置文件加载失败，使用默认值
-		types.ConfigData = &types.Config{}
+		types.GoHookVersionData = &types.VersionConfig{}
 	}
 
 	// 加载应用配置文件
@@ -695,13 +695,13 @@ func InitRouter() *gin.Engine {
 				return
 			}
 
-			if types.ConfigData == nil {
+			if types.GoHookVersionData == nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "配置文件未加载"})
 				return
 			}
 
 			var projects []types.VersionResponse
-			for _, proj := range types.ConfigData.Projects {
+			for _, proj := range types.GoHookVersionData.Projects {
 				if !proj.Enabled {
 					continue
 				}
@@ -742,8 +742,8 @@ func InitRouter() *gin.Engine {
 			}
 
 			projectCount := 0
-			if types.ConfigData != nil {
-				for _, proj := range types.ConfigData.Projects {
+			if types.GoHookVersionData != nil {
+				for _, proj := range types.GoHookVersionData.Projects {
 					if proj.Enabled {
 						projectCount++
 					}
@@ -770,7 +770,7 @@ func InitRouter() *gin.Engine {
 			}
 
 			// 检查项目名称是否已存在
-			for _, proj := range types.ConfigData.Projects {
+			for _, proj := range types.GoHookVersionData.Projects {
 				if proj.Name == req.Name {
 					c.JSON(http.StatusConflict, gin.H{"error": "项目名称已存在"})
 					return
@@ -791,7 +791,7 @@ func InitRouter() *gin.Engine {
 				Enabled:     true,
 			}
 
-			types.ConfigData.Projects = append(types.ConfigData.Projects, newProject)
+			types.GoHookVersionData.Projects = append(types.GoHookVersionData.Projects, newProject)
 
 			// 保存配置文件
 			if err := config.SaveConfig(); err != nil {
@@ -838,7 +838,7 @@ func InitRouter() *gin.Engine {
 
 			// 查找项目索引
 			projectIndex := -1
-			for i, proj := range types.ConfigData.Projects {
+			for i, proj := range types.GoHookVersionData.Projects {
 				if proj.Name == projectName {
 					projectIndex = i
 					break
@@ -851,7 +851,7 @@ func InitRouter() *gin.Engine {
 			}
 
 			// 删除项目
-			types.ConfigData.Projects = append(types.ConfigData.Projects[:projectIndex], types.ConfigData.Projects[projectIndex+1:]...)
+			types.GoHookVersionData.Projects = append(types.GoHookVersionData.Projects[:projectIndex], types.GoHookVersionData.Projects[projectIndex+1:]...)
 
 			// 保存配置文件
 			if err := config.SaveConfig(); err != nil {
@@ -896,7 +896,7 @@ func InitRouter() *gin.Engine {
 
 			// 查找项目路径
 			var projectPath string
-			for _, proj := range types.ConfigData.Projects {
+			for _, proj := range types.GoHookVersionData.Projects {
 				if proj.Name == projectName && proj.Enabled {
 					projectPath = proj.Path
 					break
@@ -940,7 +940,7 @@ func InitRouter() *gin.Engine {
 
 			// 查找项目路径
 			var projectPath string
-			for _, proj := range types.ConfigData.Projects {
+			for _, proj := range types.GoHookVersionData.Projects {
 				if proj.Name == projectName && proj.Enabled {
 					projectPath = proj.Path
 					break
@@ -1012,7 +1012,7 @@ func InitRouter() *gin.Engine {
 
 			// 查找项目路径
 			var projectPath string
-			for _, proj := range types.ConfigData.Projects {
+			for _, proj := range types.GoHookVersionData.Projects {
 				if proj.Name == projectName && proj.Enabled {
 					projectPath = proj.Path
 					break
@@ -1039,7 +1039,7 @@ func InitRouter() *gin.Engine {
 
 			// 查找项目路径
 			var projectPath string
-			for _, proj := range types.ConfigData.Projects {
+			for _, proj := range types.GoHookVersionData.Projects {
 				if proj.Name == projectName && proj.Enabled {
 					projectPath = proj.Path
 					break
@@ -1073,7 +1073,7 @@ func InitRouter() *gin.Engine {
 
 			// 查找项目路径
 			var projectPath string
-			for _, proj := range types.ConfigData.Projects {
+			for _, proj := range types.GoHookVersionData.Projects {
 				if proj.Name == projectName && proj.Enabled {
 					projectPath = proj.Path
 					break
@@ -1134,7 +1134,7 @@ func InitRouter() *gin.Engine {
 
 			// 查找项目路径
 			var projectPath string
-			for _, proj := range types.ConfigData.Projects {
+			for _, proj := range types.GoHookVersionData.Projects {
 				if proj.Name == projectName && proj.Enabled {
 					projectPath = proj.Path
 					break
@@ -1188,7 +1188,7 @@ func InitRouter() *gin.Engine {
 
 			// 查找项目路径
 			var projectPath string
-			for _, proj := range types.ConfigData.Projects {
+			for _, proj := range types.GoHookVersionData.Projects {
 				if proj.Name == projectName && proj.Enabled {
 					projectPath = proj.Path
 					break
@@ -1242,7 +1242,7 @@ func InitRouter() *gin.Engine {
 
 			// 查找项目路径
 			var projectPath string
-			for _, proj := range types.ConfigData.Projects {
+			for _, proj := range types.GoHookVersionData.Projects {
 				if proj.Name == projectName && proj.Enabled {
 					projectPath = proj.Path
 					break
@@ -1286,7 +1286,7 @@ func InitRouter() *gin.Engine {
 
 			// 查找项目路径
 			var projectPath string
-			for _, proj := range types.ConfigData.Projects {
+			for _, proj := range types.GoHookVersionData.Projects {
 				if proj.Name == projectName && proj.Enabled {
 					projectPath = proj.Path
 					break
@@ -1312,7 +1312,7 @@ func InitRouter() *gin.Engine {
 
 			// 查找项目路径
 			var projectPath string
-			for _, proj := range types.ConfigData.Projects {
+			for _, proj := range types.GoHookVersionData.Projects {
 				if proj.Name == projectName && proj.Enabled {
 					projectPath = proj.Path
 					break
@@ -1339,7 +1339,7 @@ func InitRouter() *gin.Engine {
 
 			// 查找项目路径
 			var projectPath string
-			for _, proj := range types.ConfigData.Projects {
+			for _, proj := range types.GoHookVersionData.Projects {
 				if proj.Name == projectName && proj.Enabled {
 					projectPath = proj.Path
 					break
@@ -1378,7 +1378,7 @@ func InitRouter() *gin.Engine {
 
 			// 查找项目路径
 			var projectPath string
-			for _, proj := range types.ConfigData.Projects {
+			for _, proj := range types.GoHookVersionData.Projects {
 				if proj.Name == projectName && proj.Enabled {
 					projectPath = proj.Path
 					break
@@ -1417,7 +1417,7 @@ func InitRouter() *gin.Engine {
 
 			// 查找项目路径
 			var projectPath string
-			for _, proj := range types.ConfigData.Projects {
+			for _, proj := range types.GoHookVersionData.Projects {
 				if proj.Name == projectName && proj.Enabled {
 					projectPath = proj.Path
 					break
@@ -1456,12 +1456,12 @@ func InitRouter() *gin.Engine {
 
 			// 查找项目并更新配置
 			projectFound := false
-			for i, proj := range types.ConfigData.Projects {
+			for i, proj := range types.GoHookVersionData.Projects {
 				if proj.Name == projectName && proj.Enabled {
-					types.ConfigData.Projects[i].Enhook = req.Enhook
-					types.ConfigData.Projects[i].Hookmode = req.Hookmode
-					types.ConfigData.Projects[i].Hookbranch = req.Hookbranch
-					types.ConfigData.Projects[i].Hooksecret = req.Hooksecret
+					types.GoHookVersionData.Projects[i].Enhook = req.Enhook
+					types.GoHookVersionData.Projects[i].Hookmode = req.Hookmode
+					types.GoHookVersionData.Projects[i].Hookbranch = req.Hookbranch
+					types.GoHookVersionData.Projects[i].Hooksecret = req.Hooksecret
 					projectFound = true
 					break
 				}
@@ -1490,7 +1490,7 @@ func InitRouter() *gin.Engine {
 
 		// 查找项目配置
 		var project *types.ProjectConfig
-		for _, proj := range types.ConfigData.Projects {
+		for _, proj := range types.GoHookVersionData.Projects {
 			if proj.Name == projectName && proj.Enabled && proj.Enhook {
 				project = &proj
 				break

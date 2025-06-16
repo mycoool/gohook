@@ -67,22 +67,22 @@ func LoadConfig() error {
 		return fmt.Errorf("读取版本配置文件失败: %v", err)
 	}
 
-	config := &types.Config{}
+	config := &types.VersionConfig{}
 	if err := yaml.Unmarshal(data, config); err != nil {
 		return fmt.Errorf("解析版本配置文件失败: %v", err)
 	}
 
-	types.ConfigData = config
+	types.GoHookVersionData = config
 	return nil
 }
 
 // saveConfig 保存版本配置文件
 func SaveConfig() error {
-	if types.ConfigData == nil {
+	if types.GoHookVersionData == nil {
 		return fmt.Errorf("版本配置数据为空")
 	}
 
-	data, err := yaml.Marshal(types.ConfigData)
+	data, err := yaml.Marshal(types.GoHookVersionData)
 	if err != nil {
 		return fmt.Errorf("序列化版本配置失败: %v", err)
 	}

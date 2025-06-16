@@ -39,7 +39,7 @@ type UserResponse struct {
 }
 
 // Config 配置文件结构
-type Config struct {
+type VersionConfig struct {
 	Projects []ProjectConfig `yaml:"projects"`
 }
 
@@ -143,4 +143,4 @@ var GoHookAppConfig *AppConfig // 应用程序配置
 
 var GoHookUsersConfig *UsersConfig // 用户配置
 
-var ConfigData *Config
+var GoHookVersionData *VersionConfig
