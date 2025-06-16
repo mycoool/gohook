@@ -3,6 +3,7 @@ package router
 import (
 	"bytes"
 	"crypto/hmac"
+	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
@@ -11,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/big"
 	"net/http"
 	"os"
 	"os/exec"
@@ -26,6 +28,7 @@ import (
 	"github.com/mycoool/gohook/internal/hook"
 	"github.com/mycoool/gohook/internal/stream"
 	"github.com/mycoool/gohook/internal/version"
+	"golang.org/x/crypto/bcrypt"
 	"gopkg.in/yaml.v2"
 )
 
@@ -241,12 +244,25 @@ type ProjectManageMessage struct {
 
 // hashPassword 对密码进行哈希
 func hashPassword(password string) string {
-	hash := sha256.Sum256([]byte(password))
-	return hex.EncodeToString(hash[:])
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		log.Printf("Error hashing password: %v", err)
+		// 如果bcrypt失败，回退到SHA256（不推荐，但确保系统可用）
+		hash := sha256.Sum256([]byte(password))
+		return hex.EncodeToString(hash[:])
+	}
+	return string(hashedPassword)
 }
 
 // verifyPassword 验证密码
 func verifyPassword(password, hashedPassword string) bool {
+	// 首先尝试bcrypt验证
+	err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
+	if err == nil {
+		return true
+	}
+
+	// 如果bcrypt失败，尝试SHA256验证（向后兼容）
 	return hashPassword(password) == hashedPassword
 }
 
@@ -315,12 +331,27 @@ func saveUsersConfig() error {
 		return fmt.Errorf("用户配置为空")
 	}
 
-	data, err := yaml.Marshal(usersConfig)
-	if err != nil {
-		return fmt.Errorf("序列化用户配置失败: %v", err)
+	// 创建带注释的YAML内容
+	var yamlContent strings.Builder
+	yamlContent.WriteString("# GoHook 用户配置文件\n")
+	yamlContent.WriteString("# 用户账户信息\n")
+	yamlContent.WriteString("users:\n")
+
+	for _, user := range usersConfig.Users {
+		yamlContent.WriteString(fmt.Sprintf("  - username: %s\n", user.Username))
+		yamlContent.WriteString(fmt.Sprintf("    password: %s\n", user.Password))
+		yamlContent.WriteString(fmt.Sprintf("    role: %s\n", user.Role))
+
+		// 如果是默认admin用户且密码是哈希值，添加原始密码注释
+		if user.Username == "admin" && strings.HasPrefix(user.Password, "$2a$") {
+			// 检查是否是新创建的默认用户（通过检查是否只有一个用户来判断）
+			if len(usersConfig.Users) == 1 {
+				yamlContent.WriteString("    # 默认密码: admin123 (请及时修改)\n")
+			}
+		}
 	}
 
-	if err := os.WriteFile("user.yaml", data, 0644); err != nil {
+	if err := os.WriteFile("user.yaml", []byte(yamlContent.String()), 0644); err != nil {
 		return fmt.Errorf("保存用户配置文件失败: %v", err)
 	}
 
@@ -331,11 +362,17 @@ func saveUsersConfig() error {
 func loadAppConfig() error {
 	filePath := "app.yaml"
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		// 如果配置文件不存在，只在内存中创建默认配置，不保存到文件
+		// 如果配置文件不存在，创建默认配置并保存到文件
 		appConfig = &AppConfig{
 			Port:              9000,
 			JWTSecret:         "gohook-secret-key-change-in-production",
 			JWTExpiryDuration: 24,
+		}
+		// 自动保存默认配置到文件
+		if saveErr := saveAppConfig(); saveErr != nil {
+			log.Printf("Warning: failed to save default app config: %v", saveErr)
+		} else {
+			log.Printf("Created default app.yaml configuration file")
 		}
 		return nil
 	}
@@ -1001,11 +1038,12 @@ func InitRouter() *gin.Engine {
 	// 加载用户配置文件
 	if err := loadUsersConfig(); err != nil {
 		// 如果用户配置文件加载失败，创建默认管理员用户
+		defaultPassword := "admin123" // 生成随机密码
 		usersConfig = &UsersConfig{
 			Users: []UserConfig{
 				{
 					Username: "admin",
-					Password: hashPassword("123456"), // 默认密码
+					Password: hashPassword(defaultPassword),
 					Role:     "admin",
 				},
 			},
@@ -1013,6 +1051,8 @@ func InitRouter() *gin.Engine {
 		// 保存默认用户配置
 		if saveErr := saveUsersConfig(); saveErr != nil {
 			log.Printf("Error: failed to save default user config: %v", saveErr)
+		} else {
+			log.Printf("Created default admin user with password: %s", defaultPassword)
 		}
 		log.Printf("Warning: failed to load user config, created default admin user")
 	}
@@ -3044,4 +3084,22 @@ var routerInstance *gin.Engine
 // GetRouter 获取当前的router实例
 func GetRouter() *gin.Engine {
 	return routerInstance
+}
+
+// generateRandomPassword 生成随机密码
+func generateRandomPassword(length int) string {
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	password := make([]byte, length)
+
+	for i := range password {
+		num, err := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
+		if err != nil {
+			// 如果随机数生成失败，使用时间戳作为后备
+			password[i] = charset[int(time.Now().UnixNano())%len(charset)]
+		} else {
+			password[i] = charset[num.Int64()]
+		}
+	}
+
+	return string(password)
 }
