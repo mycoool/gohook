@@ -3,7 +3,6 @@ package router
 import (
 	"bytes"
 	"crypto/hmac"
-	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
@@ -12,7 +11,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"math/big"
 	"net/http"
 	"os"
 	"os/exec"
@@ -3084,22 +3082,4 @@ var routerInstance *gin.Engine
 // GetRouter 获取当前的router实例
 func GetRouter() *gin.Engine {
 	return routerInstance
-}
-
-// generateRandomPassword 生成随机密码
-func generateRandomPassword(length int) string {
-	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	password := make([]byte, length)
-
-	for i := range password {
-		num, err := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
-		if err != nil {
-			// 如果随机数生成失败，使用时间戳作为后备
-			password[i] = charset[int(time.Now().UnixNano())%len(charset)]
-		} else {
-			password[i] = charset[num.Int64()]
-		}
-	}
-
-	return string(password)
 }
