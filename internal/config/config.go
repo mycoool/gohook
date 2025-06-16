@@ -60,8 +60,8 @@ func SaveAppConfig() error {
 	return nil
 }
 
-// loadConfig 加载版本配置文件
-func LoadConfig() error {
+// loadVersionConfig 加载版本配置文件
+func LoadVersionConfig() error {
 	data, err := os.ReadFile("version.yaml")
 	if err != nil {
 		return fmt.Errorf("读取版本配置文件失败: %v", err)
@@ -76,8 +76,8 @@ func LoadConfig() error {
 	return nil
 }
 
-// saveConfig 保存版本配置文件
-func SaveConfig() error {
+// saveVersionConfig 保存版本配置文件
+func SaveVersionConfig() error {
 	if types.GoHookVersionData == nil {
 		return fmt.Errorf("版本配置数据为空")
 	}

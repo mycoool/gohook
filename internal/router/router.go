@@ -204,13 +204,13 @@ func describeTriggerRule(rules *hook.Rules) string {
 func InitRouter() *gin.Engine {
 	g := gin.Default()
 
-	// 加载配置文件
-	if err := config.LoadConfig(); err != nil {
+	// 加载版本配置文件
+	if err := config.LoadVersionConfig(); err != nil {
 		// 如果配置文件加载失败，使用默认值
 		types.GoHookVersionData = &types.VersionConfig{}
 	}
 
-	// 加载应用配置文件
+	// 加载应用配置
 	if err := config.LoadAppConfig(); err != nil {
 		// 如果应用配置文件加载失败，创建默认配置
 		types.GoHookAppConfig = &types.AppConfig{
@@ -221,7 +221,7 @@ func InitRouter() *gin.Engine {
 		log.Printf("Warning: failed to load app config, using default settings")
 	}
 
-	// 加载用户配置文件
+	// 加载用户配置
 	if err := client.LoadUsersConfig(); err != nil {
 		// 如果用户配置文件加载失败，创建默认管理员用户
 		defaultPassword := "admin123" // 生成随机密码
@@ -690,7 +690,7 @@ func InitRouter() *gin.Engine {
 		// 获取所有项目列表
 		versionAPI.GET("", func(c *gin.Context) {
 			// 每次获取项目列表时加载配置文件
-			if err := config.LoadConfig(); err != nil {
+			if err := config.LoadVersionConfig(); err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "配置文件加载失败: " + err.Error()})
 				return
 			}
@@ -734,7 +734,7 @@ func InitRouter() *gin.Engine {
 
 		// 加载配置文件的专用接口
 		versionAPI.POST("/reload-config", func(c *gin.Context) {
-			if err := config.LoadConfig(); err != nil {
+			if err := config.LoadVersionConfig(); err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{
 					"error": "配置文件加载失败: " + err.Error(),
 				})
@@ -794,7 +794,7 @@ func InitRouter() *gin.Engine {
 			types.GoHookVersionData.Projects = append(types.GoHookVersionData.Projects, newProject)
 
 			// 保存配置文件
-			if err := config.SaveConfig(); err != nil {
+			if err := config.SaveVersionConfig(); err != nil {
 				// 推送失败消息
 				wsMessage := stream.Message{
 					Type:      "project_managed",
@@ -854,7 +854,7 @@ func InitRouter() *gin.Engine {
 			types.GoHookVersionData.Projects = append(types.GoHookVersionData.Projects[:projectIndex], types.GoHookVersionData.Projects[projectIndex+1:]...)
 
 			// 保存配置文件
-			if err := config.SaveConfig(); err != nil {
+			if err := config.SaveVersionConfig(); err != nil {
 				// 推送失败消息
 				wsMessage := stream.Message{
 					Type:      "project_managed",
@@ -1473,7 +1473,7 @@ func InitRouter() *gin.Engine {
 			}
 
 			// 保存配置文件
-			if err := config.SaveConfig(); err != nil {
+			if err := config.SaveVersionConfig(); err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "保存配置失败: " + err.Error()})
 				return
 			}
