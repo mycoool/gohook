@@ -62,3 +62,18 @@ func SaveUsersConfig() error {
 
 	return nil
 }
+
+// findUser 查找用户
+func FindUser(username string) *types.UserConfig {
+	if types.GoHookUsersConfig == nil {
+		return nil
+	}
+
+	for i := range types.GoHookUsersConfig.Users {
+		if types.GoHookUsersConfig.Users[i].Username == username {
+			return &types.GoHookUsersConfig.Users[i]
+		}
+	}
+
+	return nil
+}

@@ -16,84 +16,17 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/mycoool/gohook/internal/client"
+	"github.com/mycoool/gohook/internal/config"
 	"github.com/mycoool/gohook/internal/env"
 	"github.com/mycoool/gohook/internal/hook"
 	"github.com/mycoool/gohook/internal/stream"
 	"github.com/mycoool/gohook/internal/types"
 	"github.com/mycoool/gohook/internal/version"
-	"gopkg.in/yaml.v2"
 )
 
 // 全局变量引用，用于访问已加载的hooks
 var LoadedHooksFromFiles *map[string]hook.Hooks
 var HookManager *hook.HookManager
-var configData *types.Config
-
-// loadAppConfig 加载应用程序配置文件
-func loadAppConfig() error {
-	filePath := "app.yaml"
-	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		// 如果配置文件不存在，创建默认配置并保存到文件
-		types.GoHookAppConfig = &types.AppConfig{
-			Port:              9000,
-			JWTSecret:         "gohook-secret-key-change-in-production",
-			JWTExpiryDuration: 24,
-		}
-		// 自动保存默认配置到文件
-		if saveErr := saveAppConfig(); saveErr != nil {
-			log.Printf("Warning: failed to save default app config: %v", saveErr)
-		} else {
-			log.Printf("Created default app.yaml configuration file")
-		}
-		return nil
-	}
-
-	data, err := os.ReadFile(filePath)
-	if err != nil {
-		return fmt.Errorf("读取应用配置文件失败: %v", err)
-	}
-
-	config := &types.AppConfig{}
-	if err := yaml.Unmarshal(data, config); err != nil {
-		return fmt.Errorf("解析应用配置文件失败: %v", err)
-	}
-
-	types.GoHookAppConfig = config
-	return nil
-}
-
-// saveAppConfig 保存应用程序配置文件
-func saveAppConfig() error {
-	if types.GoHookAppConfig == nil {
-		return fmt.Errorf("应用配置为空")
-	}
-
-	data, err := yaml.Marshal(types.GoHookAppConfig)
-	if err != nil {
-		return fmt.Errorf("序列化应用配置失败: %v", err)
-	}
-
-	if err := os.WriteFile("app.yaml", data, 0644); err != nil {
-		return fmt.Errorf("保存应用配置文件失败: %v", err)
-	}
-
-	return nil
-}
-
-// findUser 查找用户
-func findUser(username string) *types.UserConfig {
-	if types.GoHookUsersConfig == nil {
-		return nil
-	}
-
-	for i := range types.GoHookUsersConfig.Users {
-		if types.GoHookUsersConfig.Users[i].Username == username {
-			return &types.GoHookUsersConfig.Users[i]
-		}
-	}
-
-	return nil
-}
 
 // authMiddleware JWT认证中间件
 func authMiddleware() gin.HandlerFunc {
@@ -167,54 +100,6 @@ func adminMiddleware() gin.HandlerFunc {
 		}
 		c.Next()
 	}
-}
-
-// loadConfig 加载版本配置文件
-func loadConfig() error {
-	data, err := os.ReadFile("version.yaml")
-	if err != nil {
-		return fmt.Errorf("读取版本配置文件失败: %v", err)
-	}
-
-	config := &types.Config{}
-	if err := yaml.Unmarshal(data, config); err != nil {
-		return fmt.Errorf("解析版本配置文件失败: %v", err)
-	}
-
-	configData = config
-	return nil
-}
-
-// saveConfig 保存版本配置文件
-func saveConfig() error {
-	if configData == nil {
-		return fmt.Errorf("版本配置数据为空")
-	}
-
-	data, err := yaml.Marshal(configData)
-	if err != nil {
-		return fmt.Errorf("序列化版本配置失败: %v", err)
-	}
-
-	// 备份原配置文件
-	if _, err := os.Stat("version.yaml"); err == nil {
-		if err := os.Rename("version.yaml", "version.yaml.bak"); err != nil {
-			log.Printf("Warning: failed to backup version config file: %v", err)
-		}
-	}
-
-	err = os.WriteFile("version.yaml", data, 0644)
-	if err != nil {
-		// 如果保存失败，恢复备份
-		if _, backupErr := os.Stat("version.yaml.bak"); backupErr == nil {
-			if restoreErr := os.Rename("version.yaml.bak", "version.yaml"); restoreErr != nil {
-				log.Printf("Error: failed to restore backup version config file: %v", restoreErr)
-			}
-		}
-		return fmt.Errorf("保存版本配置文件失败: %v", err)
-	}
-
-	return nil
 }
 
 func InitGit(projectPath string) error {
@@ -320,13 +205,13 @@ func InitRouter() *gin.Engine {
 	g := gin.Default()
 
 	// 加载配置文件
-	if err := loadConfig(); err != nil {
+	if err := config.LoadConfig(); err != nil {
 		// 如果配置文件加载失败，使用默认值
-		configData = &types.Config{}
+		types.ConfigData = &types.Config{}
 	}
 
 	// 加载应用配置文件
-	if err := loadAppConfig(); err != nil {
+	if err := config.LoadAppConfig(); err != nil {
 		// 如果应用配置文件加载失败，创建默认配置
 		types.GoHookAppConfig = &types.AppConfig{
 			Port:              9000,
@@ -418,7 +303,7 @@ func InitRouter() *gin.Engine {
 		password := credentials[1]
 
 		// 查找用户
-		user := findUser(username)
+		user := client.FindUser(username)
 		if user == nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid username or password"})
 			return
@@ -504,7 +389,7 @@ func InitRouter() *gin.Engine {
 			}
 
 			// 检查用户是否已存在
-			if findUser(req.Username) != nil {
+			if client.FindUser(req.Username) != nil {
 				c.JSON(http.StatusConflict, gin.H{"error": "User already exists"})
 				return
 			}
@@ -591,7 +476,7 @@ func InitRouter() *gin.Engine {
 			}
 
 			username, _ := c.Get("username")
-			user := findUser(username.(string))
+			user := client.FindUser(username.(string))
 			if user == nil {
 				c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 				return
@@ -629,7 +514,7 @@ func InitRouter() *gin.Engine {
 				return
 			}
 
-			user := findUser(username)
+			user := client.FindUser(username)
 			if user == nil {
 				c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 				return
@@ -805,18 +690,18 @@ func InitRouter() *gin.Engine {
 		// 获取所有项目列表
 		versionAPI.GET("", func(c *gin.Context) {
 			// 每次获取项目列表时加载配置文件
-			if err := loadConfig(); err != nil {
+			if err := config.LoadConfig(); err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "配置文件加载失败: " + err.Error()})
 				return
 			}
 
-			if configData == nil {
+			if types.ConfigData == nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "配置文件未加载"})
 				return
 			}
 
 			var projects []types.VersionResponse
-			for _, proj := range configData.Projects {
+			for _, proj := range types.ConfigData.Projects {
 				if !proj.Enabled {
 					continue
 				}
@@ -849,7 +734,7 @@ func InitRouter() *gin.Engine {
 
 		// 加载配置文件的专用接口
 		versionAPI.POST("/reload-config", func(c *gin.Context) {
-			if err := loadConfig(); err != nil {
+			if err := config.LoadConfig(); err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{
 					"error": "配置文件加载失败: " + err.Error(),
 				})
@@ -857,8 +742,8 @@ func InitRouter() *gin.Engine {
 			}
 
 			projectCount := 0
-			if configData != nil {
-				for _, proj := range configData.Projects {
+			if types.ConfigData != nil {
+				for _, proj := range types.ConfigData.Projects {
 					if proj.Enabled {
 						projectCount++
 					}
@@ -885,7 +770,7 @@ func InitRouter() *gin.Engine {
 			}
 
 			// 检查项目名称是否已存在
-			for _, proj := range configData.Projects {
+			for _, proj := range types.ConfigData.Projects {
 				if proj.Name == req.Name {
 					c.JSON(http.StatusConflict, gin.H{"error": "项目名称已存在"})
 					return
@@ -906,10 +791,10 @@ func InitRouter() *gin.Engine {
 				Enabled:     true,
 			}
 
-			configData.Projects = append(configData.Projects, newProject)
+			types.ConfigData.Projects = append(types.ConfigData.Projects, newProject)
 
 			// 保存配置文件
-			if err := saveConfig(); err != nil {
+			if err := config.SaveConfig(); err != nil {
 				// 推送失败消息
 				wsMessage := stream.Message{
 					Type:      "project_managed",
@@ -953,7 +838,7 @@ func InitRouter() *gin.Engine {
 
 			// 查找项目索引
 			projectIndex := -1
-			for i, proj := range configData.Projects {
+			for i, proj := range types.ConfigData.Projects {
 				if proj.Name == projectName {
 					projectIndex = i
 					break
@@ -966,10 +851,10 @@ func InitRouter() *gin.Engine {
 			}
 
 			// 删除项目
-			configData.Projects = append(configData.Projects[:projectIndex], configData.Projects[projectIndex+1:]...)
+			types.ConfigData.Projects = append(types.ConfigData.Projects[:projectIndex], types.ConfigData.Projects[projectIndex+1:]...)
 
 			// 保存配置文件
-			if err := saveConfig(); err != nil {
+			if err := config.SaveConfig(); err != nil {
 				// 推送失败消息
 				wsMessage := stream.Message{
 					Type:      "project_managed",
@@ -1011,7 +896,7 @@ func InitRouter() *gin.Engine {
 
 			// 查找项目路径
 			var projectPath string
-			for _, proj := range configData.Projects {
+			for _, proj := range types.ConfigData.Projects {
 				if proj.Name == projectName && proj.Enabled {
 					projectPath = proj.Path
 					break
@@ -1055,7 +940,7 @@ func InitRouter() *gin.Engine {
 
 			// 查找项目路径
 			var projectPath string
-			for _, proj := range configData.Projects {
+			for _, proj := range types.ConfigData.Projects {
 				if proj.Name == projectName && proj.Enabled {
 					projectPath = proj.Path
 					break
@@ -1127,7 +1012,7 @@ func InitRouter() *gin.Engine {
 
 			// 查找项目路径
 			var projectPath string
-			for _, proj := range configData.Projects {
+			for _, proj := range types.ConfigData.Projects {
 				if proj.Name == projectName && proj.Enabled {
 					projectPath = proj.Path
 					break
@@ -1154,7 +1039,7 @@ func InitRouter() *gin.Engine {
 
 			// 查找项目路径
 			var projectPath string
-			for _, proj := range configData.Projects {
+			for _, proj := range types.ConfigData.Projects {
 				if proj.Name == projectName && proj.Enabled {
 					projectPath = proj.Path
 					break
@@ -1188,7 +1073,7 @@ func InitRouter() *gin.Engine {
 
 			// 查找项目路径
 			var projectPath string
-			for _, proj := range configData.Projects {
+			for _, proj := range types.ConfigData.Projects {
 				if proj.Name == projectName && proj.Enabled {
 					projectPath = proj.Path
 					break
@@ -1249,7 +1134,7 @@ func InitRouter() *gin.Engine {
 
 			// 查找项目路径
 			var projectPath string
-			for _, proj := range configData.Projects {
+			for _, proj := range types.ConfigData.Projects {
 				if proj.Name == projectName && proj.Enabled {
 					projectPath = proj.Path
 					break
@@ -1303,7 +1188,7 @@ func InitRouter() *gin.Engine {
 
 			// 查找项目路径
 			var projectPath string
-			for _, proj := range configData.Projects {
+			for _, proj := range types.ConfigData.Projects {
 				if proj.Name == projectName && proj.Enabled {
 					projectPath = proj.Path
 					break
@@ -1357,7 +1242,7 @@ func InitRouter() *gin.Engine {
 
 			// 查找项目路径
 			var projectPath string
-			for _, proj := range configData.Projects {
+			for _, proj := range types.ConfigData.Projects {
 				if proj.Name == projectName && proj.Enabled {
 					projectPath = proj.Path
 					break
@@ -1401,7 +1286,7 @@ func InitRouter() *gin.Engine {
 
 			// 查找项目路径
 			var projectPath string
-			for _, proj := range configData.Projects {
+			for _, proj := range types.ConfigData.Projects {
 				if proj.Name == projectName && proj.Enabled {
 					projectPath = proj.Path
 					break
@@ -1427,7 +1312,7 @@ func InitRouter() *gin.Engine {
 
 			// 查找项目路径
 			var projectPath string
-			for _, proj := range configData.Projects {
+			for _, proj := range types.ConfigData.Projects {
 				if proj.Name == projectName && proj.Enabled {
 					projectPath = proj.Path
 					break
@@ -1454,7 +1339,7 @@ func InitRouter() *gin.Engine {
 
 			// 查找项目路径
 			var projectPath string
-			for _, proj := range configData.Projects {
+			for _, proj := range types.ConfigData.Projects {
 				if proj.Name == projectName && proj.Enabled {
 					projectPath = proj.Path
 					break
@@ -1493,7 +1378,7 @@ func InitRouter() *gin.Engine {
 
 			// 查找项目路径
 			var projectPath string
-			for _, proj := range configData.Projects {
+			for _, proj := range types.ConfigData.Projects {
 				if proj.Name == projectName && proj.Enabled {
 					projectPath = proj.Path
 					break
@@ -1532,7 +1417,7 @@ func InitRouter() *gin.Engine {
 
 			// 查找项目路径
 			var projectPath string
-			for _, proj := range configData.Projects {
+			for _, proj := range types.ConfigData.Projects {
 				if proj.Name == projectName && proj.Enabled {
 					projectPath = proj.Path
 					break
@@ -1571,12 +1456,12 @@ func InitRouter() *gin.Engine {
 
 			// 查找项目并更新配置
 			projectFound := false
-			for i, proj := range configData.Projects {
+			for i, proj := range types.ConfigData.Projects {
 				if proj.Name == projectName && proj.Enabled {
-					configData.Projects[i].Enhook = req.Enhook
-					configData.Projects[i].Hookmode = req.Hookmode
-					configData.Projects[i].Hookbranch = req.Hookbranch
-					configData.Projects[i].Hooksecret = req.Hooksecret
+					types.ConfigData.Projects[i].Enhook = req.Enhook
+					types.ConfigData.Projects[i].Hookmode = req.Hookmode
+					types.ConfigData.Projects[i].Hookbranch = req.Hookbranch
+					types.ConfigData.Projects[i].Hooksecret = req.Hooksecret
 					projectFound = true
 					break
 				}
@@ -1588,7 +1473,7 @@ func InitRouter() *gin.Engine {
 			}
 
 			// 保存配置文件
-			if err := saveConfig(); err != nil {
+			if err := config.SaveConfig(); err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "保存配置失败: " + err.Error()})
 				return
 			}
@@ -1605,7 +1490,7 @@ func InitRouter() *gin.Engine {
 
 		// 查找项目配置
 		var project *types.ProjectConfig
-		for _, proj := range configData.Projects {
+		for _, proj := range types.ConfigData.Projects {
 			if proj.Name == projectName && proj.Enabled && proj.Enhook {
 				project = &proj
 				break

@@ -142,3 +142,5 @@ type ProjectManageMessage struct {
 var GoHookAppConfig *AppConfig // 应用程序配置
 
 var GoHookUsersConfig *UsersConfig // 用户配置
+
+var ConfigData *Config
