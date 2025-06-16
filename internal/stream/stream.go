@@ -2,9 +2,12 @@ package stream
 
 import (
 	"encoding/json"
+	"log"
+	"net/http"
 	"sync"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 )
 
@@ -55,6 +58,13 @@ type ProjectManageMessage struct {
 	Error       string `json:"error,omitempty"`
 }
 
+// WebSocket升级器
+var upgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool {
+		return true // 允许跨域
+	},
+}
+
 // 添加WebSocket连接
 func (m *Manager) AddClient(conn *websocket.Conn) {
 	m.clientsMux.Lock()
@@ -96,4 +106,63 @@ func (m *Manager) ClientCount() int {
 	m.clientsMux.RLock()
 	defer m.clientsMux.RUnlock()
 	return len(m.clients)
+}
+
+// handleWebSocket 处理WebSocket连接
+func HandleWebSocket(c *gin.Context) {
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "WebSocket upgrade failed"})
+		return
+	}
+	defer func() {
+		// 从管理器中移除连接
+		Global.RemoveClient(conn)
+		conn.Close()
+	}()
+
+	// 将连接添加到全局管理器
+	Global.AddClient(conn)
+	log.Printf("WebSocket client connected, total clients: %d", Global.ClientCount())
+
+	// 发送连接成功消息
+	connectedMsg := Message{
+		Type:      "connected",
+		Timestamp: time.Now(),
+		Data:      map[string]string{"message": "WebSocket connected successfully"},
+	}
+	connectedData, _ := json.Marshal(connectedMsg)
+	if err := conn.WriteMessage(websocket.TextMessage, connectedData); err != nil {
+		log.Printf("Error writing connected message: %v", err)
+		return
+	}
+
+	// 保持连接，处理心跳
+	for {
+		_, message, err := conn.ReadMessage()
+		if err != nil {
+			log.Printf("WebSocket read error: %v", err)
+			break
+		}
+
+		// 处理客户端消息（心跳等）
+		var clientMsg map[string]interface{}
+		if json.Unmarshal(message, &clientMsg) == nil {
+			if msgType, ok := clientMsg["type"].(string); ok && msgType == "ping" {
+				// 响应心跳
+				pongMsg := Message{
+					Type:      "pong",
+					Timestamp: time.Now(),
+					Data:      map[string]string{"message": "pong"},
+				}
+				pongData, _ := json.Marshal(pongMsg)
+				if err := conn.WriteMessage(websocket.TextMessage, pongData); err != nil {
+					log.Printf("Error writing pong message: %v", err)
+					return
+				}
+			}
+		}
+	}
+
+	log.Printf("WebSocket client disconnected, remaining clients: %d", Global.ClientCount())
 }
