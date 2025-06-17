@@ -13,12 +13,12 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// 全局会话存储（在生产环境中应该使用数据库或Redis）
+// global session storage (should use database or Redis in production)
 var ClientSessions = make(map[string]*types.ClientSession)
 var SessionIDCounter = 1
 var SessionMutex sync.RWMutex
 
-// addClientSession 添加客户端会话
+// add client session
 func AddClientSession(token, name, username string) *types.ClientSession {
 	SessionMutex.Lock()
 	defer SessionMutex.Unlock()
@@ -38,7 +38,7 @@ func AddClientSession(token, name, username string) *types.ClientSession {
 	return session
 }
 
-// getClientSessionsByUser 获取用户的所有会话
+// get client sessions by user
 func GetClientSessionsByUser(username string) []*types.ClientSession {
 	SessionMutex.RLock()
 	defer SessionMutex.RUnlock()
@@ -53,7 +53,7 @@ func GetClientSessionsByUser(username string) []*types.ClientSession {
 	return sessions
 }
 
-// removeClientSession 移除客户端会话
+// remove client session
 func RemoveClientSession(token string) bool {
 	SessionMutex.Lock()
 	defer SessionMutex.Unlock()
@@ -66,7 +66,7 @@ func RemoveClientSession(token string) bool {
 	return false
 }
 
-// updateSessionLastUsed 更新会话最后使用时间
+// update session last used time
 func UpdateSessionLastUsed(token string) {
 	SessionMutex.Lock()
 	defer SessionMutex.Unlock()
@@ -76,31 +76,31 @@ func UpdateSessionLastUsed(token string) {
 	}
 }
 
-// hashPassword 对密码进行哈希
+// hash password
 func HashPassword(password string) string {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		log.Printf("Error hashing password: %v", err)
-		// 如果bcrypt失败，回退到SHA256（不推荐，但确保系统可用）
+		// if bcrypt failed, fallback to SHA256 (not recommended, but ensure system available)
 		hash := sha256.Sum256([]byte(password))
 		return hex.EncodeToString(hash[:])
 	}
 	return string(hashedPassword)
 }
 
-// verifyPassword 验证密码
+// verify password
 func VerifyPassword(password, hashedPassword string) bool {
-	// 首先尝试bcrypt验证
+	// first try bcrypt
 	err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
 	if err == nil {
 		return true
 	}
 
-	// 如果bcrypt失败，尝试SHA256验证（向后兼容）
+	// if bcrypt failed, try SHA256 (backward compatible)
 	return HashPassword(password) == hashedPassword
 }
 
-// generateToken 生成JWT token
+// generate JWT token
 func GenerateToken(username, role string) (string, error) {
 	expirationTime := time.Now().Add(time.Duration(types.GoHookAppConfig.JWTExpiryDuration) * time.Hour)
 	claims := &types.Claims{
@@ -120,7 +120,7 @@ func GenerateToken(username, role string) (string, error) {
 	return tokenString, nil
 }
 
-// validateToken 验证JWT token
+// validate JWT token
 func ValidateToken(tokenString string) (*types.Claims, error) {
 	claims := &types.Claims{}
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {

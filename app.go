@@ -61,40 +61,11 @@ var (
 	addr    = ""
 )
 
-// 版本信息
+// version info
 var vInfo = &ui.VersionInfo{
 	Version:   Version,
 	Commit:    Commit,
 	BuildDate: BuildDate,
-}
-
-func matchLoadedHook(id string) *hook.Hook {
-	if router.HookManager != nil {
-		return router.HookManager.MatchLoadedHook(id)
-	}
-
-	// 回退到原有逻辑
-	for _, hooks := range loadedHooksFromFiles {
-		if hook := hooks.Match(id); hook != nil {
-			return hook
-		}
-	}
-
-	return nil
-}
-
-func lenLoadedHooks() int {
-	if router.HookManager != nil {
-		return router.HookManager.LenLoadedHooks()
-	}
-
-	// 回退到原有逻辑
-	sum := 0
-	for _, hooks := range loadedHooksFromFiles {
-		sum += len(hooks)
-	}
-
-	return sum
 }
 
 func main() {
@@ -138,7 +109,7 @@ func main() {
 	// log file opening prior to writing our first log message.
 	var logQueue []string
 
-	// 根据debug参数设置gin模式，需要在InitRouter之前设置
+	// set gin mode according to debug flag, must be set before InitRouter
 	if *ginDebug {
 		gin.SetMode(gin.DebugMode)
 		log.Printf("running in debug mode")
@@ -146,18 +117,18 @@ func main() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
-	// 首先尝试加载应用配置以获取端口设置
-	// 创建一个临时router实例来加载配置
-	router.LoadedHooksFromFiles = &loadedHooksFromFiles
-	router.HookManager = hook.NewHookManager(&loadedHooksFromFiles, hooksFiles, *asTemplate)
-	router.InitRouter() // 这会加载app.yaml配置文件
+	// first try to load app config to get port setting
+	// create a temporary router instance to load config
+	hook.LoadedHooksFromFiles = &loadedHooksFromFiles
+	hook.HookManager = hook.NewHookManager(&loadedHooksFromFiles, hooksFiles, *asTemplate)
+	router.InitRouter() // this will load app.yaml config file
 
-	// 确定最终使用的端口：配置文件 > 命令行参数 > 默认值
-	finalPort := *port // 默认使用命令行参数
+	// determine final port: app.yaml > command line flag > default
+	finalPort := *port // use command line flag by default
 
-	// 检查配置文件是否实际存在
+	// check if app.yaml exists
 	if _, err := os.Stat("app.yaml"); err == nil {
-		// 配置文件存在，使用配置文件中的端口
+		// app.yaml exists, use port from app.yaml
 		if appConfig := router.GetAppConfig(); appConfig != nil {
 			finalPort = appConfig.Port
 			log.Printf("using port %d from app.yaml config file", finalPort)
@@ -165,7 +136,7 @@ func main() {
 			log.Printf("using port %d from command line flag (failed to load app.yaml)", finalPort)
 		}
 	} else {
-		// 配置文件不存在，使用命令行参数
+		// app.yaml not found, use command line flag
 		log.Printf("using port %d from command line flag (no app.yaml found)", finalPort)
 	}
 
@@ -255,7 +226,7 @@ func main() {
 			log.Printf("found %d hook(s) in file\n", len(newHooks))
 
 			for _, hook := range newHooks {
-				if matchLoadedHook(hook.ID) != nil {
+				if MatchLoadedHook(hook.ID) != nil {
 					log.Fatalf("error: hook with the id %s has already been loaded!\nplease check your hooks file for duplicate hooks ids!\n", hook.ID)
 				}
 				log.Printf("\tloaded: %s\n", hook.ID)
@@ -274,7 +245,7 @@ func main() {
 
 	hooksFiles = newHooksFiles
 
-	if !*verbose && !*noPanic && lenLoadedHooks() == 0 {
+	if !*verbose && !*noPanic && LenLoadedHooks() == 0 {
 		log.SetOutput(os.Stdout)
 		log.Fatalln("couldn't load any hooks from file!\naborting webhook execution since the -verbose flag is set to false.\nIf, for some reason, you want webhook to start without the hooks, either use -verbose flag, or -nopanic")
 	}
@@ -302,20 +273,20 @@ func main() {
 		go watchForFileChange()
 	}
 
-	// gin模式已经在前面设置过了
+	// gin mode has been set before
 
-	// router已经在前面初始化过了，这里直接获取实例
+	// router has been initialized before, here just get the instance
 	r := router.GetRouter()
 
-	// 注册前端UI路由，这将接管根路径 "/"
+	// register frontend UI router, this will handle root path "/"
 	ui.Register(r, *vInfo, true)
 
-	// 启用方法不允许处理
+	// enable method not allowed handling
 	r.HandleMethodNotAllowed = true
 
-	// 设置gin中间件
+	// set gin middleware
 	if *debug {
-		// debug模式下使用详细的日志中间件
+		// debug mode use detailed log middleware
 		r.Use(gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
 			return fmt.Sprintf("[GIN] %v | %3d | %13v | %15s | %-7s %#v\n",
 				param.TimeStamp.Format("2006/01/02 - 15:04:05"),
@@ -327,7 +298,7 @@ func main() {
 			)
 		}))
 	} else {
-		// 生产模式下使用简洁的日志
+		// production mode use simple log
 		r.Use(gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
 			return fmt.Sprintf("[GIN] %3d | %13v | %s | %s %s\n",
 				param.StatusCode,
@@ -344,9 +315,9 @@ func main() {
 	// Clean up input
 	*httpMethods = strings.ToUpper(strings.ReplaceAll(*httpMethods, " ", ""))
 
-	// 注意：根路径 "/" 现在由前端UI路由处理（在router.InitRouter()中注册）
+	// note: root path "/" is now handled by frontend UI router (registered in router.InitRouter())
 
-	// webhook路由 - 支持所有HTTP方法
+	// webhook router - supports all HTTP methods
 	hooksPath := "/" + *hooksURLPrefix + "/*id"
 	r.Any(hooksPath, ginHookHandler)
 
@@ -378,28 +349,28 @@ func main() {
 
 func ginHookHandler(c *gin.Context) {
 	req := &hook.Request{
-		ID:         c.GetString("request-id"), // 可以通过中间件设置
+		ID:         c.GetString("request-id"), // can be set by middleware
 		RawRequest: c.Request,
 	}
 
-	// 如果没有request-id，生成一个简单的ID
+	// if there is no request-id, generate a simple ID
 	if req.ID == "" {
 		req.ID = fmt.Sprintf("%d", time.Now().UnixNano())
 	}
 
 	log.Printf("[%s] incoming HTTP %s request from %s\n", req.ID, c.Request.Method, c.Request.RemoteAddr)
 
-	// debug模式下输出更多请求信息
+	// debug mode output more request information
 	if *debug {
 		log.Printf("[%s] Request Headers: %v", req.ID, c.Request.Header)
 		log.Printf("[%s] Request URL: %s", req.ID, c.Request.URL.String())
 		log.Printf("[%s] User-Agent: %s", req.ID, c.Request.UserAgent())
 	}
 
-	// 获取路径参数中的id
+	// get id from path parameter
 	id := strings.TrimPrefix(c.Param("id"), "/")
 
-	matchedHook := matchLoadedHook(id)
+	matchedHook := MatchLoadedHook(id)
 	if matchedHook == nil {
 		c.String(http.StatusNotFound, "Hook not found.")
 		return
@@ -454,7 +425,7 @@ func ginHookHandler(c *gin.Context) {
 		if err != nil {
 			log.Printf("[%s] error reading the request body: %+v\n", req.ID, err)
 		} else if *debug && len(req.Body) > 0 {
-			// debug模式下输出请求体内容（限制长度避免日志过长）
+			// debug mode output request body content (limit length to avoid log too long)
 			bodyStr := string(req.Body)
 			if len(bodyStr) > 500 {
 				bodyStr = bodyStr[:500] + "... (truncated)"
@@ -624,12 +595,12 @@ func ginHookHandler(c *gin.Context) {
 		return
 	}
 
-	// Check if a return code is configured for the hook
+	// check if a return code is configured for the hook
 	if matchedHook.TriggerRuleMismatchHttpResponseCode != 0 {
-		// 验证HTTP状态码是否有效（100-599范围）
+		// validate HTTP status code is valid (100-599 range)
 		statusCode := matchedHook.TriggerRuleMismatchHttpResponseCode
 		if statusCode < 100 || statusCode > 599 {
-			// 无效的HTTP状态码，使用默认的200
+			// invalid HTTP status code, use default 200
 			statusCode = http.StatusOK
 		}
 		c.String(statusCode, "Hook rules were not satisfied.")
@@ -729,7 +700,7 @@ func handleHook(h *hook.Hook, r *hook.Request) (string, error) {
 
 	log.Printf("[%s] finished handling %s\n", r.ID, h.ID)
 
-	// 推送WebSocket消息通知hook执行完成
+	// push WebSocket message to notify hook execution completed
 	wsMessage := stream.Message{
 		Type:      "hook_triggered",
 		Timestamp: time.Now(),
@@ -765,14 +736,14 @@ func handleHook(h *hook.Hook, r *hook.Request) (string, error) {
 }
 
 func reloadHooks(hooksFilePath string) {
-	if router.HookManager != nil {
-		if err := router.HookManager.ReloadHooks(hooksFilePath); err != nil {
+	if hook.HookManager != nil {
+		if err := hook.HookManager.ReloadHooks(hooksFilePath); err != nil {
 			log.Printf("failed to reload hooks from %s: %v", hooksFilePath, err)
 		}
 		return
 	}
 
-	// 回退到原有逻辑
+	// revert to original logic
 	log.Printf("reloading hooks from %s\n", hooksFilePath)
 
 	newHooks := hook.Hooks{}
@@ -796,7 +767,7 @@ func reloadHooks(hooksFilePath string) {
 				}
 			}
 
-			if (matchLoadedHook(hook.ID) != nil && !wasHookIDAlreadyLoaded) || seenHooksIds[hook.ID] {
+			if (MatchLoadedHook(hook.ID) != nil && !wasHookIDAlreadyLoaded) || seenHooksIds[hook.ID] {
 				log.Printf("error: hook with the id %s has already been loaded!\nplease check your hooks file for duplicate hooks ids!", hook.ID)
 				log.Println("reverting hooks back to the previous configuration")
 				return
@@ -811,12 +782,12 @@ func reloadHooks(hooksFilePath string) {
 }
 
 func ReloadAllHooks() {
-	if router.HookManager != nil {
-		if err := router.HookManager.ReloadAllHooks(); err != nil {
+	if hook.HookManager != nil {
+		if err := hook.HookManager.ReloadAllHooks(); err != nil {
 			log.Printf("failed to reload all hooks: %v", err)
 		}
 	} else {
-		// 回退到原有逻辑
+		// revert to original logic
 		for _, hooksFilePath := range hooksFiles {
 			reloadHooks(hooksFilePath)
 		}
@@ -824,10 +795,10 @@ func ReloadAllHooks() {
 }
 
 func removeHooks(hooksFilePath string) {
-	if router.HookManager != nil {
-		router.HookManager.RemoveHooks(hooksFilePath)
+	if hook.HookManager != nil {
+		hook.HookManager.RemoveHooks(hooksFilePath)
 
-		// 从hooksFiles列表中移除文件路径
+		// remove file path from hooksFiles list
 		newHooksFiles := hooksFiles[:0]
 		for _, filePath := range hooksFiles {
 			if filePath != hooksFilePath {
@@ -836,17 +807,17 @@ func removeHooks(hooksFilePath string) {
 		}
 		hooksFiles = newHooksFiles
 
-		// 更新HookManager中的文件列表
-		router.HookManager.HooksFiles = hooksFiles
+		// update HookManager's file list
+		hook.HookManager.HooksFiles = hooksFiles
 
-		if !*verbose && !*noPanic && router.HookManager.GetHookCount() == 0 {
+		if !*verbose && !*noPanic && hook.HookManager.GetHookCount() == 0 {
 			log.SetOutput(os.Stdout)
 			log.Fatalln("couldn't load any hooks from file!\naborting webhook execution since the -verbose flag is set to false.\nIf, for some reason, you want webhook to run without the hooks, either use -verbose flag, or -nopanic")
 		}
 		return
 	}
 
-	// 回退到原有逻辑
+	// revert to original logic
 	log.Printf("removing hooks from %s\n", hooksFilePath)
 
 	for _, hook := range loadedHooksFromFiles[hooksFilePath] {
@@ -868,7 +839,7 @@ func removeHooks(hooksFilePath string) {
 
 	log.Printf("removed %d hook(s) that were loaded from file %s\n", removedHooksCount, hooksFilePath)
 
-	if !*verbose && !*noPanic && lenLoadedHooks() == 0 {
+	if !*verbose && !*noPanic && LenLoadedHooks() == 0 {
 		log.SetOutput(os.Stdout)
 		log.Fatalln("couldn't load any hooks from file!\naborting webhook execution since the -verbose flag is set to false.\nIf, for some reason, you want webhook to run without the hooks, either use -verbose flag, or -nopanic")
 	}
@@ -922,4 +893,33 @@ func makeHumanPattern(prefix *string) string {
 		return "/{id}"
 	}
 	return "/" + *prefix + "/{id}"
+}
+
+func MatchLoadedHook(id string) *hook.Hook {
+	if hook.HookManager != nil {
+		return hook.HookManager.MatchLoadedHook(id)
+	}
+
+	// revert to original logic
+	for _, hooks := range *hook.LoadedHooksFromFiles {
+		if hook := hooks.Match(id); hook != nil {
+			return hook
+		}
+	}
+
+	return nil
+}
+
+func LenLoadedHooks() int {
+	if hook.HookManager != nil {
+		return hook.HookManager.LenLoadedHooks()
+	}
+
+	// revert to original logic
+	sum := 0
+	for _, hooks := range *hook.LoadedHooksFromFiles {
+		sum += len(hooks)
+	}
+
+	return sum
 }

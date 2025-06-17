@@ -9,17 +9,17 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-// loadAppConfig 加载应用程序配置文件
+// load app config file
 func LoadAppConfig() error {
 	filePath := "app.yaml"
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		// 如果配置文件不存在，创建默认配置并保存到文件
+		// if config file not exist, create default config and save to file
 		types.GoHookAppConfig = &types.AppConfig{
 			Port:              9000,
 			JWTSecret:         "gohook-secret-key-change-in-production",
 			JWTExpiryDuration: 24,
 		}
-		// 自动保存默认配置到文件
+		// auto save default config to file
 		if saveErr := SaveAppConfig(); saveErr != nil {
 			log.Printf("Warning: failed to save default app config: %v", saveErr)
 		} else {
@@ -30,64 +30,64 @@ func LoadAppConfig() error {
 
 	data, err := os.ReadFile(filePath)
 	if err != nil {
-		return fmt.Errorf("读取应用配置文件失败: %v", err)
+		return fmt.Errorf("read app config file failed: %v", err)
 	}
 
 	config := &types.AppConfig{}
 	if err := yaml.Unmarshal(data, config); err != nil {
-		return fmt.Errorf("解析应用配置文件失败: %v", err)
+		return fmt.Errorf("parse app config file failed: %v", err)
 	}
 
 	types.GoHookAppConfig = config
 	return nil
 }
 
-// saveAppConfig 保存应用程序配置文件
+// save app config file
 func SaveAppConfig() error {
 	if types.GoHookAppConfig == nil {
-		return fmt.Errorf("应用配置为空")
+		return fmt.Errorf("app config is nil")
 	}
 
 	data, err := yaml.Marshal(types.GoHookAppConfig)
 	if err != nil {
-		return fmt.Errorf("序列化应用配置失败: %v", err)
+		return fmt.Errorf("serialize app config failed: %v", err)
 	}
 
 	if err := os.WriteFile("app.yaml", data, 0644); err != nil {
-		return fmt.Errorf("保存应用配置文件失败: %v", err)
+		return fmt.Errorf("save app config file failed: %v", err)
 	}
 
 	return nil
 }
 
-// loadVersionConfig 加载版本配置文件
+// load version config file
 func LoadVersionConfig() error {
 	data, err := os.ReadFile("version.yaml")
 	if err != nil {
-		return fmt.Errorf("读取版本配置文件失败: %v", err)
+		return fmt.Errorf("read version config file failed: %v", err)
 	}
 
 	config := &types.VersionConfig{}
 	if err := yaml.Unmarshal(data, config); err != nil {
-		return fmt.Errorf("解析版本配置文件失败: %v", err)
+		return fmt.Errorf("parse version config file failed: %v", err)
 	}
 
 	types.GoHookVersionData = config
 	return nil
 }
 
-// saveVersionConfig 保存版本配置文件
+// save version config file
 func SaveVersionConfig() error {
 	if types.GoHookVersionData == nil {
-		return fmt.Errorf("版本配置数据为空")
+		return fmt.Errorf("version config data is nil")
 	}
 
 	data, err := yaml.Marshal(types.GoHookVersionData)
 	if err != nil {
-		return fmt.Errorf("序列化版本配置失败: %v", err)
+		return fmt.Errorf("serialize version config failed: %v", err)
 	}
 
-	// 备份原配置文件
+	// backup original config file
 	if _, err := os.Stat("version.yaml"); err == nil {
 		if err := os.Rename("version.yaml", "version.yaml.bak"); err != nil {
 			log.Printf("Warning: failed to backup version config file: %v", err)
@@ -96,13 +96,13 @@ func SaveVersionConfig() error {
 
 	err = os.WriteFile("version.yaml", data, 0644)
 	if err != nil {
-		// 如果保存失败，恢复备份
+		// if save failed, restore backup
 		if _, backupErr := os.Stat("version.yaml.bak"); backupErr == nil {
 			if restoreErr := os.Rename("version.yaml.bak", "version.yaml"); restoreErr != nil {
 				log.Printf("Error: failed to restore backup version config file: %v", restoreErr)
 			}
 		}
-		return fmt.Errorf("保存版本配置文件失败: %v", err)
+		return fmt.Errorf("save version config file failed: %v", err)
 	}
 
 	return nil
