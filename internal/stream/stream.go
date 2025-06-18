@@ -12,13 +12,13 @@ import (
 )
 
 // WebSocket connection manager
-type Manager struct {
+type StreamManager struct {
 	clients    map[*websocket.Conn]bool
 	clientsMux sync.RWMutex
 }
 
 // global WebSocket manager instance
-var Global = &Manager{
+var Global = &StreamManager{
 	clients: make(map[*websocket.Conn]bool),
 }
 
@@ -63,24 +63,25 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		return true // allow cross-origin
 	},
+	Subprotocols: []string{"Authorization"}, // 支持Authorization子协议用于认证
 }
 
 // add WebSocket connection
-func (m *Manager) AddClient(conn *websocket.Conn) {
+func (m *StreamManager) AddClient(conn *websocket.Conn) {
 	m.clientsMux.Lock()
 	defer m.clientsMux.Unlock()
 	m.clients[conn] = true
 }
 
 // remove WebSocket connection
-func (m *Manager) RemoveClient(conn *websocket.Conn) {
+func (m *StreamManager) RemoveClient(conn *websocket.Conn) {
 	m.clientsMux.Lock()
 	defer m.clientsMux.Unlock()
 	delete(m.clients, conn)
 }
 
 // broadcast message to all connected clients
-func (m *Manager) Broadcast(message Message) {
+func (m *StreamManager) Broadcast(message Message) {
 	m.clientsMux.RLock()
 	defer m.clientsMux.RUnlock()
 
@@ -102,7 +103,7 @@ func (m *Manager) Broadcast(message Message) {
 }
 
 // get client count
-func (m *Manager) ClientCount() int {
+func (m *StreamManager) ClientCount() int {
 	m.clientsMux.RLock()
 	defer m.clientsMux.RUnlock()
 	return len(m.clients)
