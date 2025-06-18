@@ -126,7 +126,7 @@ func InitRouter() *gin.Engine {
 			}
 		}
 		// 否则使用默认格式记录日志
-		return fmt.Sprintf("[GIN] %v | %3d | %13v | %15s | %-7s %#v\n%s",
+		return fmt.Sprintf("[WEB] %v | %3d | %13v | %15s | %-7s %#v\n%s",
 			param.TimeStamp.Format("2006/01/02 - 15:04:05"),
 			param.StatusCode,
 			param.Latency,
