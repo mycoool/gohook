@@ -225,11 +225,11 @@ func main() {
 		} else {
 			log.Printf("found %d hook(s) in file\n", len(newHooks))
 
-			for _, hook := range newHooks {
-				if MatchLoadedHook(hook.ID) != nil {
-					log.Fatalf("error: hook with the id %s has already been loaded!\nplease check your hooks file for duplicate hooks ids!\n", hook.ID)
+			for _, hookValue := range newHooks {
+				if hook.HookManager.MatchLoadedHook(hookValue.ID) != nil {
+					log.Fatalf("error: hook with the id %s has already been loaded!\nplease check your hooks file for duplicate hooks ids!\n", hookValue.ID)
 				}
-				log.Printf("\tloaded: %s\n", hook.ID)
+				log.Printf("\tloaded: %s\n", hookValue.ID)
 			}
 
 			loadedHooksFromFiles[hooksFilePath] = newHooks
@@ -245,7 +245,7 @@ func main() {
 
 	hooksFiles = newHooksFiles
 
-	if !*verbose && !*noPanic && LenLoadedHooks() == 0 {
+	if !*verbose && !*noPanic && hook.HookManager.LenLoadedHooks() == 0 {
 		log.SetOutput(os.Stdout)
 		log.Fatalln("couldn't load any hooks from file!\naborting webhook execution since the -verbose flag is set to false.\nIf, for some reason, you want webhook to start without the hooks, either use -verbose flag, or -nopanic")
 	}
@@ -270,7 +270,7 @@ func main() {
 			}
 		}
 
-		go watchForFileChange()
+		go hook.WatchForFileChange(watcher, &loadedHooksFromFiles, hooksFiles, *asTemplate)
 	}
 
 	// gin mode has been set before
@@ -328,7 +328,7 @@ func main() {
 
 	// Serve HTTP
 	if !*secure {
-		log.Printf("serving hooks on http://%s%s", addr, makeHumanPattern(hooksURLPrefix))
+		log.Printf("serving hooks on http://%s%s", addr, hook.MakeHumanPattern(hooksURLPrefix))
 		log.Print(svr.Serve(ln))
 
 		return
@@ -343,7 +343,7 @@ func main() {
 	}
 	svr.TLSNextProto = make(map[string]func(*http.Server, *tls.Conn, http.Handler)) // disable http/2
 
-	log.Printf("serving hooks on https://%s%s", addr, makeHumanPattern(hooksURLPrefix))
+	log.Printf("serving hooks on https://%s%s", addr, hook.MakeHumanPattern(hooksURLPrefix))
 	log.Print(svr.ServeTLS(ln, *cert, *key))
 }
 
@@ -370,7 +370,7 @@ func ginHookHandler(c *gin.Context) {
 	// get id from path parameter
 	id := strings.TrimPrefix(c.Param("id"), "/")
 
-	matchedHook := MatchLoadedHook(id)
+	matchedHook := hook.HookManager.MatchLoadedHook(id)
 	if matchedHook == nil {
 		c.String(http.StatusNotFound, "Hook not found.")
 		return
@@ -701,7 +701,7 @@ func handleHook(h *hook.Hook, r *hook.Request) (string, error) {
 	log.Printf("[%s] finished handling %s\n", r.ID, h.ID)
 
 	// push WebSocket message to notify hook execution completed
-	wsMessage := stream.Message{
+	wsMessage := stream.WsMessage{
 		Type:      "hook_triggered",
 		Timestamp: time.Now(),
 		Data: stream.HookTriggeredMessage{
@@ -733,193 +733,4 @@ func handleHook(h *hook.Hook, r *hook.Request) (string, error) {
 	stream.Global.Broadcast(wsMessage)
 
 	return string(out), err
-}
-
-func reloadHooks(hooksFilePath string) {
-	if hook.HookManager != nil {
-		if err := hook.HookManager.ReloadHooks(hooksFilePath); err != nil {
-			log.Printf("failed to reload hooks from %s: %v", hooksFilePath, err)
-		}
-		return
-	}
-
-	// revert to original logic
-	log.Printf("reloading hooks from %s\n", hooksFilePath)
-
-	newHooks := hook.Hooks{}
-
-	err := newHooks.LoadFromFile(hooksFilePath, *asTemplate)
-
-	if err != nil {
-		log.Printf("couldn't load hooks from file! %+v\n", err)
-	} else {
-		seenHooksIds := make(map[string]bool)
-
-		log.Printf("found %d hook(s) in file\n", len(newHooks))
-
-		for _, hook := range newHooks {
-			wasHookIDAlreadyLoaded := false
-
-			for _, loadedHook := range loadedHooksFromFiles[hooksFilePath] {
-				if loadedHook.ID == hook.ID {
-					wasHookIDAlreadyLoaded = true
-					break
-				}
-			}
-
-			if (MatchLoadedHook(hook.ID) != nil && !wasHookIDAlreadyLoaded) || seenHooksIds[hook.ID] {
-				log.Printf("error: hook with the id %s has already been loaded!\nplease check your hooks file for duplicate hooks ids!", hook.ID)
-				log.Println("reverting hooks back to the previous configuration")
-				return
-			}
-
-			seenHooksIds[hook.ID] = true
-			log.Printf("\tloaded: %s\n", hook.ID)
-		}
-
-		loadedHooksFromFiles[hooksFilePath] = newHooks
-	}
-}
-
-func ReloadAllHooks() {
-	if hook.HookManager != nil {
-		if err := hook.HookManager.ReloadAllHooks(); err != nil {
-			log.Printf("failed to reload all hooks: %v", err)
-		}
-	} else {
-		// revert to original logic
-		for _, hooksFilePath := range hooksFiles {
-			reloadHooks(hooksFilePath)
-		}
-	}
-}
-
-func removeHooks(hooksFilePath string) {
-	if hook.HookManager != nil {
-		hook.HookManager.RemoveHooks(hooksFilePath)
-
-		// remove file path from hooksFiles list
-		newHooksFiles := hooksFiles[:0]
-		for _, filePath := range hooksFiles {
-			if filePath != hooksFilePath {
-				newHooksFiles = append(newHooksFiles, filePath)
-			}
-		}
-		hooksFiles = newHooksFiles
-
-		// update HookManager's file list
-		hook.HookManager.HooksFiles = hooksFiles
-
-		if !*verbose && !*noPanic && hook.HookManager.GetHookCount() == 0 {
-			log.SetOutput(os.Stdout)
-			log.Fatalln("couldn't load any hooks from file!\naborting webhook execution since the -verbose flag is set to false.\nIf, for some reason, you want webhook to run without the hooks, either use -verbose flag, or -nopanic")
-		}
-		return
-	}
-
-	// revert to original logic
-	log.Printf("removing hooks from %s\n", hooksFilePath)
-
-	for _, hook := range loadedHooksFromFiles[hooksFilePath] {
-		log.Printf("\tremoving: %s\n", hook.ID)
-	}
-
-	newHooksFiles := hooksFiles[:0]
-	for _, filePath := range hooksFiles {
-		if filePath != hooksFilePath {
-			newHooksFiles = append(newHooksFiles, filePath)
-		}
-	}
-
-	hooksFiles = newHooksFiles
-
-	removedHooksCount := len(loadedHooksFromFiles[hooksFilePath])
-
-	delete(loadedHooksFromFiles, hooksFilePath)
-
-	log.Printf("removed %d hook(s) that were loaded from file %s\n", removedHooksCount, hooksFilePath)
-
-	if !*verbose && !*noPanic && LenLoadedHooks() == 0 {
-		log.SetOutput(os.Stdout)
-		log.Fatalln("couldn't load any hooks from file!\naborting webhook execution since the -verbose flag is set to false.\nIf, for some reason, you want webhook to run without the hooks, either use -verbose flag, or -nopanic")
-	}
-}
-
-func watchForFileChange() {
-	for {
-		select {
-		case event := <-(*watcher).Events:
-			if event.Op&fsnotify.Write == fsnotify.Write {
-				log.Printf("hooks file %s modified\n", event.Name)
-				reloadHooks(event.Name)
-			} else if event.Op&fsnotify.Remove == fsnotify.Remove {
-				if _, err := os.Stat(event.Name); os.IsNotExist(err) {
-					log.Printf("hooks file %s removed, no longer watching this file for changes, removing hooks that were loaded from it\n", event.Name)
-					if err := (*watcher).Remove(event.Name); err != nil {
-						log.Printf("Error removing watcher for %s: %v\n", event.Name, err)
-					}
-					removeHooks(event.Name)
-				}
-			} else if event.Op&fsnotify.Rename == fsnotify.Rename {
-				time.Sleep(100 * time.Millisecond)
-				if _, err := os.Stat(event.Name); os.IsNotExist(err) {
-					// file was removed
-					log.Printf("hooks file %s removed, no longer watching this file for changes, and removing hooks that were loaded from it\n", event.Name)
-					if err := (*watcher).Remove(event.Name); err != nil {
-						log.Printf("Error removing watcher for %s: %v\n", event.Name, err)
-					}
-					removeHooks(event.Name)
-				} else {
-					// file was overwritten
-					log.Printf("hooks file %s overwritten\n", event.Name)
-					reloadHooks(event.Name)
-					if err := (*watcher).Remove(event.Name); err != nil {
-						log.Printf("Error removing watcher for %s: %v\n", event.Name, err)
-					}
-					if err := (*watcher).Add(event.Name); err != nil {
-						log.Printf("Error adding watcher for %s: %v\n", event.Name, err)
-					}
-				}
-			}
-		case err := <-(*watcher).Errors:
-			log.Println("watcher error:", err)
-		}
-	}
-}
-
-// makeHumanPattern builds a human-friendly URL for display.
-func makeHumanPattern(prefix *string) string {
-	if prefix == nil || *prefix == "" {
-		return "/{id}"
-	}
-	return "/" + *prefix + "/{id}"
-}
-
-func MatchLoadedHook(id string) *hook.Hook {
-	if hook.HookManager != nil {
-		return hook.HookManager.MatchLoadedHook(id)
-	}
-
-	// revert to original logic
-	for _, hooks := range *hook.LoadedHooksFromFiles {
-		if hook := hooks.Match(id); hook != nil {
-			return hook
-		}
-	}
-
-	return nil
-}
-
-func LenLoadedHooks() int {
-	if hook.HookManager != nil {
-		return hook.HookManager.LenLoadedHooks()
-	}
-
-	// revert to original logic
-	sum := 0
-	for _, hooks := range *hook.LoadedHooksFromFiles {
-		sum += len(hooks)
-	}
-
-	return sum
 }

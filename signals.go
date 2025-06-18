@@ -9,6 +9,8 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+
+	"github.com/mycoool/gohook/internal/hook"
 )
 
 func setupSignals() {
@@ -31,11 +33,11 @@ func watchForSignals() {
 		switch sig {
 		case syscall.SIGUSR1:
 			log.Println("caught USR1 signal")
-			ReloadAllHooks()
+			hook.ReloadAllHooks(hooksFiles, *asTemplate)
 
 		case syscall.SIGHUP:
 			log.Println("caught HUP signal")
-			ReloadAllHooks()
+			hook.ReloadAllHooks(hooksFiles, *asTemplate)
 
 		case os.Interrupt, syscall.SIGTERM:
 			log.Printf("caught %s signal; exiting\n", sig)

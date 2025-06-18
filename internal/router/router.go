@@ -278,7 +278,7 @@ func InitRouter() *gin.Engine {
 			}
 
 			// push WebSocket message
-			wsMessage := stream.Message{
+			wsMessage := stream.WsMessage{
 				Type:      "hook_triggered",
 				Timestamp: time.Now(),
 				Data: stream.HookTriggeredMessage{
@@ -469,7 +469,7 @@ func InitRouter() *gin.Engine {
 			// save config file
 			if err := config.SaveVersionConfig(); err != nil {
 				// push failed message
-				wsMessage := stream.Message{
+				wsMessage := stream.WsMessage{
 					Type:      "project_managed",
 					Timestamp: time.Now(),
 					Data: stream.ProjectManageMessage{
@@ -487,7 +487,7 @@ func InitRouter() *gin.Engine {
 			}
 
 			// push success message
-			wsMessage := stream.Message{
+			wsMessage := stream.WsMessage{
 				Type:      "project_managed",
 				Timestamp: time.Now(),
 				Data: stream.ProjectManageMessage{
@@ -529,7 +529,7 @@ func InitRouter() *gin.Engine {
 			// save config file
 			if err := config.SaveVersionConfig(); err != nil {
 				// push failed message
-				wsMessage := stream.Message{
+				wsMessage := stream.WsMessage{
 					Type:      "project_managed",
 					Timestamp: time.Now(),
 					Data: stream.ProjectManageMessage{
@@ -546,7 +546,7 @@ func InitRouter() *gin.Engine {
 			}
 
 			// push success message
-			wsMessage := stream.Message{
+			wsMessage := stream.WsMessage{
 				Type:      "project_managed",
 				Timestamp: time.Now(),
 				Data: stream.ProjectManageMessage{
@@ -760,7 +760,7 @@ func InitRouter() *gin.Engine {
 
 			if err := version.SwitchBranch(projectPath, req.Branch); err != nil {
 				// push failed message
-				wsMessage := stream.Message{
+				wsMessage := stream.WsMessage{
 					Type:      "version_switched",
 					Timestamp: time.Now(),
 					Data: stream.VersionSwitchMessage{
@@ -778,7 +778,7 @@ func InitRouter() *gin.Engine {
 			}
 
 			// push success message
-			wsMessage := stream.Message{
+			wsMessage := stream.WsMessage{
 				Type:      "version_switched",
 				Timestamp: time.Now(),
 				Data: stream.VersionSwitchMessage{
@@ -821,7 +821,7 @@ func InitRouter() *gin.Engine {
 
 			if err := version.SwitchTag(projectPath, req.Tag); err != nil {
 				// push failed message
-				wsMessage := stream.Message{
+				wsMessage := stream.WsMessage{
 					Type:      "version_switched",
 					Timestamp: time.Now(),
 					Data: stream.VersionSwitchMessage{
@@ -839,7 +839,7 @@ func InitRouter() *gin.Engine {
 			}
 
 			// push success message
-			wsMessage := stream.Message{
+			wsMessage := stream.WsMessage{
 				Type:      "version_switched",
 				Timestamp: time.Now(),
 				Data: stream.VersionSwitchMessage{
@@ -875,7 +875,7 @@ func InitRouter() *gin.Engine {
 
 			if err := version.DeleteTag(projectPath, tagName); err != nil {
 				// push failed message
-				wsMessage := stream.Message{
+				wsMessage := stream.WsMessage{
 					Type:      "version_switched",
 					Timestamp: time.Now(),
 					Data: stream.VersionSwitchMessage{
@@ -893,7 +893,7 @@ func InitRouter() *gin.Engine {
 			}
 
 			// push success message
-			wsMessage := stream.Message{
+			wsMessage := stream.WsMessage{
 				Type:      "version_switched",
 				Timestamp: time.Now(),
 				Data: stream.VersionSwitchMessage{

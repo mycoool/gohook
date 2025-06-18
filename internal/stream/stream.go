@@ -23,7 +23,7 @@ var Global = &StreamManager{
 }
 
 // WebSocket message type
-type Message struct {
+type WsMessage struct {
 	Type      string      `json:"type"`
 	Timestamp time.Time   `json:"timestamp"`
 	Data      interface{} `json:"data"`
@@ -81,7 +81,7 @@ func (m *StreamManager) RemoveClient(conn *websocket.Conn) {
 }
 
 // broadcast message to all connected clients
-func (m *StreamManager) Broadcast(message Message) {
+func (m *StreamManager) Broadcast(message WsMessage) {
 	m.clientsMux.RLock()
 	defer m.clientsMux.RUnlock()
 
@@ -127,7 +127,7 @@ func HandleWebSocket(c *gin.Context) {
 	log.Printf("WebSocket client connected, total clients: %d", Global.ClientCount())
 
 	// send connected message
-	connectedMsg := Message{
+	connectedMsg := WsMessage{
 		Type:      "connected",
 		Timestamp: time.Now(),
 		Data:      map[string]string{"message": "WebSocket connected successfully"},
@@ -151,7 +151,7 @@ func HandleWebSocket(c *gin.Context) {
 		if json.Unmarshal(message, &clientMsg) == nil {
 			if msgType, ok := clientMsg["type"].(string); ok && msgType == "ping" {
 				// response heartbeat
-				pongMsg := Message{
+				pongMsg := WsMessage{
 					Type:      "pong",
 					Timestamp: time.Now(),
 					Data:      map[string]string{"message": "pong"},

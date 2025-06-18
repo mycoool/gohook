@@ -4,7 +4,10 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"time"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/gin-gonic/gin"
 	"github.com/mycoool/gohook/internal/types"
 )
@@ -248,4 +251,154 @@ func (hm *hookManager) GetAllHooks() []Hook {
 	}
 
 	return allHooks
+}
+
+func ReloadAllHooks(hooksFiles []string, asTemplate bool) {
+	if HookManager != nil {
+		if err := HookManager.ReloadAllHooks(); err != nil {
+			log.Printf("failed to reload all hooks: %v", err)
+		}
+	} else {
+		// revert to original logic
+		for _, hooksFilePath := range hooksFiles {
+			reloadHooks(hooksFilePath, asTemplate)
+		}
+	}
+}
+
+func reloadHooks(hooksFilePath string, asTemplate bool) {
+	if HookManager != nil {
+		if err := HookManager.ReloadHooks(hooksFilePath); err != nil {
+			log.Printf("failed to reload hooks from %s: %v", hooksFilePath, err)
+		}
+		return
+	}
+
+	// revert to original logic
+	log.Printf("reloading hooks from %s\n", hooksFilePath)
+
+	newHooks := Hooks{}
+
+	err := newHooks.LoadFromFile(hooksFilePath, asTemplate)
+
+	if err != nil {
+		log.Printf("couldn't load hooks from file! %+v\n", err)
+	} else {
+		seenHooksIds := make(map[string]bool)
+
+		log.Printf("found %d hook(s) in file\n", len(newHooks))
+
+		for _, hook := range newHooks {
+			wasHookIDAlreadyLoaded := false
+
+			for _, loadedHook := range (*HookManager.LoadedHooksFromFiles)[hooksFilePath] {
+				if loadedHook.ID == hook.ID {
+					wasHookIDAlreadyLoaded = true
+					break
+				}
+			}
+
+			if (HookManager.MatchLoadedHook(hook.ID) != nil && !wasHookIDAlreadyLoaded) || seenHooksIds[hook.ID] {
+				log.Printf("error: hook with the id %s has already been loaded!\nplease check your hooks file for duplicate hooks ids!", hook.ID)
+				log.Println("reverting hooks back to the previous configuration")
+				return
+			}
+
+			seenHooksIds[hook.ID] = true
+			log.Printf("\tloaded: %s\n", hook.ID)
+		}
+
+		(*HookManager.LoadedHooksFromFiles)[hooksFilePath] = newHooks
+	}
+}
+
+func removeHooks(hooksFilePath string, hooksFiles []string) {
+	if HookManager != nil {
+		HookManager.RemoveHooks(hooksFilePath)
+
+		// remove file path from hooksFiles list
+		newHooksFiles := hooksFiles[:0]
+		for _, filePath := range hooksFiles {
+			if filePath != hooksFilePath {
+				newHooksFiles = append(newHooksFiles, filePath)
+			}
+		}
+		hooksFiles = newHooksFiles
+
+		// update HookManager's file list
+		HookManager.HooksFiles = hooksFiles
+
+		return
+	}
+
+	// revert to original logic
+	log.Printf("removing hooks from %s\n", hooksFilePath)
+
+	for _, hook := range (*HookManager.LoadedHooksFromFiles)[hooksFilePath] {
+		log.Printf("\tremoving: %s\n", hook.ID)
+	}
+
+	newHooksFiles := hooksFiles[:0]
+	for _, filePath := range hooksFiles {
+		if filePath != hooksFilePath {
+			newHooksFiles = append(newHooksFiles, filePath)
+		}
+	}
+
+	removedHooksCount := len((*HookManager.LoadedHooksFromFiles)[hooksFilePath])
+
+	delete((*HookManager.LoadedHooksFromFiles), hooksFilePath)
+
+	log.Printf("removed %d hook(s) that were loaded from file %s\n", removedHooksCount, hooksFilePath)
+
+}
+
+func WatchForFileChange(watcher *fsnotify.Watcher, loadedHooksFromFiles *map[string]Hooks, hooksFiles []string, asTemplate bool) {
+	for {
+		select {
+		case event := <-(*watcher).Events:
+			if event.Op&fsnotify.Write == fsnotify.Write {
+				log.Printf("hooks file %s modified\n", event.Name)
+				reloadHooks(event.Name, asTemplate)
+			} else if event.Op&fsnotify.Remove == fsnotify.Remove {
+				if _, err := os.Stat(event.Name); os.IsNotExist(err) {
+					log.Printf("hooks file %s removed, no longer watching this file for changes, removing hooks that were loaded from it\n", event.Name)
+					if err := (*watcher).Remove(event.Name); err != nil {
+						log.Printf("Error removing watcher for %s: %v\n", event.Name, err)
+					}
+					removeHooks(event.Name, hooksFiles)
+				}
+			} else if event.Op&fsnotify.Rename == fsnotify.Rename {
+				time.Sleep(100 * time.Millisecond)
+				if _, err := os.Stat(event.Name); os.IsNotExist(err) {
+					// file was removed
+					log.Printf("hooks file %s removed, no longer watching this file for changes, and removing hooks that were loaded from it\n", event.Name)
+					if err := (*watcher).Remove(event.Name); err != nil {
+						log.Printf("Error removing watcher for %s: %v\n", event.Name, err)
+					}
+					removeHooks(event.Name, hooksFiles)
+				} else {
+					// file was overwritten
+					log.Printf("hooks file %s overwritten\n", event.Name)
+					reloadHooks(event.Name, asTemplate)
+					if err := (*watcher).Remove(event.Name); err != nil {
+						log.Printf("Error removing watcher for %s: %v\n", event.Name, err)
+					}
+					if err := (*watcher).Add(event.Name); err != nil {
+						log.Printf("Error adding watcher for %s: %v\n", event.Name, err)
+					}
+				}
+			}
+		case err := <-(*watcher).Errors:
+			log.Println("watcher error:", err)
+		}
+	}
+}
+
+// makeHumanPattern builds a human-friendly URL for display.
+func MakeHumanPattern(prefix *string) string {
+	if prefix == nil || *prefix == "" {
+		return "/{id}"
+	}
+	return "/" + *prefix + "/{id}"
 }
