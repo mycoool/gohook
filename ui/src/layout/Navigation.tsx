@@ -67,25 +67,10 @@ class Navigation extends Component<
                 <div className={classes.toolbar} />
                 <Link className={classes.link} to="/" onClick={() => setNavOpen(false)}>
                     <ListItem button disabled={!loggedIn} className="all">
-                        <ListItemText primary="实时消息" />
+                        <ListItemText primary="All Projects" />
                     </ListItem>
                 </Link>
                 <Divider />
-                {loggedIn && isAdmin && (
-                    <>
-                        <Link className={classes.link} to="/users" onClick={() => setNavOpen(false)}>
-                            <ListItem button className="users">
-                                <ListItemAvatar>
-                                    <Avatar>
-                                        <PeopleIcon />
-                                    </Avatar>
-                                </ListItemAvatar>
-                                <ListItemText primary="用户管理" />
-                            </ListItem>
-                        </Link>
-                        <Divider />
-                    </>
-                )}
                 <Typography align="center" style={{marginTop: 10}}>
                     {showRequestNotification ? (
                         <Button

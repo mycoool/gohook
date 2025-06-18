@@ -1,23 +1,31 @@
 package version
 
 import (
+	"bytes"
 	"crypto/hmac"
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/mycoool/gohook/internal/config"
+	"github.com/mycoool/gohook/internal/env"
+	"github.com/mycoool/gohook/internal/stream"
 	"github.com/mycoool/gohook/internal/types"
 )
 
 // init Git repository
-func InitGit(projectPath string) error {
+func initGit(projectPath string) error {
 	// check if project path exists
 	if _, err := os.Stat(projectPath); os.IsNotExist(err) {
 		return fmt.Errorf("project path does not exist: %s", projectPath)
@@ -130,7 +138,7 @@ func HmacSHA1Hex(data []byte, secret string) string {
 }
 
 // VerifyWebhookSignature verify webhook signature, support GitHub, GitLab, etc.
-func VerifyWebhookSignature(c *gin.Context, payloadBody []byte, secret string) error {
+func verifyWebhookSignature(c *gin.Context, payloadBody []byte, secret string) error {
 	// GitHub use X-Hub-Signature-256 header with HMAC-SHA256
 	if githubSig := c.GetHeader("X-Hub-Signature-256"); githubSig != "" {
 		return VerifyGitHubSignature(payloadBody, secret, githubSig)
@@ -251,7 +259,7 @@ func switchToTag(projectPath, tagName string) error {
 }
 
 // HandleGitHook handle GitHook webhook request
-func HandleGitHook(project *types.ProjectConfig, payload map[string]interface{}) error {
+func handleGitHook(project *types.ProjectConfig, payload map[string]interface{}) error {
 	log.Printf("handle GitHook: project=%s, mode=%s, branch=%s", project.Name, project.Hookmode, project.Hookbranch)
 
 	// parse webhook payload, extract branch or tag information
@@ -319,7 +327,7 @@ func HandleGitHook(project *types.ProjectConfig, payload map[string]interface{})
 		if refType == "tag" {
 			// tag deletion: only delete local tag
 			log.Printf("detected tag deletion event: %s", targetRef)
-			return DeleteLocalTag(project.Path, targetRef)
+			return deleteTag(project.Path, targetRef)
 		} else if refType == "branch" {
 			// branch deletion: need to smart judgment
 			log.Printf("detected branch deletion event: %s", targetRef)
@@ -337,7 +345,7 @@ func HandleGitHook(project *types.ProjectConfig, payload map[string]interface{})
 }
 
 // DeleteLocalTag delete local tag
-func DeleteLocalTag(projectPath, tagName string) error {
+func deleteLocalTag(projectPath, tagName string) error {
 	// check if it is a Git repository
 	if _, err := os.Stat(filepath.Join(projectPath, ".git")); os.IsNotExist(err) {
 		return fmt.Errorf("not a Git repository: %s", projectPath)
@@ -420,7 +428,7 @@ func BranchDeletion(project *types.ProjectConfig, branchName string) error {
 }
 
 // DeleteBranch delete local branch
-func DeleteBranch(projectPath, branchName string) error {
+func deleteBranch(projectPath, branchName string) error {
 	// check if it is a Git repository
 	if _, err := os.Stat(filepath.Join(projectPath, ".git")); os.IsNotExist(err) {
 		return fmt.Errorf("not a Git repository")
@@ -450,7 +458,7 @@ func DeleteBranch(projectPath, branchName string) error {
 }
 
 // DeleteTag delete local and remote tag
-func DeleteTag(projectPath, tagName string) error {
+func deleteTag(projectPath, tagName string) error {
 	// check if it is a Git repository
 	if _, err := os.Stat(filepath.Join(projectPath, ".git")); os.IsNotExist(err) {
 		return fmt.Errorf("not a Git repository")
@@ -485,7 +493,7 @@ func DeleteTag(projectPath, tagName string) error {
 }
 
 // SwitchTag switch tag
-func SwitchTag(projectPath, tagName string) error {
+func switchTag(projectPath, tagName string) error {
 	cmd := exec.Command("git", "-C", projectPath, "checkout", tagName)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("switch tag failed: %v", err)
@@ -494,7 +502,7 @@ func SwitchTag(projectPath, tagName string) error {
 }
 
 // GetRemote get remote repository URL
-func GetRemote(projectPath string) (string, error) {
+func getRemote(projectPath string) (string, error) {
 	// check if it is a Git repository
 	if _, err := os.Stat(filepath.Join(projectPath, ".git")); os.IsNotExist(err) {
 		return "", fmt.Errorf("not a Git repository")
@@ -513,7 +521,7 @@ func GetRemote(projectPath string) (string, error) {
 }
 
 // SetRemote set remote repository
-func SetRemote(projectPath, remoteUrl string) error {
+func setRemote(projectPath, remoteUrl string) error {
 	// check if it is a Git repository
 	if _, err := os.Stat(filepath.Join(projectPath, ".git")); os.IsNotExist(err) {
 		return fmt.Errorf("not a Git repository")
@@ -539,7 +547,7 @@ func SetRemote(projectPath, remoteUrl string) error {
 }
 
 // SyncBranches sync remote branches, clean up deleted remote branch references
-func SyncBranches(projectPath string) error {
+func syncBranches(projectPath string) error {
 	// use fetch --prune to update remote branch information and delete non-existent references
 	cmd := exec.Command("git", "-C", projectPath, "fetch", "origin", "--prune")
 	output, err := cmd.CombinedOutput()
@@ -550,7 +558,7 @@ func SyncBranches(projectPath string) error {
 }
 
 // SwitchBranch switch branch
-func SwitchBranch(projectPath, branchName string) error {
+func switchBranch(projectPath, branchName string) error {
 	var cmd *exec.Cmd
 	var isRemoteBranch bool
 	var localBranchName string
@@ -595,7 +603,7 @@ func SwitchBranch(projectPath, branchName string) error {
 }
 
 // GetTags get tag list
-func GetTags(projectPath string) ([]types.TagResponse, error) {
+func getTags(projectPath string) ([]types.TagResponse, error) {
 	// get current tag
 	cmd := exec.Command("git", "-C", projectPath, "describe", "--exact-match", "--tags", "HEAD")
 	currentOutput, _ := cmd.Output()
@@ -631,7 +639,7 @@ func GetTags(projectPath string) ([]types.TagResponse, error) {
 }
 
 // GetBranches get branch list
-func GetBranches(projectPath string) ([]types.BranchResponse, error) {
+func getBranches(projectPath string) ([]types.BranchResponse, error) {
 	var branches []types.BranchResponse
 	branchSet := make(map[string]bool) // used to prevent duplicate addition
 
@@ -750,8 +758,8 @@ func GetBranches(projectPath string) ([]types.BranchResponse, error) {
 	return branches, nil
 }
 
-// GetGitStatus get Git status
-func GetGitStatus(projectPath string) (*types.VersionResponse, error) {
+// getGitStatus get Git status
+func getGitStatus(projectPath string) (*types.VersionResponse, error) {
 	if _, err := os.Stat(filepath.Join(projectPath, ".git")); os.IsNotExist(err) {
 		return nil, fmt.Errorf("not a Git repository")
 	}
@@ -793,4 +801,880 @@ func GetGitStatus(projectPath string) (*types.VersionResponse, error) {
 		LastCommit:     lastCommit,
 		LastCommitTime: lastCommitTime,
 	}, nil
+}
+
+// AddProject add project
+func AddProject(c *gin.Context) {
+	var req struct {
+		Name        string `json:"name" binding:"required"`
+		Path        string `json:"path" binding:"required"`
+		Description string `json:"description"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request parameters: " + err.Error()})
+		return
+	}
+
+	// check if project name already exists
+	for _, proj := range types.GoHookVersionData.Projects {
+		if proj.Name == req.Name {
+			c.JSON(http.StatusConflict, gin.H{"error": "Project name already exists"})
+			return
+		}
+	}
+
+	// check if path exists
+	if _, err := os.Stat(req.Path); os.IsNotExist(err) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Specified path does not exist"})
+		return
+	}
+
+	// add new project
+	newProject := types.ProjectConfig{
+		Name:        req.Name,
+		Path:        req.Path,
+		Description: req.Description,
+		Enabled:     true,
+	}
+
+	types.GoHookVersionData.Projects = append(types.GoHookVersionData.Projects, newProject)
+
+	// save config file
+	if err := config.SaveVersionConfig(); err != nil {
+		// push failed message
+		wsMessage := stream.WsMessage{
+			Type:      "project_managed",
+			Timestamp: time.Now(),
+			Data: stream.ProjectManageMessage{
+				Action:      "add",
+				ProjectName: req.Name,
+				ProjectPath: req.Path,
+				Success:     false,
+				Error:       "Save config failed: " + err.Error(),
+			},
+		}
+		stream.Global.Broadcast(wsMessage)
+
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Save config failed: " + err.Error()})
+		return
+	}
+
+	// push success message
+	wsMessage := stream.WsMessage{
+		Type:      "project_managed",
+		Timestamp: time.Now(),
+		Data: stream.ProjectManageMessage{
+			Action:      "add",
+			ProjectName: req.Name,
+			ProjectPath: req.Path,
+			Success:     true,
+		},
+	}
+	stream.Global.Broadcast(wsMessage)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Project added successfully",
+		"project": newProject,
+	})
+}
+
+// DeleteProject delete project
+func DeleteProject(c *gin.Context) {
+	projectName := c.Param("name")
+
+	// find project index
+	projectIndex := -1
+	for i, proj := range types.GoHookVersionData.Projects {
+		if proj.Name == projectName {
+			projectIndex = i
+			break
+		}
+	}
+
+	if projectIndex == -1 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
+		return
+	}
+
+	// delete project
+	types.GoHookVersionData.Projects = append(types.GoHookVersionData.Projects[:projectIndex], types.GoHookVersionData.Projects[projectIndex+1:]...)
+
+	// save config file
+	if err := config.SaveVersionConfig(); err != nil {
+		// push failed message
+		wsMessage := stream.WsMessage{
+			Type:      "project_managed",
+			Timestamp: time.Now(),
+			Data: stream.ProjectManageMessage{
+				Action:      "delete",
+				ProjectName: projectName,
+				Success:     false,
+				Error:       "Save config failed: " + err.Error(),
+			},
+		}
+		stream.Global.Broadcast(wsMessage)
+
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Save config failed: " + err.Error()})
+		return
+	}
+
+	// push success message
+	wsMessage := stream.WsMessage{
+		Type:      "project_managed",
+		Timestamp: time.Now(),
+		Data: stream.ProjectManageMessage{
+			Action:      "delete",
+			ProjectName: projectName,
+			Success:     true,
+		},
+	}
+	stream.Global.Broadcast(wsMessage)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Project deleted successfully",
+		"name":    projectName,
+	})
+}
+
+// GetBranches get branch list
+func GetBranches(c *gin.Context) {
+	projectName := c.Param("name")
+
+	// find project path
+	var projectPath string
+	for _, proj := range types.GoHookVersionData.Projects {
+		if proj.Name == projectName && proj.Enabled {
+			projectPath = proj.Path
+			break
+		}
+	}
+
+	if projectPath == "" {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
+		return
+	}
+
+	branches, err := getBranches(projectPath)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, branches)
+}
+
+// GetTags get tag list
+func GetTags(c *gin.Context) {
+	projectName := c.Param("name")
+
+	// get filter parameter
+	filter := c.Query("filter")
+
+	// get pagination parameter
+	page := 1
+	limit := 20
+	if pageStr := c.Query("page"); pageStr != "" {
+		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+			page = p
+		}
+	}
+	if limitStr := c.Query("limit"); limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 100 {
+			limit = l
+		}
+	}
+
+	// find project path
+	var projectPath string
+	for _, proj := range types.GoHookVersionData.Projects {
+		if proj.Name == projectName && proj.Enabled {
+			projectPath = proj.Path
+			break
+		}
+	}
+
+	if projectPath == "" {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
+		return
+	}
+
+	allTags, err := getTags(projectPath)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// if there is filter condition, filter tags
+	var filteredTags []types.TagResponse
+	if filter != "" {
+		for _, tag := range allTags {
+			if strings.HasPrefix(tag.Name, filter) {
+				filteredTags = append(filteredTags, tag)
+			}
+		}
+	} else {
+		filteredTags = allTags
+	}
+
+	// calculate pagination
+	total := len(filteredTags)
+	totalPages := (total + limit - 1) / limit
+	start := (page - 1) * limit
+	end := start + limit
+
+	if start >= total {
+		// out of range, return empty array
+		c.JSON(http.StatusOK, gin.H{
+			"tags":       []types.TagResponse{},
+			"total":      total,
+			"page":       page,
+			"limit":      limit,
+			"totalPages": totalPages,
+			"hasMore":    false,
+		})
+		return
+	}
+
+	if end > total {
+		end = total
+	}
+
+	paginatedTags := filteredTags[start:end]
+	hasMore := page < totalPages
+
+	c.JSON(http.StatusOK, gin.H{
+		"tags":       paginatedTags,
+		"total":      total,
+		"page":       page,
+		"limit":      limit,
+		"totalPages": totalPages,
+		"hasMore":    hasMore,
+	})
+}
+
+// SyncBranches sync remote branches, clean up deleted remote branch references
+func SyncBranches(c *gin.Context) {
+	projectName := c.Param("name")
+
+	// find project path
+	var projectPath string
+	for _, proj := range types.GoHookVersionData.Projects {
+		if proj.Name == projectName && proj.Enabled {
+			projectPath = proj.Path
+			break
+		}
+	}
+
+	if projectPath == "" {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
+		return
+	}
+
+	if err := syncBranches(projectPath); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Branches synced successfully"})
+}
+
+// DeleteBranch delete local branch
+func DeleteBranch(c *gin.Context) {
+	projectName := c.Param("name")
+	branchName := c.Param("branchName")
+
+	// find project path
+	var projectPath string
+	for _, proj := range types.GoHookVersionData.Projects {
+		if proj.Name == projectName && proj.Enabled {
+			projectPath = proj.Path
+			break
+		}
+	}
+
+	if projectPath == "" {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
+		return
+	}
+
+	if err := deleteBranch(projectPath, branchName); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Branch deleted successfully"})
+}
+
+// SwitchBranch switch branch
+func SwitchBranch(c *gin.Context) {
+	projectName := c.Param("name")
+
+	var req struct {
+		Branch string `json:"branch"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request parameters"})
+		return
+	}
+
+	// find project path
+	var projectPath string
+	for _, proj := range types.GoHookVersionData.Projects {
+		if proj.Name == projectName && proj.Enabled {
+			projectPath = proj.Path
+			break
+		}
+	}
+
+	if projectPath == "" {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
+		return
+	}
+
+	if err := switchBranch(projectPath, req.Branch); err != nil {
+		// push failed message
+		wsMessage := stream.WsMessage{
+			Type:      "version_switched",
+			Timestamp: time.Now(),
+			Data: stream.VersionSwitchMessage{
+				ProjectName: projectName,
+				Action:      "switch-branch",
+				Target:      req.Branch,
+				Success:     false,
+				Error:       err.Error(),
+			},
+		}
+		stream.Global.Broadcast(wsMessage)
+
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// push success message
+	wsMessage := stream.WsMessage{
+		Type:      "version_switched",
+		Timestamp: time.Now(),
+		Data: stream.VersionSwitchMessage{
+			ProjectName: projectName,
+			Action:      "switch-branch",
+			Target:      req.Branch,
+			Success:     true,
+		},
+	}
+	stream.Global.Broadcast(wsMessage)
+
+	c.JSON(http.StatusOK, gin.H{"message": "Branch switched successfully", "branch": req.Branch})
+}
+
+// SwitchTag switch tag
+func SwitchTag(c *gin.Context) {
+	projectName := c.Param("name")
+
+	var req struct {
+		Tag string `json:"tag"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request parameters"})
+		return
+	}
+
+	// find project path
+	var projectPath string
+	for _, proj := range types.GoHookVersionData.Projects {
+		if proj.Name == projectName && proj.Enabled {
+			projectPath = proj.Path
+			break
+		}
+	}
+
+	if projectPath == "" {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
+		return
+	}
+
+	if err := switchTag(projectPath, req.Tag); err != nil {
+		// push failed message
+		wsMessage := stream.WsMessage{
+			Type:      "version_switched",
+			Timestamp: time.Now(),
+			Data: stream.VersionSwitchMessage{
+				ProjectName: projectName,
+				Action:      "switch-tag",
+				Target:      req.Tag,
+				Success:     false,
+				Error:       err.Error(),
+			},
+		}
+		stream.Global.Broadcast(wsMessage)
+
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// push success message
+	wsMessage := stream.WsMessage{
+		Type:      "version_switched",
+		Timestamp: time.Now(),
+		Data: stream.VersionSwitchMessage{
+			ProjectName: projectName,
+			Action:      "switch-tag",
+			Target:      req.Tag,
+			Success:     true,
+		},
+	}
+	stream.Global.Broadcast(wsMessage)
+
+	c.JSON(http.StatusOK, gin.H{"message": "Tag switched successfully", "tag": req.Tag})
+}
+
+// DeleteTag delete local and remote tag
+func DeleteTag(c *gin.Context) {
+	projectName := c.Param("name")
+	tagName := c.Param("tagName")
+
+	// find project path
+	var projectPath string
+	for _, proj := range types.GoHookVersionData.Projects {
+		if proj.Name == projectName && proj.Enabled {
+			projectPath = proj.Path
+			break
+		}
+	}
+
+	if projectPath == "" {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
+		return
+	}
+
+	if err := deleteTag(projectPath, tagName); err != nil {
+		// push failed message
+		wsMessage := stream.WsMessage{
+			Type:      "version_switched",
+			Timestamp: time.Now(),
+			Data: stream.VersionSwitchMessage{
+				ProjectName: projectName,
+				Action:      "delete-tag",
+				Target:      tagName,
+				Success:     false,
+				Error:       err.Error(),
+			},
+		}
+		stream.Global.Broadcast(wsMessage)
+
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// push success message
+	wsMessage := stream.WsMessage{
+		Type:      "version_switched",
+		Timestamp: time.Now(),
+		Data: stream.VersionSwitchMessage{
+			ProjectName: projectName,
+			Action:      "delete-tag",
+			Target:      tagName,
+			Success:     true,
+		},
+	}
+	stream.Global.Broadcast(wsMessage)
+
+	c.JSON(http.StatusOK, gin.H{"message": "Tag deleted successfully"})
+}
+
+// DeleteLocalTag delete local tag
+func DeleteLocalTag(c *gin.Context) {
+	projectName := c.Param("name")
+	tagName := c.Param("tagName")
+
+	// find project path
+	var projectPath string
+	for _, proj := range types.GoHookVersionData.Projects {
+		if proj.Name == projectName && proj.Enabled {
+			projectPath = proj.Path
+			break
+		}
+	}
+
+	if projectPath == "" {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
+		return
+	}
+
+	if err := deleteLocalTag(projectPath, tagName); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Tag deleted successfully"})
+}
+
+// InitGitRepository initialize git repository
+func InitGitRepository(c *gin.Context) {
+	projectName := c.Param("name")
+	fmt.Printf("Received Git initialization request: project name=%s\n", projectName)
+
+	// find project path
+	var projectPath string
+	for _, proj := range types.GoHookVersionData.Projects {
+		if proj.Name == projectName && proj.Enabled {
+			projectPath = proj.Path
+			break
+		}
+	}
+
+	if projectPath == "" {
+		fmt.Printf("Git initialization failed: project not found, project name=%s\n", projectName)
+		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
+		return
+	}
+
+	fmt.Printf("Git initialization: project name=%s, path=%s\n", projectName, projectPath)
+
+	if err := initGit(projectPath); err != nil {
+		fmt.Printf("Git initialization failed: project name=%s, path=%s, error=%v\n", projectName, projectPath, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	fmt.Printf("Git initialization successful: project name=%s, path=%s\n", projectName, projectPath)
+	c.JSON(http.StatusOK, gin.H{"message": "Git repository initialized successfully"})
+}
+
+func SetRemote(c *gin.Context) {
+	projectName := c.Param("name")
+
+	var req struct {
+		RemoteUrl string `json:"remoteUrl"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request parameters"})
+		return
+	}
+
+	if req.RemoteUrl == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Remote repository URL cannot be empty"})
+		return
+	}
+
+	// find project path
+	var projectPath string
+	for _, proj := range types.GoHookVersionData.Projects {
+		if proj.Name == projectName && proj.Enabled {
+			projectPath = proj.Path
+			break
+		}
+	}
+
+	if projectPath == "" {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
+		return
+	}
+
+	if err := setRemote(projectPath, req.RemoteUrl); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Remote repository set successfully"})
+}
+
+func GetRemote(c *gin.Context) {
+	projectName := c.Param("name")
+
+	// find project path
+	var projectPath string
+	for _, proj := range types.GoHookVersionData.Projects {
+		if proj.Name == projectName && proj.Enabled {
+			projectPath = proj.Path
+			break
+		}
+	}
+
+	if projectPath == "" {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
+		return
+	}
+
+	remoteURL, err := getRemote(projectPath)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"url": remoteURL})
+}
+
+// get project environment variable file (.env)
+func GetEnv(c *gin.Context) {
+	projectName := c.Param("name")
+
+	// find project path
+	var projectPath string
+	for _, proj := range types.GoHookVersionData.Projects {
+		if proj.Name == projectName && proj.Enabled {
+			projectPath = proj.Path
+			break
+		}
+	}
+
+	if projectPath == "" {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
+		return
+	}
+
+	envContent, exists, err := env.GetEnvFile(projectPath)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"content": envContent,
+		"exists":  exists,
+		"path":    filepath.Join(projectPath, ".env"),
+	})
+}
+
+// SaveEnv save project environment variable file (.env)
+func SaveEnv(c *gin.Context) {
+	projectName := c.Param("name")
+
+	var req struct {
+		Content string `json:"content" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request parameters"})
+		return
+	}
+
+	// find project path
+	var projectPath string
+	for _, proj := range types.GoHookVersionData.Projects {
+		if proj.Name == projectName && proj.Enabled {
+			projectPath = proj.Path
+			break
+		}
+	}
+
+	if projectPath == "" {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
+		return
+	}
+
+	// validate environment variable file format
+	if errors := env.ValidateEnvContent(req.Content); len(errors) > 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Environment variable file format validation failed",
+			"details": errors,
+		})
+		return
+	}
+
+	// save environment variable file
+	if err := env.SaveEnvFile(projectPath, req.Content); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Environment variable file saved successfully",
+		"path":    filepath.Join(projectPath, ".env"),
+	})
+}
+
+func GetProjects(c *gin.Context) {
+	// load config file every time get projects list
+	if err := config.LoadVersionConfig(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Load version config failed: " + err.Error()})
+		return
+	}
+
+	if types.GoHookVersionData == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Version config not loaded"})
+		return
+	}
+
+	var projects []types.VersionResponse
+	for _, proj := range types.GoHookVersionData.Projects {
+		if !proj.Enabled {
+			continue
+		}
+
+		gitStatus, err := getGitStatus(proj.Path)
+		if err != nil {
+			// if not Git repository, still display but mark as non-Git project
+			projects = append(projects, types.VersionResponse{
+				Name:        proj.Name,
+				Path:        proj.Path,
+				Description: proj.Description,
+				Mode:        "none",
+				Status:      "not-git",
+			})
+			continue
+		}
+
+		gitStatus.Name = proj.Name
+		gitStatus.Path = proj.Path
+		gitStatus.Description = proj.Description
+		gitStatus.Enhook = proj.Enhook
+		gitStatus.Hookmode = proj.Hookmode
+		gitStatus.Hookbranch = proj.Hookbranch
+		gitStatus.Hooksecret = proj.Hooksecret
+		projects = append(projects, *gitStatus)
+	}
+
+	c.JSON(http.StatusOK, projects)
+}
+
+func ReloadConfig(c *gin.Context) {
+	if err := config.LoadVersionConfig(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Load version config failed: " + err.Error(),
+		})
+		return
+	}
+
+	projectCount := 0
+	if types.GoHookVersionData != nil {
+		for _, proj := range types.GoHookVersionData.Projects {
+			if proj.Enabled {
+				projectCount++
+			}
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":      "Version config loaded successfully",
+		"projectCount": projectCount,
+	})
+}
+
+// DeleteEnv delete project environment variable file (.env)
+func DeleteEnv(c *gin.Context) {
+	projectName := c.Param("name")
+
+	// find project path
+	var projectPath string
+	for _, proj := range types.GoHookVersionData.Projects {
+		if proj.Name == projectName && proj.Enabled {
+			projectPath = proj.Path
+			break
+		}
+	}
+
+	if projectPath == "" {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
+		return
+	}
+
+	if err := env.DeleteEnvFile(projectPath); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Environment variable file deleted successfully",
+	})
+}
+
+// SaveGitHook save project GitHook configuration
+func SaveGitHook(c *gin.Context) {
+	projectName := c.Param("name")
+
+	var req struct {
+		Enhook     bool   `json:"enhook"`
+		Hookmode   string `json:"hookmode"`
+		Hookbranch string `json:"hookbranch"`
+		Hooksecret string `json:"hooksecret"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request parameters"})
+		return
+	}
+
+	// find project and update configuration
+	projectFound := false
+	for i, proj := range types.GoHookVersionData.Projects {
+		if proj.Name == projectName && proj.Enabled {
+			types.GoHookVersionData.Projects[i].Enhook = req.Enhook
+			types.GoHookVersionData.Projects[i].Hookmode = req.Hookmode
+			types.GoHookVersionData.Projects[i].Hookbranch = req.Hookbranch
+			types.GoHookVersionData.Projects[i].Hooksecret = req.Hooksecret
+			projectFound = true
+			break
+		}
+	}
+
+	if !projectFound {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
+		return
+	}
+
+	// save configuration file
+	if err := config.SaveVersionConfig(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Save configuration failed: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "GitHook configuration saved successfully",
+	})
+}
+
+// GitHook handle GitHook request
+func GitHook(c *gin.Context) {
+	projectName := c.Param("name")
+
+	// find project configuration
+	var project *types.ProjectConfig
+	for _, proj := range types.GoHookVersionData.Projects {
+		if proj.Name == projectName && proj.Enabled && proj.Enhook {
+			project = &proj
+			break
+		}
+	}
+
+	if project == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found or GitHook not enabled"})
+		return
+	}
+
+	// read original payload data
+	var payloadBody []byte
+	if c.Request.Body != nil {
+		var err error
+		payloadBody, err = io.ReadAll(c.Request.Body)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Read payload failed"})
+			return
+		}
+		// reset body for subsequent use
+		c.Request.Body = io.NopCloser(bytes.NewReader(payloadBody))
+	}
+
+	// verify webhook password (if set)
+	if project.Hooksecret != "" {
+		if err := verifyWebhookSignature(c, payloadBody, project.Hooksecret); err != nil {
+			log.Printf("GitHook password verification failed: project=%s, error=%v", project.Name, err)
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Password verification failed: " + err.Error()})
+			return
+		}
+	}
+
+	// parse webhook payload (support GitHub, GitLab, etc.)
+	var payload map[string]interface{}
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid webhook payload"})
+		return
+	}
+
+	// handle GitHook logic
+	if err := handleGitHook(project, payload); err != nil {
+		log.Printf("GitHook processing failed: project=%s, error=%v", project.Name, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "GitHook processing failed: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "GitHook processing successfully"})
 }
