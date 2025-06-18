@@ -60,7 +60,7 @@ class Messages extends Component<IProps & Stores<'messagesStore'>, IState> {
         const {messagesStore} = this.props;
                         const messages = messagesStore.get();
         const hasMore = messagesStore.canLoadMore();
-        const name = appId === -1 ? '实时消息' : '消息';
+        const name = appId === -1 ? 'Realtime Messages' : 'Messages';
         const hasMessages = messages.length !== 0;
 
         return (
@@ -130,7 +130,7 @@ class Messages extends Component<IProps & Stores<'messagesStore'>, IState> {
     );
 }
 
-// 分离容器组件以使用Hook
+// Separate container component to use Hook
 const MessagesContainer: React.FC<{
     appId: number;
     messages: IMessage[];

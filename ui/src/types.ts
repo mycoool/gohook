@@ -112,14 +112,14 @@ export interface IVersionInfo {
     buildDate: string;
 }
 
-// WebSocket 实时消息类型
+// WebSocket realtime message type
 export interface IWebSocketMessage {
     type: string;
     timestamp: string;
     data: any;
 }
 
-// Hook触发消息
+// Hook triggered message
 export interface IHookTriggeredMessage {
     hookId: string;
     hookName: string;
@@ -130,7 +130,7 @@ export interface IHookTriggeredMessage {
     error?: string;
 }
 
-// 版本切换消息
+// Version switch message
 export interface IVersionSwitchMessage {
     projectName: string;
     action: 'switch-branch' | 'switch-tag' | 'delete-tag';
@@ -139,7 +139,7 @@ export interface IVersionSwitchMessage {
     error?: string;
 }
 
-// 项目管理消息
+// Project management message
 export interface IProjectManageMessage {
     action: 'add' | 'delete';
     projectName: string;

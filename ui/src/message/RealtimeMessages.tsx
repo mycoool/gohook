@@ -236,7 +236,7 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
                             alignItems="center"
                             style={{borderBottom: '1px solid #e0e0e0'}}>
                             <Typography variant="h6">
-                                实时消息 ({this.messages.length})
+                                Realtime Messages ({this.messages.length})
                             </Typography>
                             <Box>
                                 <Tooltip title="清空消息">
@@ -259,7 +259,7 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
                             {this.messages.length === 0 ? (
                                 <Box p={2} textAlign="center">
                                     <Typography variant="body2" color="textSecondary">
-                                        暂无实时消息
+                                        No realtime messages
                                     </Typography>
                                 </Box>
                             ) : (
