@@ -29,7 +29,7 @@ type uiConfig struct {
 func noLogMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// set a flag to indicate that this request should not be logged
-		c.Set("no_log", true)
+		c.Set("disable_log", true)
 		c.Next()
 	}
 }

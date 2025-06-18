@@ -45,6 +45,15 @@ func authMiddleware() gin.HandlerFunc {
 	}
 }
 
+// noLogMiddleware disable logging for the request
+func noLogMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// set a flag to indicate that this request should not be logged
+		c.Set("disable_log", true)
+		c.Next()
+	}
+}
+
 // wsAuthMiddleware WebSocket auth middleware, support query parameter token and Sec-WebSocket-Protocol header
 func wsAuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -116,7 +125,7 @@ func InitRouter() *gin.Engine {
 	g.Use(gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
 		// 如果上下文中有"no_log"标记，不记录日志
 		if param.Keys != nil {
-			if noLog, exists := param.Keys["no_log"]; exists && noLog == true {
+			if noLog, exists := param.Keys["disable_log"]; exists && noLog == true {
 				return ""
 			}
 		}
@@ -201,43 +210,29 @@ func InitRouter() *gin.Engine {
 	})
 
 	// login interface - support Basic authentication
-	g.POST("/client", func(c *gin.Context) {
-		client.Login(c)
-	})
+	g.POST("/client", client.Login)
 
 	// get current user info interface
-	g.GET("/current/user", authMiddleware(), func(c *gin.Context) {
-		client.GetCurrentUser(c)
-	})
+	g.GET("/current/user", noLogMiddleware(), authMiddleware(), client.GetCurrentUser)
 
 	// user management API group
 	userAPI := g.Group("/user")
 	userAPI.Use(authMiddleware())
 	{
 		// get all users list (only admin)
-		userAPI.GET("", adminMiddleware(), func(c *gin.Context) {
-			client.GetAllUsers(c)
-		})
+		userAPI.GET("", adminMiddleware(), client.GetAllUsers)
 
 		// create user (only admin)
-		userAPI.POST("", adminMiddleware(), func(c *gin.Context) {
-			client.CreateUser(c)
-		})
+		userAPI.POST("", adminMiddleware(), client.CreateUser)
 
 		// delete user (only admin)
-		userAPI.DELETE("/:username", adminMiddleware(), func(c *gin.Context) {
-			client.DeleteUser(c)
-		})
+		userAPI.DELETE("/:username", adminMiddleware(), client.DeleteUser)
 
 		// change password
-		userAPI.POST("/password", func(c *gin.Context) {
-			client.ChangePassword(c)
-		})
+		userAPI.POST("/password", client.ChangePassword)
 
 		// admin reset user password
-		userAPI.POST("/:username/reset-password", adminMiddleware(), func(c *gin.Context) {
-			client.ResetPassword(c)
-		})
+		userAPI.POST("/:username/reset-password", adminMiddleware(), client.ResetPassword)
 	}
 
 	// Hooks API group
@@ -245,9 +240,7 @@ func InitRouter() *gin.Engine {
 	hookAPI.Use(authMiddleware()) // add auth middleware
 	{
 		// get all hooks
-		hookAPI.GET("", func(c *gin.Context) {
-			hook.GetAllHooks(c)
-		})
+		hookAPI.GET("", hook.GetAllHooks)
 
 		// get single hook detail
 		hookAPI.GET("/:id", func(c *gin.Context) {

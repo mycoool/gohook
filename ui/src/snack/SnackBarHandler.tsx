@@ -35,7 +35,9 @@ class SnackBarHandler extends Component<Stores<'snackManager'>> {
                 open={this.open}
                 autoHideDuration={duration}
                 onClose={this.closeCurrentSnack}
-                onExited={this.openNextSnack}
+                TransitionProps={{
+                    onExited: this.openNextSnack,
+                }}
                 message={<span id="message-id">{current}</span>}
                 action={
                     <IconButton
