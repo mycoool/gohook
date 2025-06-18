@@ -114,7 +114,31 @@ func adminMiddleware() gin.HandlerFunc {
 }
 
 func InitRouter() *gin.Engine {
-	g := gin.Default()
+	// 创建不带默认中间件的engine
+	g := gin.New()
+
+	// 添加自定义的日志中间件，跳过标记为"no_log"的请求
+	g.Use(gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
+		// 如果上下文中有"no_log"标记，不记录日志
+		if param.Keys != nil {
+			if noLog, exists := param.Keys["no_log"]; exists && noLog == true {
+				return ""
+			}
+		}
+		// 否则使用默认格式记录日志
+		return fmt.Sprintf("[GIN] %v | %3d | %13v | %15s | %-7s %#v\n%s",
+			param.TimeStamp.Format("2006/01/02 - 15:04:05"),
+			param.StatusCode,
+			param.Latency,
+			param.ClientIP,
+			param.Method,
+			param.Path,
+			param.ErrorMessage,
+		)
+	}))
+
+	// 添加Recovery中间件
+	g.Use(gin.Recovery())
 
 	// load version config file
 	if err := config.LoadVersionConfig(); err != nil {

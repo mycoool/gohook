@@ -78,7 +78,7 @@ func main() {
 	flag.Parse()
 
 	if *justDisplayVersion {
-		fmt.Println("webhook version " + Version)
+		fmt.Println("gohook version " + Version)
 		os.Exit(0)
 	}
 
@@ -131,9 +131,9 @@ func main() {
 		// app.yaml exists, use port from app.yaml
 		if appConfig := router.GetAppConfig(); appConfig != nil {
 			finalPort = appConfig.Port
-			log.Printf("using port %d from app.yaml config file", finalPort)
+			log.Printf("listen port %d", finalPort)
 		} else {
-			log.Printf("using port %d from command line flag (failed to load app.yaml)", finalPort)
+			log.Printf("listen port %d", finalPort)
 		}
 	} else {
 		// app.yaml not found, use command line flag
@@ -174,7 +174,7 @@ func main() {
 		}
 	}
 
-	log.SetPrefix("[webhook] ")
+	log.SetPrefix("[gohook] ")
 	log.SetFlags(log.Ldate | log.Ltime)
 
 	if len(logQueue) != 0 {
