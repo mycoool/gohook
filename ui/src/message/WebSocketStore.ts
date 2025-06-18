@@ -39,10 +39,7 @@ export class WebSocketStore {
         this.wsActive = true;
 
         const wsUrl = config.get('url').replace('http', 'ws').replace('https', 'wss');
-        
-        // 使用Sec-WebSocket-Protocol header传递token
-        // 这是一个巧妙的workaround，因为浏览器WebSocket API不支持自定义headers
-        const ws = new WebSocket(wsUrl + 'stream', ['Authorization', this.currentUser.token()]);
+        const ws = new WebSocket(wsUrl + 'stream?token=' + this.currentUser.token());
 
         ws.onerror = (e) => {
             this.wsActive = false;

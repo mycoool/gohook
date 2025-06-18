@@ -1,0 +1,10 @@
+[webhook] 2025/06/08 21:28:01 version 2.8.2 starting
+[webhook] 2025/06/08 21:28:01 setting up os signal watcher
+[webhook] 2025/06/08 21:28:01 attempting to load hooks from hooks.json
+[webhook] 2025/06/08 21:28:01 os signal watcher ready
+[webhook] 2025/06/08 21:28:01 found 1 hook(s) in file
+[webhook] 2025/06/08 21:28:01 	loaded: test
+[webhook] 2025/06/08 21:28:01 serving hooks on http://0.0.0.0:8080/hooks/{id}
+[GIN] 2025/06/08 - 21:28:14 | 200 |      29.425µs |             ::1 | GET      "/"
+[GIN] 2025/06/08 - 21:28:20 | 200 |       17.05µs |             ::1 | GET      "/ping"
+[webhook] 2025/06/08 21:28:40 caught terminated signal; exiting

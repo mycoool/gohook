@@ -50,29 +50,13 @@ func authMiddleware() gin.HandlerFunc {
 	}
 }
 
-// wsAuthMiddleware WebSocket auth middleware, support query parameter token and Sec-WebSocket-Protocol header
+// wsAuthMiddleware WebSocket auth middleware, support query parameter token
 func wsAuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// get token from header first
 		tokenString := c.GetHeader("X-GoHook-Key")
 
-		// if no token in header, try to get it from Sec-WebSocket-Protocol header
-		if tokenString == "" {
-			protocols := c.GetHeader("Sec-WebSocket-Protocol")
-			if protocols != "" {
-				// parse protocols: "Authorization, <token>"
-				parts := strings.Split(protocols, ",")
-				if len(parts) >= 2 {
-					// trim whitespace and check if first part is "Authorization"
-					protocol := strings.TrimSpace(parts[0])
-					if protocol == "Authorization" {
-						tokenString = strings.TrimSpace(parts[1])
-					}
-				}
-			}
-		}
-
-		// if still no token, get it from query parameter (fallback)
+		// if no token in header, get it from query parameter
 		if tokenString == "" {
 			tokenString = c.Query("token")
 		}
