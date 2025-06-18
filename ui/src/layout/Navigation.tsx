@@ -65,11 +65,16 @@ class Navigation extends Component<
                 setNavOpen={setNavOpen}
                 id="message-navigation">
                 <div className={classes.toolbar} />
-                <Link className={classes.link} to="/" onClick={() => setNavOpen(false)}>
-                    <ListItem button disabled={!loggedIn} className="all">
-                        <ListItemText primary="All Projects" />
-                    </ListItem>
-                </Link>
+                {(Link as any)({
+                    className: classes.link, 
+                    to: "/", 
+                    onClick: () => setNavOpen(false),
+                    children: (
+                        <ListItem button disabled={!loggedIn} className="all">
+                            <ListItemText primary="All Projects" />
+                        </ListItem>
+                    )
+                })}
                 <Divider />
                 <Typography align="center" style={{marginTop: 10}}>
                     {showRequestNotification ? (
