@@ -417,6 +417,9 @@ func InitRouter() *gin.Engine {
 		// get remote repository
 		versionAPI.GET("/:name/remote", version.GetRemote)
 
+		// get project environment variable file (.env)
+		versionAPI.GET("/:name/env", version.GetEnv)
+
 		// save project environment variable file (.env)
 		versionAPI.POST("/:name/env", version.SaveEnv)
 

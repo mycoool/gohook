@@ -23,6 +23,13 @@ build: clean build-linux-amd64 build-linux-arm64 build-windows-amd64 build-darwi
 build-js: ## Build the web UI
 	(cd ui && yarn && yarn build)
 
+check-go:
+	golangci-lint run
+
+check-js:
+	(cd ui && yarn lint)
+	(cd ui && yarn testformat)
+
 test: ## Run Go tests
 	go test -v ./...
 

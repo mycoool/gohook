@@ -60,7 +60,7 @@ class Messages extends Component<IProps & Stores<'messagesStore'>, IState> {
         const {messagesStore} = this.props;
                         const messages = messagesStore.get();
         const hasMore = messagesStore.canLoadMore();
-        const name = appId === -1 ? 'Realtime Messages' : 'Messages';
+        const name = appId === -1 ? 'All Messages' : 'Messages';
         const hasMessages = messages.length !== 0;
 
         return (
