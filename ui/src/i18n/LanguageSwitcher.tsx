@@ -1,6 +1,6 @@
 import React from 'react';
 import { IconButton, Menu, MenuItem, Tooltip } from '@material-ui/core';
-import { Language as LanguageIcon } from '@material-ui/icons';
+import { GTranslate as LanguageIcon } from '@material-ui/icons';
 // import { useTranslation } from 'react-i18next';
 
 interface LanguageOption {

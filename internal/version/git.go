@@ -501,6 +501,16 @@ func switchTag(projectPath, tagName string) error {
 	return nil
 }
 
+// SyncTags sync remote tags
+func syncTags(projectPath string) error {
+	cmd := exec.Command("git", "-C", projectPath, "fetch", "origin", "--prune", "--tags")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("sync tags failed: %s", string(output))
+	}
+	return nil
+}
+
 // GetRemote get remote repository URL
 func getRemote(projectPath string) (string, error) {
 	// check if it is a Git repository
@@ -1165,6 +1175,32 @@ func SwitchBranch(c *gin.Context) {
 	stream.Global.Broadcast(wsMessage)
 
 	c.JSON(http.StatusOK, gin.H{"message": "Branch switched successfully", "branch": req.Branch})
+}
+
+// SyncTags sync remote tags
+func SyncTags(c *gin.Context) {
+	projectName := c.Param("name")
+
+	// find project path
+	var projectPath string
+	for _, proj := range types.GoHookVersionData.Projects {
+		if proj.Name == projectName && proj.Enabled {
+			projectPath = proj.Path
+			break
+		}
+	}
+
+	if projectPath == "" {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
+		return
+	}
+
+	if err := syncTags(projectPath); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Tags synced successfully"})
 }
 
 // SwitchTag switch tag

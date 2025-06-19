@@ -5,7 +5,6 @@ import (
 	"log"
 	"net/http"
 	"os/exec"
-	"strconv"
 	"strings"
 	"time"
 
@@ -416,6 +415,9 @@ func InitRouter() *gin.Engine {
 		// switch tag
 		versionAPI.POST("/:name/switch-tag", version.SwitchTag)
 
+		// sync tags
+		versionAPI.POST("/:name/sync-tags", version.SyncTags)
+
 		// delete tag
 		versionAPI.DELETE("/:name/tags/:tagName", version.DeleteTag)
 
@@ -494,79 +496,16 @@ func InitRouter() *gin.Engine {
 	}
 
 	// client list API (get all sessions for current user)
-	g.GET("/client", authMiddleware(), func(c *gin.Context) {
-		username, _ := c.Get("username")
-		currentToken, _ := c.Get("token")
-
-		sessions := client.GetClientSessionsByUser(username.(string))
-
-		// convert to frontend expected format
-		var clients []gin.H
-		for _, session := range sessions {
-			// mark current session
-			isCurrent := session.Token == currentToken.(string)
-
-			clients = append(clients, gin.H{
-				"id":       session.ID,
-				"token":    session.Token,
-				"name":     session.Name,
-				"lastUsed": session.LastUsed.Format(time.RFC3339),
-				"current":  isCurrent,
-			})
-		}
-
-		c.JSON(http.StatusOK, clients)
-	})
+	g.GET("/client", authMiddleware(), client.GetClientSessions)
 
 	// delete client API (logout specified session)
-	g.DELETE("/client/:id", authMiddleware(), adminMiddleware(), func(c *gin.Context) {
-		id, err := strconv.Atoi(c.Param("id"))
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid client ID"})
-			return
-		}
-
-		client.SessionMutex.Lock()
-		defer client.SessionMutex.Unlock()
-
-		var tokenToDelete string
-		for token, session := range client.ClientSessions {
-			if session.ID == id {
-				tokenToDelete = token
-				break
-			}
-		}
-
-		if tokenToDelete != "" {
-			delete(client.ClientSessions, tokenToDelete)
-			c.JSON(http.StatusOK, gin.H{"message": "Client session deleted"})
-		} else {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Client session not found"})
-		}
-	})
+	g.DELETE("/client/:id", authMiddleware(), adminMiddleware(), client.DeleteClientSession)
 
 	// delete current user's session
-	g.DELETE("/client/current", authMiddleware(), func(c *gin.Context) {
-		token := c.GetHeader("X-GoHook-Key")
-		if token == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Token not provided"})
-			return
-		}
-
-		if client.RemoveClientSession(token) {
-			c.JSON(http.StatusOK, gin.H{"message": "Current session deleted successfully"})
-		} else {
-			// even if the session is not found, return success, because the client's goal is to logout
-			c.JSON(http.StatusOK, gin.H{"message": "Session not found, but logout process can continue"})
-		}
-	})
+	g.DELETE("/client/current", authMiddleware(), client.DeleteCurrentClientSession)
 
 	// modify current user password API (add to existing current route)
-	g.POST("/current/user/password", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
-			"message": "Password modification function not implemented",
-		})
-	})
+	g.POST("/current/user/password", client.ModifyCurrentClientPassword)
 
 	// save router instance
 	routerInstance = g

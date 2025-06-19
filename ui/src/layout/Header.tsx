@@ -113,10 +113,9 @@ class Header extends Component<IProps> {
                             href={'https://github.com/mycoool/gohook/releases/tag/v' + version}
                             className={classes.link}>
                             <Typography variant="button" color="inherit">
-                                @{version}
+                                v{version}
                             </Typography>
                         </a>
-                        
                     </div>
                     {loggedIn && this.renderButtons(name, admin, logout, width, setNavOpen)}
                     <div>

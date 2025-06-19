@@ -5,9 +5,12 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
+	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/mycoool/gohook/internal/types"
 	"golang.org/x/crypto/bcrypt"
@@ -136,4 +139,75 @@ func ValidateToken(tokenString string) (*types.Claims, error) {
 	}
 
 	return claims, nil
+}
+
+func DeleteClientSession(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid client ID"})
+		return
+	}
+
+	SessionMutex.Lock()
+	defer SessionMutex.Unlock()
+
+	var tokenToDelete string
+	for token, session := range ClientSessions {
+		if session.ID == id {
+			tokenToDelete = token
+			break
+		}
+	}
+
+	if tokenToDelete != "" {
+		delete(ClientSessions, tokenToDelete)
+		c.JSON(http.StatusOK, gin.H{"message": "Client session deleted"})
+	} else {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Client session not found"})
+	}
+}
+
+func DeleteCurrentClientSession(c *gin.Context) {
+	token := c.GetHeader("X-GoHook-Key")
+	if token == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Token not provided"})
+		return
+	}
+
+	if RemoveClientSession(token) {
+		c.JSON(http.StatusOK, gin.H{"message": "Current session deleted successfully"})
+	} else {
+		// even if the session is not found, return success, because the client's goal is to logout
+		c.JSON(http.StatusOK, gin.H{"message": "Session not found, but logout process can continue"})
+	}
+}
+
+func ModifyCurrentClientPassword(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Password modification function not implemented",
+	})
+}
+
+func GetClientSessions(c *gin.Context) {
+	username, _ := c.Get("username")
+	currentToken, _ := c.Get("token")
+
+	sessions := GetClientSessionsByUser(username.(string))
+
+	// convert to frontend expected format
+	var clients []gin.H
+	for _, session := range sessions {
+		// mark current session
+		isCurrent := session.Token == currentToken.(string)
+
+		clients = append(clients, gin.H{
+			"id":       session.ID,
+			"token":    session.Token,
+			"name":     session.Name,
+			"lastUsed": session.LastUsed.Format(time.RFC3339),
+			"current":  isCurrent,
+		})
+	}
+
+	c.JSON(http.StatusOK, clients)
 }

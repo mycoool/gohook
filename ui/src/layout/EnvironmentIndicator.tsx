@@ -56,6 +56,7 @@ const EnvironmentIndicatorInner: React.FC<{mode: string}> = ({mode}) => {
                 fontWeight: 'bold',
                 marginRight: 8,
                 borderRadius: 5,
+                lineHeight: '16px',
                 border: `1px solid ${config.color}`,
                 fontSize: '12px'
             }}

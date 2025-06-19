@@ -350,6 +350,15 @@ export class VersionStore {
     };
 
     @action
+    public syncTags = async (projectName: string): Promise<void> => {
+        await axios.post(`${config.get('url')}version/${projectName}/sync-tags`, {}, {
+            headers: {'X-GoHook-Key': this.tokenProvider()}
+        });
+        this.snack('标签同步成功');
+        await this.refreshTags(projectName);
+    };
+
+    @action
     public deleteBranch = async (projectName: string, branchName: string): Promise<void> => {
         try {
             await axios.delete(`${config.get('url')}version/${projectName}/branches/${branchName}`, {

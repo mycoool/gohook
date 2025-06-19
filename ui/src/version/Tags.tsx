@@ -15,6 +15,7 @@ import CircularProgress from '@material-ui/core/CircularProgress';
 import Typography from '@material-ui/core/Typography';
 import Box from '@material-ui/core/Box';
 import ArrowBack from '@material-ui/icons/ArrowBack';
+import CloudDownload from '@material-ui/icons/CloudDownload';
 import Cached from '@material-ui/icons/Cached';
 import Refresh from '@material-ui/icons/Refresh';
 import Delete from '@material-ui/icons/Delete';
@@ -45,7 +46,8 @@ const styles = (theme: Theme) => createStyles({
         padding: theme.spacing(2),
     },
     filterInput: {
-        maxWidth: 400,
+        minWidth: 280,
+        maxWidth: 300,
     },
     loadingContainer: {
         display: 'flex',
@@ -115,12 +117,20 @@ class Tags extends Component<TagsProps> {
                             返回
                         </Button>
                         <Button
+                            id="sync-tags"
+                            startIcon={<CloudDownload />}
+                            color="primary"
+                            onClick={() => this.syncTags()}>
+                            同步
+                        </Button>
+                        <Button
                             id="refresh-tags"
                             startIcon={<Refresh />}
                             color="primary"
                             onClick={() => this.refreshTags()}>
-                            刷新标签
+                            刷新
                         </Button>
+
                     </ButtonGroup>
                 }
                 maxWidth={1200}>
@@ -245,6 +255,11 @@ class Tags extends Component<TagsProps> {
     private refreshTags = () => {
         const projectName = this.props.match.params.projectName;
         this.props.versionStore.refreshTags(projectName, this.filterText || undefined);
+    };
+
+    private syncTags = () => {
+        const projectName = this.props.match.params.projectName;
+        this.props.versionStore.syncTags(projectName);
     };
 
     private goBack = () => {
