@@ -24,7 +24,7 @@ import AccountTree from '@material-ui/icons/AccountTree';
 import LocalOffer from '@material-ui/icons/LocalOffer';
 import CloudQueue from '@material-ui/icons/CloudQueue';
 import GitHubIcon from '@material-ui/icons/GitHub';
-import Settings from '@material-ui/icons/Settings';
+import Settings from '@material-ui/icons/SettingsApplications';
 import Link from '@material-ui/icons/Link';
 import React, {Component} from 'react';
 import DefaultPage from '../common/DefaultPage';
