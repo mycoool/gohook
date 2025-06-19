@@ -21,6 +21,7 @@ import {Link as RouterLink} from 'react-router-dom';
 import {observer} from 'mobx-react';
 import useTranslation from '../i18n/useTranslation';
 import LanguageSwitcher from '../i18n/LanguageSwitcher';
+import EnvironmentIndicator from './EnvironmentIndicator';
 
 const styles = (theme: Theme) =>
     createStyles({
@@ -107,6 +108,7 @@ class Header extends Component<IProps> {
                                 GoHook
                             </Typography>
                         </RouterLink>
+                        {loggedIn && <EnvironmentIndicator />}
                         <a
                             href={'https://github.com/mycoool/gohook/releases/tag/v' + version}
                             className={classes.link}>
@@ -114,6 +116,7 @@ class Header extends Component<IProps> {
                                 @{version}
                             </Typography>
                         </a>
+                        
                     </div>
                     {loggedIn && this.renderButtons(name, admin, logout, width, setNavOpen)}
                     <div>

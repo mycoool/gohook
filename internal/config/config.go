@@ -18,6 +18,7 @@ func LoadAppConfig() error {
 			Port:              9000,
 			JWTSecret:         "gohook-secret-key-change-in-production",
 			JWTExpiryDuration: 24,
+			Mode:              "test",
 		}
 		// auto save default config to file
 		if saveErr := SaveAppConfig(); saveErr != nil {

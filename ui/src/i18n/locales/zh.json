@@ -197,6 +197,12 @@
     "save": "保存",
     "normalUser": "普通用户"
   },
+  "environment": {
+    "development": "开发",
+    "testing": "测试",
+    "production": "生产",
+    "unknown": "未知"
+  },
   "validation": {
     "required": "此字段为必填项",
     "invalidEmail": "请输入有效的邮箱地址",

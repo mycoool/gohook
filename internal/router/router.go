@@ -215,6 +215,20 @@ func InitRouter() *gin.Engine {
 	// get current user info interface
 	g.GET("/current/user", noLogMiddleware(), authMiddleware(), client.GetCurrentUser)
 
+	// get application config interface
+	g.GET("/app/config", noLogMiddleware(), authMiddleware(), func(c *gin.Context) {
+		if types.GoHookAppConfig == nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "App config not loaded"})
+			return
+		}
+
+		// only return safe config fields, not including secrets
+		c.JSON(http.StatusOK, gin.H{
+			"port": types.GoHookAppConfig.Port,
+			"mode": types.GoHookAppConfig.Mode,
+		})
+	})
+
 	// user management API group
 	userAPI := g.Group("/user")
 	userAPI.Use(authMiddleware())

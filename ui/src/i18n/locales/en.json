@@ -197,6 +197,12 @@
     "save": "Save",
     "normalUser": "Normal User"
   },
+  "environment": {
+    "development": "Development",
+    "testing": "Testing",
+    "production": "Production",
+    "unknown": "Unknown"
+  },
   "validation": {
     "required": "This field is required",
     "invalidEmail": "Please enter a valid email address",

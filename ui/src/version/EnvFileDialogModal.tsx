@@ -43,12 +43,20 @@ const highlightEnv = (code: string, isDark: boolean = false) => {
                     return line;
                 }
                 
-                // ENV键值对 KEY=VALUE
-                const envMatch = line.match(/^(\s*)([A-Za-z_][A-Za-z0-9_]*)(=)(.*)$/);
+                // ENV键值对 KEY = VALUE (支持等号前后空格，支持点号和中划线)
+                const envMatch = line.match(/^(\s*)([A-Za-z_][A-Za-z0-9_.-]*)(\s*=\s*)(.*)$/);
                 if (envMatch) {
-                    const [, indent, key, equals, value] = envMatch;
+                    const [, indent, key, equalsWithSpaces, value] = envMatch;
                     const highlightedValue = highlightEnvValue(value);
-                    return `${escapeHtml(indent)}<span class="token variable">${escapeHtml(key)}</span><span class="token operator">${escapeHtml(equals)}</span>${highlightedValue}`;
+                    // 分别处理等号前后的空格
+                    const equalsMatch = equalsWithSpaces.match(/^(\s*)(=)(\s*)$/);
+                    if (equalsMatch) {
+                        const [, spaceBefore, equals, spaceAfter] = equalsMatch;
+                        return `${escapeHtml(indent)}<span class="token variable">${escapeHtml(key)}</span>${escapeHtml(spaceBefore)}<span class="token operator">${escapeHtml(equals)}</span>${escapeHtml(spaceAfter)}${highlightedValue}`;
+                    } else {
+                        // 降级处理
+                        return `${escapeHtml(indent)}<span class="token variable">${escapeHtml(key)}</span><span class="token operator">${escapeHtml(equalsWithSpaces)}</span>${highlightedValue}`;
+                    }
                 }
                 
                 return escapeHtml(line);
@@ -61,26 +69,46 @@ const highlightEnv = (code: string, isDark: boolean = false) => {
 
 // ENV值高亮处理
 const highlightEnvValue = (value: string) => {
-    const trimmedValue = value.trim();
+    // 检查前导空格
+    const leadingSpaceMatch = value.match(/^(\s*)(.*?)(\s*)$/);
+    if (!leadingSpaceMatch) {
+        return `<span class="token builtin">${escapeHtml(value)}</span>`;
+    }
+    
+    const [, leadingSpace, content, trailingSpace] = leadingSpaceMatch;
+    const trimmedValue = content.trim();
+    
+    // 如果没有内容，返回原始值
+    if (!content) {
+        return escapeHtml(value);
+    }
+    
+    let highlightedContent = '';
     
     // 带引号的字符串
     if ((trimmedValue.startsWith('"') && trimmedValue.endsWith('"')) ||
         (trimmedValue.startsWith("'") && trimmedValue.endsWith("'"))) {
-        return `<span class="token string">${escapeHtml(value)}</span>`;
+        highlightedContent = `<span class="token string">${escapeHtml(content)}</span>`;
     }
-    
     // 布尔值
-    if (trimmedValue === 'true' || trimmedValue === 'false') {
-        return `<span class="token boolean">${escapeHtml(value)}</span>`;
+    else if (trimmedValue === 'true' || trimmedValue === 'false') {
+        highlightedContent = `<span class="token boolean">${escapeHtml(content)}</span>`;
+    }
+    // 数字(包括小数和负数)
+    else if (/^-?\d+(\.\d+)?$/.test(trimmedValue)) {
+        highlightedContent = `<span class="token number">${escapeHtml(content)}</span>`;
+    }
+    // 空值或特殊值
+    else if (trimmedValue === '' || trimmedValue === 'null' || trimmedValue === 'undefined') {
+        highlightedContent = `<span class="token builtin">${escapeHtml(content)}</span>`;
+    }
+    // 无引号值
+    else {
+        highlightedContent = `<span class="token builtin">${escapeHtml(content)}</span>`;
     }
     
-    // 数字
-    if (/^\d+(\.\d+)?$/.test(trimmedValue)) {
-        return `<span class="token number">${escapeHtml(value)}</span>`;
-    }
-    
-    // 无引号值 - 使用builtin类
-    return `<span class="token builtin">${escapeHtml(value)}</span>`;
+    // 组合前导空格、高亮内容和尾随空格
+    return `${escapeHtml(leadingSpace)}${highlightedContent}${escapeHtml(trailingSpace)}`;
 };
 
 // HTML转义函数

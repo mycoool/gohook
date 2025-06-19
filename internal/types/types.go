@@ -23,6 +23,7 @@ type AppConfig struct {
 	Port              int    `yaml:"port"`
 	JWTSecret         string `yaml:"jwt_secret"`
 	JWTExpiryDuration int    `yaml:"jwt_expiry_duration"`
+	Mode              string `yaml:"mode"` // "dev" | "prod" | "test"
 }
 
 // Claims JWT claim structure

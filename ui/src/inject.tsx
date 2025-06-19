@@ -10,6 +10,7 @@ import {VersionStore} from './version/VersionStore';
 import {inject as mobxInject, Provider} from 'mobx-react';
 import {WebSocketStore} from './message/WebSocketStore';
 import {PluginStore} from './plugin/PluginStore';
+import {AppConfigStore} from './app/AppConfigStore';
 
 export interface StoreMapping {
     userStore: UserStore;
@@ -20,6 +21,7 @@ export interface StoreMapping {
     versionStore: VersionStore;
     pluginStore: PluginStore;
     wsStore: WebSocketStore;
+    appConfigStore: AppConfigStore;
 }
 
 export type AllStores = Extract<keyof StoreMapping, string>;

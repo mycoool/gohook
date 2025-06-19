@@ -16,6 +16,7 @@ import {UserStore} from './user/UserStore';
 import {MessagesStore} from './message/MessagesStore';
 
 import {PluginStore} from './plugin/PluginStore';
+import {AppConfigStore} from './app/AppConfigStore';
 import {registerReactions} from './reactions';
 import './i18n';
 
@@ -36,6 +37,7 @@ const initStores = (): StoreMapping => {
     const versionStore = new VersionStore(snackManager.snack, () => currentUser.token());
     const userStore = new UserStore(snackManager.snack, () => currentUser.token());
     const messagesStore = new MessagesStore(snackManager.snack, () => currentUser.token());
+    const appConfigStore = new AppConfigStore(() => currentUser.token(), snackManager.snack);
 
     const wsStore = new WebSocketStore(snackManager.snack, currentUser);
     const pluginStore = new PluginStore(snackManager.snack);
@@ -49,6 +51,7 @@ const initStores = (): StoreMapping => {
         currentUser,
         wsStore,
         pluginStore,
+        appConfigStore,
     };
 };
 
