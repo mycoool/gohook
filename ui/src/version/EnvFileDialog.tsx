@@ -1,447 +1,483 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, {Component} from 'react';
 import {
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
     Button,
-    Typography,
-    CircularProgress,
-    Box,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogTitle,
+    TextField,
     Chip,
-    Paper
+    Typography,
+    Box,
+    Grid,
 } from '@material-ui/core';
-import { makeStyles, useTheme } from '@material-ui/core/styles';
-import { Save, Delete, FileCopy } from '@material-ui/icons';
-import Editor from 'react-simple-code-editor';
-import 'prismjs/themes/prism.css';
-import 'prismjs/themes/prism-dark.css';
 
-type Editor = any;
+import DefaultPage from '../common/DefaultPage';
+import {inject, Stores} from '../inject';
+import {withRouter, RouteComponentProps} from 'react-router-dom';
+import {observer} from 'mobx-react';
 
-// 自定义.env文件语法高亮
-const highlightEnvSyntax = (code: string, isDark = false) => {
-    // 基于行的高亮处理
-    const lines = code.split('\n');
+type IProps = RouteComponentProps<{projectName: string}>;
+
+interface IState {
+    editingEnvFile: boolean;
+    envFileContent: string;
+    originalEnvFileContent: string;
+    hasEnvFile: boolean;
+    errors: string[];
+    isTomlContent: boolean;
+}
+
+// detect if content uses TOML format (inside .env file)
+function detectTomlFormat(content: string): boolean {
+    const lines = content.split('\n');
+    
+    for (const line of lines) {
+        const trimmedLine = line.trim();
+        
+        // skip empty lines and comments
+        if (trimmedLine === '' || trimmedLine.startsWith('#')) {
+            continue;
+        }
+        
+        // check for TOML section headers [section]
+        if (trimmedLine.startsWith('[') && trimmedLine.endsWith(']')) {
+            return true;
+        }
+        
+        // check for TOML multiline strings
+        if (trimmedLine.includes('"""')) {
+            return true;
+        }
+        
+        // check for TOML arrays
+        if (/^\w+\s*=\s*\[.*\]/.test(trimmedLine)) {
+            return true;
+        }
+        
+        // check for TOML dotted keys
+        if (/^\w+\.\w+\s*=/.test(trimmedLine)) {
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+// enhanced syntax highlighting for both .env and TOML content
+function highlightEnvSyntax(content: string, isTomlContent: boolean, isDarkMode: boolean): string {
+    const lines = content.split('\n');
     const highlightedLines = lines.map(line => {
         const trimmedLine = line.trim();
         
-        // 注释行
-        if (trimmedLine.startsWith('#')) {
-            return `<span style="color: ${isDark ? '#6a9955' : '#008000'}; font-style: italic;">${line}</span>`;
-        }
-        
-        // 空行
+        // empty line
         if (trimmedLine === '') {
-            return line;
+            return '&nbsp;';
         }
         
-        // 键值对
-        const match = line.match(/^(\s*)([^=]+?)\s*=\s*(.*)$/);
-        if (match) {
-            const [, indent, key, value] = match;
-            const keyColor = isDark ? '#9cdcfe' : '#0451a5';
-            const valueColor = isDark ? '#ce9178' : '#a31515';
-            const operatorColor = isDark ? '#d4d4d4' : '#000000';
+        // comment line
+        if (trimmedLine.startsWith('#')) {
+            return `<span style="color: ${isDarkMode ? '#6A9955' : '#008000'}; font-style: italic;">${escapeHtml(line)}</span>`;
+        }
+        
+        // TOML content highlighting
+        if (isTomlContent) {
+            // TOML section headers [section]
+            if (trimmedLine.startsWith('[') && trimmedLine.endsWith(']')) {
+                return `<span style="color: ${isDarkMode ? '#569CD6' : '#0000FF'}; font-weight: bold;">${escapeHtml(line)}</span>`;
+            }
+        }
+        
+        // key=value lines
+        if (line.includes('=')) {
+            const equalIndex = line.indexOf('=');
+            const beforeEqual = line.substring(0, equalIndex);
+            const afterEqual = line.substring(equalIndex);
             
-            // 处理引号包围的值
-            let highlightedValue = value;
-            if ((value.startsWith('"') && value.endsWith('"')) || 
-                (value.startsWith("'") && value.endsWith("'"))) {
-                highlightedValue = `<span style="color: ${valueColor};">${value}</span>`;
-            } else if (value === '') {
-                highlightedValue = '';
-            } else {
-                // 检查是否是布尔值或数字
-                if (['true', 'false'].includes(value.toLowerCase())) {
-                    highlightedValue = `<span style="color: ${isDark ? '#569cd6' : '#0000ff'};">${value}</span>`;
-                } else if (/^\d+$/.test(value)) {
-                    highlightedValue = `<span style="color: ${isDark ? '#b5cea8' : '#098658'};">${value}</span>`;
-                } else {
-                    highlightedValue = `<span style="color: ${valueColor};">${value}</span>`;
+            let keyColor = isDarkMode ? '#9CDCFE' : '#0451A5';
+            let valueColor = isDarkMode ? '#CE9178' : '#A31515';
+            
+            // TOML content special coloring
+            if (isTomlContent) {
+                // dotted keys
+                if (beforeEqual.trim().includes('.')) {
+                    keyColor = isDarkMode ? '#4EC9B0' : '#008080';
+                }
+                
+                const value = afterEqual.substring(1).trim();
+                // boolean values
+                if (value === 'true' || value === 'false') {
+                    valueColor = isDarkMode ? '#569CD6' : '#0000FF';
+                }
+                // numeric values
+                else if (/^\d+(\.\d+)?$/.test(value)) {
+                    valueColor = isDarkMode ? '#B5CEA8' : '#098658';
+                }
+                // arrays
+                else if (value.startsWith('[') && value.endsWith(']')) {
+                    valueColor = isDarkMode ? '#D4D4D4' : '#000000';
                 }
             }
             
-            return `${indent}<span style="color: ${keyColor};">${key}</span><span style="color: ${operatorColor};">=</span>${highlightedValue}`;
+            return `<span style="color: ${keyColor};">${escapeHtml(beforeEqual)}</span><span style="color: ${isDarkMode ? '#D4D4D4' : '#000000'};">=</span><span style="color: ${valueColor};">${escapeHtml(afterEqual.substring(1))}</span>`;
         }
         
-        // 其他行（可能是格式错误）
-        return `<span style="color: ${isDark ? '#f44747' : '#e45454'};">${line}</span>`;
+        // other lines
+        return escapeHtml(line);
     });
     
-    return highlightedLines.join('\n');
-};
-
-const useStyles = makeStyles((theme) => ({
-    content: {
-        width: '100%',
-        height: '70vh',
-        display: 'flex',
-        flexDirection: 'column',
-        paddingTop: theme.spacing(1),
-        paddingBottom: 0,
-    },
-    editorContainer: {
-        flexGrow: 1,
-        border: `1px solid ${theme.palette.divider}`,
-        borderRadius: theme.shape.borderRadius,
-        backgroundColor: theme.palette.type === 'dark' ? '#1e1e1e' : '#ffffff',
-        position: 'relative',
-        maxHeight: '70vh',
-        overflow: 'auto',
-        fontFamily: '"Fira Code", "Consolas", "Monaco", "Courier New", monospace',
-        fontSize: '14px',
-        lineHeight: '21px',
-    },
-    editorWrapper: {
-        height: '100%',
-        '& textarea, & pre': {
-            padding: `10px !important`,
-            outline: 'none !important',
-        },
-        '& textarea': {
-            caretColor: theme.palette.text.primary,
-        }
-    },
-    pathInfo: {
-        backgroundColor: theme.palette.type === 'dark' ? 'rgba(255, 255, 255, 0.05)' : theme.palette.grey[100],
-        padding: theme.spacing(1.5),
-        borderRadius: theme.shape.borderRadius,
-        marginBottom: theme.spacing(2),
-        display: 'flex',
-        alignItems: 'center',
-        gap: theme.spacing(1),
-        border: `1px solid ${theme.palette.divider}`,
-    },
-    pathText: {
-        fontFamily: 'monospace',
-        color: theme.palette.type === 'dark' ? '#ffffff' : theme.palette.text.primary,
-        fontWeight: 500,
-    },
-    errorAlert: {
-        backgroundColor: theme.palette.error.dark,
-        color: theme.palette.error.contrastText,
-        padding: theme.spacing(2),
-        borderRadius: theme.shape.borderRadius,
-        marginBottom: theme.spacing(2),
-        border: `1px solid ${theme.palette.error.main}`,
-    },
-    infoAlert: {
-        backgroundColor: theme.palette.type === 'dark' ? 'rgba(33, 150, 243, 0.1)' : theme.palette.info.light,
-        color: theme.palette.type === 'dark' ? '#90caf9' : theme.palette.info.contrastText,
-        padding: theme.spacing(2),
-        borderRadius: theme.shape.borderRadius,
-        marginBottom: theme.spacing(2),
-        border: `1px solid ${theme.palette.type === 'dark' ? 'rgba(33, 150, 243, 0.3)' : theme.palette.info.main}`,
-    },
-    errorDetail: {
-        backgroundColor: 'rgba(0,0,0,0.2)',
-        padding: theme.spacing(1),
-        borderRadius: theme.shape.borderRadius,
-        fontFamily: 'monospace',
-        fontSize: '12px',
-        whiteSpace: 'pre-line',
-        marginTop: theme.spacing(1),
-    },
-    exampleContent: {
-        backgroundColor: theme.palette.type === 'dark' ? 'rgba(255, 255, 255, 0.03)' : theme.palette.grey[50],
-        padding: theme.spacing(1.5),
-        borderRadius: theme.shape.borderRadius,
-        fontFamily: 'monospace',
-        fontSize: '12px',
-        marginTop: theme.spacing(1),
-        border: `1px solid ${theme.palette.divider}`,
-        whiteSpace: 'pre-line',
-        maxHeight: '200px',
-        overflow: 'auto',
-        color: theme.palette.text.secondary,
-    },
-    dialogPaper: {
-        maxWidth: '850px',
-        width: '100%',
-        height: '90vh',
-    },
-    exampleButton: {
-        marginTop: theme.spacing(1),
-        color: theme.palette.type === 'dark' ? '#90caf9' : theme.palette.info.main,
-        borderColor: theme.palette.type === 'dark' ? '#90caf9' : theme.palette.info.main,
-        '&:hover': {
-            backgroundColor: theme.palette.type === 'dark' ? 'rgba(144, 202, 249, 0.1)' : 'rgba(33, 150, 243, 0.1)',
-        }
-    },
-    syntaxHelpText: {
-        position: 'absolute',
-        bottom: theme.spacing(1),
-        right: theme.spacing(1.5),
-        fontSize: '11px',
-        color: theme.palette.type === 'dark' ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.5)',
-        backgroundColor: theme.palette.type === 'dark' ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.8)',
-        padding: '2px 6px',
-        borderRadius: '3px',
-        userSelect: 'none',
-        pointerEvents: 'none',
-        zIndex: 1,
-    }
-}));
-
-interface EnvFileDialogProps {
-    open: boolean;
-    projectName: string;
-    onClose: () => void;
-    onGetEnvFile: (name: string) => Promise<{ content: string; exists: boolean; path: string }>;
-    onSaveEnvFile: (name: string, content: string) => Promise<void>;
-    onDeleteEnvFile: (name: string) => Promise<void>;
+    return highlightedLines.join('<br/>');
 }
 
-const EnvFileDialog: React.FC<EnvFileDialogProps> = ({
-    open,
-    projectName,
-    onClose,
-    onGetEnvFile,
-    onSaveEnvFile,
-    onDeleteEnvFile
-}) => {
-    const classes = useStyles();
-    const theme = useTheme();
-    const isDark = theme.palette.type === 'dark';
-    
-    const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
-    const [deleting, setDeleting] = useState(false);
-    const [content, setContent] = useState('');
-    const [exists, setExists] = useState(false);
-    const [filePath, setFilePath] = useState('');
-    const [error, setError] = useState<string | null>(null);
-    const [showExample, setShowExample] = useState(false);
+function escapeHtml(text: string): string {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
 
-    const exampleEnvContent = `# 环境变量配置文件示例
-# 这是注释行，以#开头
+@observer
+class EnvFileDialog extends Component<IProps & Stores<'versionStore' | 'snackManager'>, IState> {
+    state: IState = {
+        editingEnvFile: false,
+        envFileContent: '',
+        originalEnvFileContent: '',
+        hasEnvFile: false,
+        errors: [],
+        isTomlContent: false,
+    };
 
-# 基本格式：变量名=变量值
-APP_NAME=MyApplication
-APP_ENV=production
+    componentDidMount() {
+        this.loadEnvFile();
+    }
 
-# 支持空值
-EMPTY_VALUE=
+    get projectName(): string {
+        return this.props.match.params.projectName;
+    }
 
-# 支持带引号的值
-DATABASE_URL="postgresql://user:pass@localhost/db"
-SECRET_KEY='your-secret-key-here'
-
-# 数字类型的值
-PORT=3000
-DEBUG=true`;
-
-    useEffect(() => {
-        if (open && projectName) {
-            loadEnvFile();
-        } else if (!open) {
-            // Reset state when dialog is closed
-            setLoading(true);
-            setContent('');
-            setError(null);
-            setShowExample(false);
-            setFilePath('');
-            setExists(false);
-        }
-    }, [open, projectName]);
-
-    const loadEnvFile = async () => {
-        setLoading(true);
-        setError(null);
+    loadEnvFile = async () => {
         try {
-            const result = await onGetEnvFile(projectName);
-            setContent(result.content);
-            setExists(result.exists);
-            setFilePath(result.path);
-            
-            if (!result.exists) {
-                setShowExample(true);
+            const result = await this.props.versionStore.getEnvFile(this.projectName);
+            if (result.exists) {
+                const isToml = detectTomlFormat(result.content);
+                this.setState({
+                    envFileContent: result.content,
+                    originalEnvFileContent: result.content,
+                    hasEnvFile: true,
+                    isTomlContent: isToml,
+                });
+            } else {
+                this.setState({
+                    hasEnvFile: false,
+                    isTomlContent: false,
+                });
             }
-        } catch (err) {
-            setError(err instanceof Error ? err.message : '加载环境变量文件失败');
-        } finally {
-            setLoading(false);
+        } catch (error) {
+            this.props.snackManager.snack('Failed to load env file');
         }
     };
 
-    const handleSave = async () => {
-        setSaving(true);
-        setError(null);
+    openEnvFileEditor = () => {
+        this.setState({editingEnvFile: true});
+    };
+
+    closeEnvFileEditor = () => {
+        this.setState({
+            editingEnvFile: false,
+            envFileContent: this.state.originalEnvFileContent,
+            errors: [],
+        });
+    };
+
+    handleEnvFileContentChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const content = event.target.value;
+        const isToml = detectTomlFormat(content);
+        this.setState({
+            envFileContent: content,
+            isTomlContent: isToml,
+        });
+    };
+
+    validateAndSaveEnvFile = async () => {
         try {
-            await onSaveEnvFile(projectName, content);
-            setExists(true);
-            setShowExample(false);
-        } catch (err) {
-            setError(err instanceof Error ? err.message : '保存环境变量文件失败');
-        } finally {
-            setSaving(false);
+            await this.props.versionStore.saveEnvFile(this.projectName, this.state.envFileContent);
+            this.props.snackManager.snack('Env file saved successfully');
+            this.setState({
+                editingEnvFile: false,
+                originalEnvFileContent: this.state.envFileContent,
+                hasEnvFile: true,
+                errors: [],
+            });
+        } catch (error: any) {
+            if (error.response?.data?.errors) {
+                this.setState({errors: error.response.data.errors});
+            } else {
+                this.props.snackManager.snack('Failed to save env file');
+            }
         }
     };
 
-    const handleDelete = async () => {
-        if (!exists || !window.confirm('确定要删除环境变量文件吗？此操作无法撤销。')) {
-            return;
-        }
-
-        setDeleting(true);
-        setError(null);
+    deleteEnvFile = async () => {
         try {
-            await onDeleteEnvFile(projectName);
-            setContent('');
-            setExists(false);
-            setShowExample(true);
-        } catch (err) {
-            setError(err instanceof Error ? err.message : '删除环境变量文件失败');
-        } finally {
-            setDeleting(false);
+            await this.props.versionStore.deleteEnvFile(this.projectName);
+            this.props.snackManager.snack('Env file deleted successfully');
+            this.setState({
+                envFileContent: '',
+                originalEnvFileContent: '',
+                hasEnvFile: false,
+                editingEnvFile: false,
+                errors: [],
+                isTomlContent: false,
+            });
+        } catch (error) {
+            this.props.snackManager.snack('Failed to delete env file');
         }
     };
 
-    const handleUseExample = () => {
-        setContent(exampleEnvContent);
-        setShowExample(false);
+    applyTemplate = (template: string) => {
+        const isToml = detectTomlFormat(template);
+        this.setState({
+            envFileContent: template,
+            isTomlContent: isToml,
+        });
     };
 
-    const handleEditorChange = (newValue: string) => {
-        setContent(newValue);
-    };
+    render() {
+        const {editingEnvFile, envFileContent, hasEnvFile, errors, isTomlContent} = this.state;
+        const isDarkMode = false; // We'll get this from theme later
 
-    const handleClose = () => {
-        onClose();
-    };
+        // format indicator
+        const formatIndicator = isTomlContent ? 'TOML' : 'ENV';
+        const formatColor = isTomlContent ? '#4CAF50' : '#2196F3';
+
+        // templates
+        const envTemplate = `# Basic .env format
+APP_NAME=MyApplication
+APP_VERSION=1.0.0
+APP_DEBUG=true
+
+# Database
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=myapp
+DB_USER=username
+DB_PASSWORD=password
+
+# External Services
+API_KEY=your-api-key-here
+SECRET_KEY=your-secret-key-here`;
+
+        const tomlTemplate = `# TOML format content in .env file
+# Application settings
+[app]
+name = "MyApplication"
+version = "1.0.0"
+debug = true
+environment = "development"
+
+# Database configuration
+[database]
+host = "localhost"
+port = 5432
+name = "myapp"
+username = "user"
+password = "password"
+max_connections = 100
+
+# API configuration
+[api]
+endpoints = ["https://api1.example.com", "https://api2.example.com"]
+timeout = 30
+retry_count = 3
+
+# Feature flags
+[features]
+enable_cache = true
+enable_logging = true
+enable_metrics = false
+
+# Nested configuration
+app.cache.ttl = 3600
+app.cache.size = 1024`;
 
     return (
-        <Dialog 
-            open={open} 
-            onClose={handleClose} 
-            maxWidth={false}
-            fullWidth
-            PaperProps={{
-                className: classes.dialogPaper
-            }}
-        >
-            <DialogTitle>
-                环境变量文件编辑 - {projectName}
-            </DialogTitle>
-            <DialogContent className={classes.content}>
-                <Box className={classes.pathInfo}>
-                    <Typography variant="body2" color="textSecondary">
-                        文件路径：
+            <DefaultPage title="Environment Configuration" maxWidth={900}>
+                <Box mb={3}>
+                    <Typography variant="h6" gutterBottom>
+                        Environment File (.env)
                     </Typography>
-                    <Typography variant="body2" className={classes.pathText}>
-                        {filePath}
+                    <Typography variant="body2" color="textSecondary" gutterBottom>
+                        Configure environment variables for your application. The file is always named <code>.env</code> but supports both standard ENV format and TOML format content.
                     </Typography>
-                    {exists ? (
-                        <Chip label="存在" size="small" color="primary" />
-                    ) : (
-                        <Chip label="不存在" size="small" color="default" />
-                    )}
                 </Box>
 
-                {error && (
-                    <div className={classes.errorAlert}>
-                        <Typography variant="body2" style={{ fontWeight: 'bold', marginBottom: 8 }}>
-                            错误信息
-                        </Typography>
-                        {error}
-                        {error.includes('格式验证失败') && (
-                            <div className={classes.errorDetail}>
-                                {error.split('格式验证失败:\n')[1]}
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {loading ? (
-                    <Box display="flex" justifyContent="center" alignItems="center" flexGrow={1}>
-                        <CircularProgress />
-                        <Typography variant="body2" style={{ marginLeft: 16 }}>
-                            正在加载环境变量文件...
-                        </Typography>
+                {hasEnvFile ? (
+                    <Box mb={2}>
+                        <Box display="flex" alignItems="center" mb={2} flexWrap="wrap" style={{gap: '16px'}}>
+                            <Chip
+                                label={`Format: ${formatIndicator}`}
+                                style={{backgroundColor: formatColor, color: 'white'}}
+                                size="small"
+                            />
+                            <Button
+                                variant="outlined"
+                                color="primary"
+                                onClick={this.openEnvFileEditor}>
+                                Edit .env File
+                            </Button>
+                            <Button
+                                variant="outlined"
+                                color="secondary"
+                                onClick={this.deleteEnvFile}>
+                                Delete .env File
+                            </Button>
+                        </Box>
+                        <Box
+                            p={2}
+                            border={1}
+                            borderColor="grey.300"
+                            borderRadius={1}
+                            bgcolor={isDarkMode ? 'grey.900' : 'grey.50'}
+                            maxHeight="400px"
+                            overflow="auto">
+                            <Typography
+                                variant="body2"
+                                component="div"
+                                style={{
+                                    fontFamily: 'monospace',
+                                    whiteSpace: 'pre-wrap',
+                                    fontSize: '13px',
+                                    lineHeight: '1.4',
+                                }}
+                                dangerouslySetInnerHTML={{
+                                    __html: highlightEnvSyntax(envFileContent, isTomlContent, isDarkMode)
+                                }}
+                            />
+                        </Box>
                     </Box>
                 ) : (
-                    <>
-                        {!exists && showExample && (
-                            <Box marginBottom={2}>
-                                <div className={classes.infoAlert}>
-                                    <Typography variant="body2" style={{ marginBottom: 8 }}>
-                                        当前项目没有环境变量文件，您可以创建一个新的。
+                    <Box mb={2}>
+                        <Typography variant="body1" color="textSecondary" gutterBottom>
+                            No .env file found. You can create one using different formats:
+                        </Typography>
+                        <Grid container spacing={2}>
+                            <Grid item xs={12} sm={6}>
+                                <Box p={2} border={1} borderColor="grey.300" borderRadius={1}>
+                                    <Typography variant="h6" gutterBottom>
+                                        Standard ENV Format
+                                    </Typography>
+                                    <Typography variant="body2" color="textSecondary" gutterBottom>
+                                        Simple key=value pairs
                                     </Typography>
                                     <Button 
-                                        size="small" 
-                                        onClick={handleUseExample} 
-                                        startIcon={<FileCopy />}
                                         variant="outlined"
-                                        className={classes.exampleButton}
-                                    >
-                                        使用示例模板
+                                        size="small" 
+                                        onClick={() => this.applyTemplate(envTemplate)}>
+                                        Use ENV Template
                                     </Button>
-                                </div>
-                                <Typography variant="subtitle2" style={{ marginTop: 16, marginBottom: 8 }}>
-                                    示例内容预览：
+                                </Box>
+                            </Grid>
+                            <Grid item xs={12} sm={6}>
+                                <Box p={2} border={1} borderColor="grey.300" borderRadius={1}>
+                                    <Typography variant="h6" gutterBottom>
+                                        TOML Format
+                                    </Typography>
+                                    <Typography variant="body2" color="textSecondary" gutterBottom>
+                                        Structured configuration with sections
+                                    </Typography>
+                                    <Button
+                                        variant="outlined"
+                                        size="small"
+                                        onClick={() => this.applyTemplate(tomlTemplate)}>
+                                        Use TOML Template
+                                    </Button>
+                                </Box>
+                            </Grid>
+                        </Grid>
+                        <Box mt={2}>
+                            <Button
+                                variant="contained"
+                                color="primary"
+                                onClick={this.openEnvFileEditor}>
+                                Create .env File
+                            </Button>
+                        </Box>
+                    </Box>
+                )}
+
+                <Dialog
+                    open={editingEnvFile}
+                    onClose={this.closeEnvFileEditor}
+                    maxWidth="md"
+                    fullWidth>
+                    <DialogTitle>
+                        <Box display="flex" alignItems="center" justifyContent="space-between">
+                            <span>Edit .env File</span>
+                            <Chip
+                                label={`Format: ${formatIndicator}`}
+                                style={{backgroundColor: formatColor, color: 'white'}}
+                                size="small"
+                            />
+                        </Box>
+                    </DialogTitle>
+                    <DialogContent>
+                        <TextField
+                            autoFocus
+                            multiline
+                            fullWidth
+                            rows={20}
+                            variant="outlined"
+                            value={envFileContent}
+                            onChange={this.handleEnvFileContentChange}
+                            placeholder={isTomlContent ? 
+                                "# TOML format content\n[section]\nkey = \"value\"" :
+                                "# Standard ENV format\nKEY=value\nANOTHER_KEY=another_value"
+                            }
+                            InputProps={{
+                                style: {
+                                    fontFamily: 'monospace',
+                                    fontSize: '13px',
+                                },
+                            }}
+                        />
+                        {errors.length > 0 && (
+                            <Box mt={2}>
+                                <Typography variant="subtitle2" color="error">
+                                    Validation Errors:
                                 </Typography>
-                                <div className={classes.exampleContent}>
-                                    {exampleEnvContent}
-                                </div>
+                                {errors.map((error, index) => (
+                                    <Typography key={index} variant="body2" color="error">
+                                        • {error}
+                                    </Typography>
+                                ))}
                             </Box>
                         )}
-                        
-                        <Paper className={classes.editorContainer} variant="outlined">
-                            <div className={classes.editorWrapper}>
-                                <Editor
-                                    value={content}
-                                    onValueChange={handleEditorChange}
-                                    highlight={code => highlightEnvSyntax(code, isDark)}
-                                    padding={10}
-                                    textareaId="env-editor"
-                                    className="react-simple-code-editor"
-                                    style={{
-                                        fontFamily: '"Fira Code", "Consolas", "Monaco", "Courier New", monospace',
-                                        fontSize: 14,
-                                        lineHeight: '21px',
-                                        background: 'transparent',
-                                    }}
-                                    placeholder="# 在这里输入环境变量
-# 格式: KEY=value
-APP_NAME=MyApp
-DEBUG=true"
-                                />
-                            </div>
-                            
-                            <span className={classes.syntaxHelpText}>
-                                支持语法: KEY=value | # 注释 | 引号值
-                            </span>
-                        </Paper>
-                    </>
-                )}
+                        <Box mt={2}>
+                            <Typography variant="body2" color="textSecondary">
+                                <strong>Format detected:</strong> {formatIndicator} format content in .env file
+                            </Typography>
+                            <Typography variant="body2" color="textSecondary">
+                                The file will always be saved as <code>.env</code> regardless of content format.
+                            </Typography>
+                        </Box>
             </DialogContent>
             <DialogActions>
-                <Button onClick={handleClose} disabled={saving || deleting}>
-                    取消
-                </Button>
-                {exists && (
+                        <Button onClick={this.closeEnvFileEditor}>Cancel</Button>
                     <Button 
-                        onClick={handleDelete} 
-                        disabled={saving || deleting} 
-                        startIcon={deleting ? <CircularProgress size={20} /> : <Delete />} 
-                        color="secondary"
-                    >
-                        删除文件
-                    </Button>
-                )}
-                <Button 
-                    onClick={handleSave} 
-                    disabled={saving || deleting || loading} 
-                    startIcon={saving ? <CircularProgress size={20} /> : <Save />} 
+                            onClick={this.validateAndSaveEnvFile}
                     color="primary" 
-                    variant="contained"
-                >
-                    保存
+                            variant="contained">
+                            Validate & Save
                 </Button>
             </DialogActions>
         </Dialog>
-    );
-};
+            </DefaultPage>
+        );
+    }
+}
 
-export default EnvFileDialog; 
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+const WrappedEnvFileDialog = inject('versionStore', 'snackManager')(EnvFileDialog);
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment  
+// @ts-ignore  
+export default withRouter(WrappedEnvFileDialog); 

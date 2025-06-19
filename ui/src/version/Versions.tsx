@@ -30,7 +30,7 @@ import React, {Component} from 'react';
 import DefaultPage from '../common/DefaultPage';
 import ConfirmDialog from '../common/ConfirmDialog';
 import AddProjectDialog from './AddProjectDialog';
-import EnvFileDialog from './EnvFileDialog';
+import EnvFileDialog from './EnvFileDialogModal';
 import GitHookDialog, { GitHookConfig } from './GitHookDialog';
 import {observer} from 'mobx-react';
 import {observable} from 'mobx';

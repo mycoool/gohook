@@ -12,6 +12,7 @@ import * as config from '../config';
 import Versions from '../version/Versions';
 import Branches from '../version/Branches';
 import Tags from '../version/Tags';
+import EnvFileDialog from '../version/EnvFileDialog';
 import Hooks from '../hook/Hooks';
 
 import Plugins from '../plugin/Plugins';
@@ -146,6 +147,7 @@ class Layout extends React.Component<
                                         React.createElement(Route as any, { exact: true, path: "/versions", component: Versions }),
                                         React.createElement(Route as any, { exact: true, path: "/versions/:projectName/branches", component: Branches }),
                                         React.createElement(Route as any, { exact: true, path: "/versions/:projectName/tags", component: Tags }),
+                                        React.createElement(Route as any, { exact: true, path: "/versions/:projectName/env", component: EnvFileDialog }),
                                         React.createElement(Route as any, { exact: true, path: "/hooks", component: Hooks }),
                                         React.createElement(Route as any, { exact: true, path: "/users", component: Users }),
                                         React.createElement(Route as any, { exact: true, path: "/plugins", component: Plugins }),

@@ -1,0 +1,328 @@
+/* 浅色主题样式 */
+.prism-light .token {
+    background: none !important; /* 全局移除token背景色 */
+}
+
+.prism-light .token.comment,
+.prism-light .token.prolog,
+.prism-light .token.doctype,
+.prism-light .token.cdata {
+    color: #6a9955;
+    font-style: italic;
+}
+
+/* ENV/Bash 等号样式 */
+.prism-light .token.punctuation,
+.prism-light .token.operator {
+    color: #666666; /* 灰色，与键名区分 */
+    background: none !important; /* 移除背景色 */
+}
+
+/* ENV/Bash 变量名 (键) */
+.prism-light .token.property,
+.prism-light .token.tag,
+.prism-light .token.constant,
+.prism-light .token.symbol,
+.prism-light .token.variable {
+    color: #001080; /* VS Code深蓝色变量名 */
+    font-weight: 500;
+}
+
+/* 数字和布尔值 */
+.prism-light .token.boolean,
+.prism-light .token.number {
+    color: #09885a; /* VS Code绿色数字 */
+}
+
+/* 字符串 (带引号) */
+.prism-light .token.string,
+.prism-light .token.char {
+    color: #a31515; /* VS Code红色字符串 */
+}
+
+/* ENV无引号值 - 使用不同颜色 */
+.prism-light .token.builtin,
+.prism-light .token.inserted,
+.prism-light .token.selector {
+    color: #795e26; /* VS Code棕色 - 用于无引号值 */
+}
+
+/* 属性名和值 */
+.prism-light .token.attr-name {
+    color: #001080; /* 键名颜色 */
+}
+
+.prism-light .token.attr-value {
+    color: #a31515; /* 属性值颜色 */
+}
+
+/* 函数和类名 */
+.prism-light .token.atrule,
+.prism-light .token.function,
+.prism-light .token.class-name {
+    color: #795e26; /* VS Code棕黄色 */
+}
+
+/* 关键字 */
+.prism-light .token.keyword {
+    color: #0000ff; /* VS Code蓝色关键字 */
+    font-weight: bold;
+}
+
+/* URL和实体 */
+.prism-light .token.url,
+.prism-light .token.entity {
+    color: #a31515;
+}
+
+.prism-light .token.deleted {
+    color: #d73a49;
+}
+
+/* 深色主题样式 */
+.prism-dark {
+    color: #d4d4d4 !important;
+}
+
+.prism-dark .token {
+    background: none !important; /* 全局移除token背景色 */
+}
+
+.prism-dark .token.comment,
+.prism-dark .token.prolog,
+.prism-dark .token.doctype,
+.prism-dark .token.cdata {
+    color: #6a9955 !important;
+    font-style: italic;
+}
+
+/* ENV/Bash 等号样式 */
+.prism-dark .token.punctuation,
+.prism-dark .token.operator {
+    color: #cccccc !important; /* 浅灰色，与键名区分 */
+    background: none !important; /* 移除背景色 */
+}
+
+/* ENV/Bash 变量名 (键) */
+.prism-dark .token.property,
+.prism-dark .token.tag,
+.prism-dark .token.constant,
+.prism-dark .token.symbol,
+.prism-dark .token.variable {
+    color: #9cdcfe !important; /* VS Code深色主题浅蓝色变量 */
+    font-weight: 500;
+}
+
+/* 数字和布尔值 */
+.prism-dark .token.boolean,
+.prism-dark .token.number {
+    color: #b5cea8 !important; /* VS Code深色主题浅绿色数字 */
+}
+
+/* 字符串 (带引号) */
+.prism-dark .token.string,
+.prism-dark .token.char {
+    color: #ce9178 !important; /* VS Code深色主题橙色字符串 */
+}
+
+/* ENV无引号值 - 使用不同颜色 */
+.prism-dark .token.builtin,
+.prism-dark .token.inserted,
+.prism-dark .token.selector {
+    color: #dcdcaa !important; /* VS Code深色主题黄色 - 用于无引号值 */
+}
+
+/* 属性名和值 */
+.prism-dark .token.attr-name {
+    color: #9cdcfe !important; /* 键名颜色 */
+}
+
+.prism-dark .token.attr-value {
+    color: #ce9178 !important; /* 属性值颜色 */
+}
+
+/* 函数和类名 */
+.prism-dark .token.atrule,
+.prism-dark .token.function,
+.prism-dark .token.class-name {
+    color: #dcdcaa !important; /* VS Code深色主题黄色 */
+}
+
+/* 关键字 */
+.prism-dark .token.keyword {
+    color: #569cd6 !important; /* VS Code深色主题蓝色关键字 */
+    font-weight: bold;
+}
+
+/* URL和实体 */
+.prism-dark .token.url,
+.prism-dark .token.entity {
+    color: #ce9178 !important;
+}
+
+.prism-dark .token.deleted {
+    color: #f92672 !important;
+}
+
+/* TOML特定样式 */
+.prism-light .token.title,
+.prism-light .language-toml .token.title {
+    color: #0451a5; /* VS Code蓝色 TOML节标题 */
+    font-weight: bold;
+}
+
+.prism-dark .token.title,
+.prism-dark .language-toml .token.title {
+    color: #569cd6 !important; /* VS Code深色主题蓝色 TOML节标题 */
+    font-weight: bold;
+}
+
+/* TOML键值对样式 */
+.prism-light .language-toml .token.property {
+    color: #001080; /* TOML键名 */
+    font-weight: 500;
+}
+
+.prism-dark .language-toml .token.property {
+    color: #9cdcfe !important; /* TOML键名深色主题 */
+    font-weight: 500;
+}
+
+/* TOML数组和表格样式 */
+.prism-light .language-toml .token.punctuation {
+    color: #666666; /* TOML标点符号 */
+    background: none !important; /* 移除背景色 */
+}
+
+.prism-dark .language-toml .token.punctuation {
+    color: #cccccc !important; /* TOML标点符号深色主题 */
+    background: none !important; /* 移除背景色 */
+}
+
+/* ENV/Bash变量样式 */
+.prism-light .language-bash .token.assign-left {
+    color: #001080; /* ENV变量名 */
+    font-weight: 500;
+}
+
+.prism-dark .language-bash .token.assign-left {
+    color: #9cdcfe !important; /* ENV变量名深色主题 */
+    font-weight: 500;
+}
+
+/* ENV等号右侧值的特殊处理 */
+.prism-light .language-bash .token.environment {
+    color: #795e26; /* ENV无引号值 */
+}
+
+.prism-dark .language-bash .token.environment {
+    color: #dcdcaa !important; /* ENV无引号值深色主题 */
+}
+
+/* ENV特殊值样式 */
+.prism-light .language-bash .token.boolean,
+.prism-light .language-bash .token.number {
+    color: #09885a; /* ENV布尔值和数字 */
+}
+
+.prism-dark .language-bash .token.boolean,
+.prism-dark .language-bash .token.number {
+    color: #b5cea8 !important; /* ENV布尔值和数字深色主题 */
+}
+
+/* 编辑器容器样式 */
+.env-editor-container {
+    position: relative;
+}
+
+.env-editor-container textarea {
+    outline: none !important;
+    resize: none !important;
+}
+
+.env-editor-container textarea:focus {
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+/* 美化编辑器滚动条 - 浅色主题 */
+.prism-light::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.prism-light::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.prism-light::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+.prism-light::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* 美化编辑器滚动条 - 深色主题 */
+.prism-dark::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.prism-dark::-webkit-scrollbar-track {
+    background: #2e2e2e;
+    border-radius: 4px;
+}
+
+.prism-dark::-webkit-scrollbar-thumb {
+    background: #555;
+    border-radius: 4px;
+}
+
+.prism-dark::-webkit-scrollbar-thumb:hover {
+    background: #777;
+}
+
+/* 编辑器内容区域样式 */
+.prism-light, .prism-dark {
+    position: relative;
+    overflow: auto; /* 容器处理滚动 */
+    max-height: 400px;
+}
+
+/* react-simple-code-editor特定样式 */
+.prism-light > div,
+.prism-dark > div {
+    min-height: 400px !important;
+    max-height: none !important;
+}
+
+.prism-light textarea,
+.prism-dark textarea {
+    min-height: 400px !important;
+    max-height: none !important;
+    overflow: hidden !important; /* textarea不处理滚动 */
+    resize: none !important;
+    outline: none !important;
+}
+
+/* 确保高亮层和编辑层同步 */
+.prism-light pre,
+.prism-dark pre {
+    margin: 0 !important;
+    min-height: 400px !important;
+    max-height: none !important;
+}
+
+/* Firefox滚动条样式 */
+.prism-light {
+    scrollbar-color: #c1c1c1 #f1f1f1;
+    scrollbar-width: thin;
+}
+
+.prism-dark {
+    scrollbar-color: #555 #2e2e2e;
+    scrollbar-width: thin;
+} 
