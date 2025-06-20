@@ -28,7 +28,7 @@ var LoadedHooksFromFiles *map[string]Hooks
 var HookManager *hookManager
 
 // GetAllHooks get all hooks
-func GetAllHooks(c *gin.Context) {
+func HandleGetAllHooks(c *gin.Context) {
 	if LoadedHooksFromFiles == nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "hooks not loaded"})
 		return

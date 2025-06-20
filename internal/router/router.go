@@ -118,7 +118,7 @@ func InitRouter() *gin.Engine {
 
 	// user management API group
 	userAPI := g.Group("/user")
-	userAPI.Use(middleware.AuthMiddleware())
+	userAPI.Use(middleware.AuthMiddleware(), middleware.DisableLogMiddleware())
 	{
 		// get all users list (only admin)
 		userAPI.GET("", middleware.AdminMiddleware(), client.GetAllUsers)
@@ -138,10 +138,10 @@ func InitRouter() *gin.Engine {
 
 	// Hooks API group
 	hookAPI := g.Group("/hook")
-	hookAPI.Use(middleware.AuthMiddleware()) // add auth middleware
+	hookAPI.Use(middleware.AuthMiddleware(), middleware.DisableLogMiddleware()) // add auth middleware
 	{
 		// get all hooks
-		hookAPI.GET("", webhook.GetAllHooks)
+		hookAPI.GET("", webhook.HandleGetAllHooks)
 
 		// get single hook detail
 		hookAPI.GET("/:id", webhook.HandleGetHookByID)
@@ -166,7 +166,7 @@ func InitRouter() *gin.Engine {
 
 	// version management API group
 	versionAPI := g.Group("/version")
-	versionAPI.Use(middleware.AuthMiddleware()) // add auth middleware
+	versionAPI.Use(middleware.AuthMiddleware(), middleware.DisableLogMiddleware()) // add auth middleware
 	{
 		// get all projects list
 		versionAPI.GET("", version.GetProjects)
@@ -234,7 +234,7 @@ func InitRouter() *gin.Engine {
 
 	// plugin management API group (temporary empty interface)
 	pluginAPI := g.Group("/plugin")
-	pluginAPI.Use(middleware.AuthMiddleware()) // add authentication middleware
+	pluginAPI.Use(middleware.AuthMiddleware(), middleware.DisableLogMiddleware()) // add authentication middleware
 	{
 		// get all plugins list
 		pluginAPI.GET("", func(c *gin.Context) {
