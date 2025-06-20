@@ -1,13 +1,7 @@
 package version
 
 import (
-	"bytes"
-	"crypto/hmac"
-	"crypto/sha256"
-	"crypto/subtle"
-	"encoding/hex"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"os"
@@ -19,7 +13,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/mycoool/gohook/internal/config"
-	"github.com/mycoool/gohook/internal/env"
 	"github.com/mycoool/gohook/internal/stream"
 	"github.com/mycoool/gohook/internal/types"
 )
@@ -66,132 +59,6 @@ func initGit(projectPath string) error {
 	}
 
 	return nil
-}
-
-// verify GitHub HMAC-SHA256 signature
-func VerifyGitHubSignature(payload []byte, secret, signature string) error {
-	if !strings.HasPrefix(signature, "sha256=") {
-		return fmt.Errorf("GitHub signature format error, should start with sha256=")
-	}
-
-	expectedSig := "sha256=" + HmacSHA256Hex(payload, secret)
-	if subtle.ConstantTimeCompare([]byte(signature), []byte(expectedSig)) != 1 {
-		return fmt.Errorf("GitHub signature verification failed")
-	}
-
-	return nil
-}
-
-// verify GitHub legacy signature (old version)
-func VerifyGitHubLegacySignature(payload []byte, secret, signature string) error {
-	if !strings.HasPrefix(signature, "sha1=") {
-		return fmt.Errorf("GitHub legacy signature format error, should start with sha1=")
-	}
-
-	// note: here should use SHA1, but for security, we suggest using SHA256
-	expectedSig := "sha1=" + HmacSHA1Hex(payload, secret)
-	if subtle.ConstantTimeCompare([]byte(signature), []byte(expectedSig)) != 1 {
-		return fmt.Errorf("GitHub legacy signature verification failed")
-	}
-
-	return nil
-}
-
-// verifyGitLabToken verify GitLab token (directly compare)
-func VerifyGitLabToken(secret, token string) error {
-	if subtle.ConstantTimeCompare([]byte(secret), []byte(token)) != 1 {
-		return fmt.Errorf("GitLab token verification failed")
-	}
-	return nil
-}
-
-// verifyGiteaSignature verify Gitea HMAC-SHA256 signature
-func VerifyGiteaSignature(payload []byte, secret, signature string) error {
-	expectedSig := HmacSHA256Hex(payload, secret)
-	if subtle.ConstantTimeCompare([]byte(signature), []byte(expectedSig)) != 1 {
-		return fmt.Errorf("gitea signature verification failed")
-	}
-	return nil
-}
-
-// verifyGogsSignature verify Gogs HMAC-SHA256 signature
-func VerifyGogsSignature(payload []byte, secret, signature string) error {
-	expectedSig := HmacSHA256Hex(payload, secret)
-	if subtle.ConstantTimeCompare([]byte(signature), []byte(expectedSig)) != 1 {
-		return fmt.Errorf("gogs signature verification failed")
-	}
-	return nil
-}
-
-// hmacSHA256Hex calculate HMAC-SHA256 and return hexadecimal string
-func HmacSHA256Hex(data []byte, secret string) string {
-	h := hmac.New(sha256.New, []byte(secret))
-	h.Write(data)
-	return hex.EncodeToString(h.Sum(nil))
-}
-
-// hmacSHA1Hex calculate HMAC-SHA1 and return hexadecimal string (for GitHub legacy support)
-func HmacSHA1Hex(data []byte, secret string) string {
-	// note: here should import crypto/sha1, but for simplicity, we skip this implementation
-	// in production environment, SHA1 should be correctly implemented
-	return HmacSHA256Hex(data, secret) // temporarily use SHA256 instead
-}
-
-// VerifyWebhookSignature verify webhook signature, support GitHub, GitLab, etc.
-func verifyWebhookSignature(c *gin.Context, payloadBody []byte, secret string) error {
-	// GitHub use X-Hub-Signature-256 header with HMAC-SHA256
-	if githubSig := c.GetHeader("X-Hub-Signature-256"); githubSig != "" {
-		return VerifyGitHubSignature(payloadBody, secret, githubSig)
-	}
-
-	// GitHub legacy use X-Hub-Signature header with HMAC-SHA1
-	if githubSigLegacy := c.GetHeader("X-Hub-Signature"); githubSigLegacy != "" {
-		return VerifyGitHubLegacySignature(payloadBody, secret, githubSigLegacy)
-	}
-
-	// GitLab use X-Gitlab-Token header, directly compare password
-	if gitlabToken := c.GetHeader("X-Gitlab-Token"); gitlabToken != "" {
-		return VerifyGitLabToken(secret, gitlabToken)
-	}
-
-	// Gitea use X-Gitea-Signature header with HMAC-SHA256
-	if giteaSig := c.GetHeader("X-Gitea-Signature"); giteaSig != "" {
-		return VerifyGiteaSignature(payloadBody, secret, giteaSig)
-	}
-
-	// Gogs use X-Gogs-Signature header with HMAC-SHA256
-	if gogsSig := c.GetHeader("X-Gogs-Signature"); gogsSig != "" {
-		return VerifyGogsSignature(payloadBody, secret, gogsSig)
-	}
-
-	// if no known signature header is found, return error
-	return fmt.Errorf("no supported webhook signature header found")
-}
-
-// executeGitHook execute specific Git operation
-func ExecuteGitHook(project *types.ProjectConfig, refType, targetRef string) error {
-	projectPath := project.Path
-
-	// check if it is a Git repository
-	if _, err := os.Stat(filepath.Join(projectPath, ".git")); os.IsNotExist(err) {
-		return fmt.Errorf("project path is not a Git repository: %s", projectPath)
-	}
-
-	// fetch latest remote information
-	cmd := exec.Command("git", "-C", projectPath, "fetch", "--all")
-	if output, err := cmd.CombinedOutput(); err != nil {
-		log.Printf("warning: failed to fetch remote information: %s", string(output))
-	}
-
-	if refType == "branch" {
-		// branch mode: switch to specified branch and pull latest code
-		return switchAndPullBranch(projectPath, targetRef)
-	} else if refType == "tag" {
-		// tag mode: switch to specified tag
-		return switchToTag(projectPath, targetRef)
-	}
-
-	return fmt.Errorf("unsupported reference type: %s", refType)
 }
 
 // switchAndPullBranch switch to specified branch and pull latest code
@@ -258,92 +125,6 @@ func switchToTag(projectPath, tagName string) error {
 	return nil
 }
 
-// HandleGitHook handle GitHook webhook request
-func handleGitHook(project *types.ProjectConfig, payload map[string]interface{}) error {
-	log.Printf("handle GitHook: project=%s, mode=%s, branch=%s", project.Name, project.Hookmode, project.Hookbranch)
-
-	// parse webhook payload, extract branch or tag information
-	var targetRef string
-	var refType string
-	var afterCommit string
-
-	// try to parse GitHub/GitLab format webhook
-	if ref, ok := payload["ref"].(string); ok {
-		// extract after field (for detecting deletion operation)
-		if after, ok := payload["after"].(string); ok {
-			afterCommit = after
-		}
-
-		if strings.HasPrefix(ref, "refs/heads/") {
-			// branch push
-			targetRef = strings.TrimPrefix(ref, "refs/heads/")
-			refType = "branch"
-		} else if strings.HasPrefix(ref, "refs/tags/") {
-			// tag push
-			targetRef = strings.TrimPrefix(ref, "refs/tags/")
-			refType = "tag"
-		}
-	}
-
-	// if no ref is parsed, try other formats
-	if targetRef == "" {
-		// try GitLab format
-		if ref, ok := payload["ref"].(string); ok {
-			parts := strings.Split(ref, "/")
-			if len(parts) >= 3 {
-				if parts[1] == "heads" {
-					targetRef = strings.Join(parts[2:], "/")
-					refType = "branch"
-				} else if parts[1] == "tags" {
-					targetRef = strings.Join(parts[2:], "/")
-					refType = "tag"
-				}
-			}
-		}
-	}
-
-	if targetRef == "" {
-		return fmt.Errorf("cannot parse branch or tag information from webhook payload")
-	}
-
-	log.Printf("parsed webhook: type=%s, target=%s, after=%s", refType, targetRef, afterCommit)
-
-	// check if it matches the project's hook mode
-	if project.Hookmode != refType {
-		log.Printf("webhook type(%s) does not match project hook mode(%s), skip", refType, project.Hookmode)
-		return nil
-	}
-
-	// if it is a branch mode, check if the branch matches
-	if project.Hookmode == "branch" {
-		if project.Hookbranch != "*" && project.Hookbranch != targetRef {
-			log.Printf("webhook branch(%s) does not match configured branch(%s), skip", targetRef, project.Hookbranch)
-			return nil
-		}
-	}
-
-	// check if it is a deletion operation (after field is all zeros)
-	if afterCommit == "0000000000000000000000000000000000000000" {
-		if refType == "tag" {
-			// tag deletion: only delete local tag
-			log.Printf("detected tag deletion event: %s", targetRef)
-			return deleteTag(project.Path, targetRef)
-		} else if refType == "branch" {
-			// branch deletion: need to smart judgment
-			log.Printf("detected branch deletion event: %s", targetRef)
-			return BranchDeletion(project, targetRef)
-		}
-	}
-
-	// execute Git operation
-	if err := ExecuteGitHook(project, refType, targetRef); err != nil {
-		return fmt.Errorf("execute Git operation failed: %v", err)
-	}
-
-	log.Printf("GitHook processing successfully: project=%s, type=%s, target=%s", project.Name, refType, targetRef)
-	return nil
-}
-
 // DeleteLocalTag delete local tag
 func deleteLocalTag(projectPath, tagName string) error {
 	// check if it is a Git repository
@@ -369,7 +150,7 @@ func deleteLocalTag(projectPath, tagName string) error {
 }
 
 // DeleteLocalBranch delete local branch
-func DeleteLocalBranch(projectPath, branchName string) error {
+func deleteLocalBranch(projectPath, branchName string) error {
 	// check if it is a Git repository
 	if _, err := os.Stat(filepath.Join(projectPath, ".git")); os.IsNotExist(err) {
 		return fmt.Errorf("not a Git repository: %s", projectPath)
@@ -407,7 +188,7 @@ func DeleteLocalBranch(projectPath, branchName string) error {
 }
 
 // BranchDeletion handle branch deletion operation
-func BranchDeletion(project *types.ProjectConfig, branchName string) error {
+func branchDeletion(project *types.ProjectConfig, branchName string) error {
 	log.Printf("handle branch deletion: project=%s, branch=%s, configured branch=%s", project.Name, branchName, project.Hookbranch)
 
 	// check if it is a configured branch
@@ -424,7 +205,7 @@ func BranchDeletion(project *types.ProjectConfig, branchName string) error {
 
 	// if it is other branch, execute local deletion operation
 	log.Printf("deleting non-critical branch %s, execute local deletion operation", branchName)
-	return DeleteLocalBranch(project.Path, branchName)
+	return deleteLocalBranch(project.Path, branchName)
 }
 
 // DeleteBranch delete local branch
@@ -1441,84 +1222,6 @@ func GetRemote(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"url": remoteURL})
 }
 
-// get project environment variable file (.env)
-func GetEnv(c *gin.Context) {
-	projectName := c.Param("name")
-
-	// find project path
-	var projectPath string
-	for _, proj := range types.GoHookVersionData.Projects {
-		if proj.Name == projectName && proj.Enabled {
-			projectPath = proj.Path
-			break
-		}
-	}
-
-	if projectPath == "" {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
-		return
-	}
-
-	envContent, exists, err := env.GetEnvFile(projectPath)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"content": envContent,
-		"exists":  exists,
-		"path":    filepath.Join(projectPath, ".env"),
-	})
-}
-
-// SaveEnv save project environment variable file (.env)
-func SaveEnv(c *gin.Context) {
-	projectName := c.Param("name")
-
-	var req struct {
-		Content string `json:"content" binding:"required"`
-	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request parameters"})
-		return
-	}
-
-	// find project path
-	var projectPath string
-	for _, proj := range types.GoHookVersionData.Projects {
-		if proj.Name == projectName && proj.Enabled {
-			projectPath = proj.Path
-			break
-		}
-	}
-
-	if projectPath == "" {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
-		return
-	}
-
-	// validate environment variable file format
-	if errors := env.ValidateEnvContent(req.Content); len(errors) > 0 {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   "Environment variable file format validation failed",
-			"details": errors,
-		})
-		return
-	}
-
-	// save environment variable file
-	if err := env.SaveEnvFile(projectPath, req.Content); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Environment variable file saved successfully",
-		"path":    filepath.Join(projectPath, ".env"),
-	})
-}
-
 func GetProjects(c *gin.Context) {
 	// load config file every time get projects list
 	if err := config.LoadVersionConfig(); err != nil {
@@ -1584,133 +1287,4 @@ func ReloadConfig(c *gin.Context) {
 		"message":      "Version config loaded successfully",
 		"projectCount": projectCount,
 	})
-}
-
-// DeleteEnv delete project environment variable file (.env)
-func DeleteEnv(c *gin.Context) {
-	projectName := c.Param("name")
-
-	// find project path
-	var projectPath string
-	for _, proj := range types.GoHookVersionData.Projects {
-		if proj.Name == projectName && proj.Enabled {
-			projectPath = proj.Path
-			break
-		}
-	}
-
-	if projectPath == "" {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
-		return
-	}
-
-	if err := env.DeleteEnvFile(projectPath); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Environment variable file deleted successfully",
-	})
-}
-
-// SaveGitHook save project GitHook configuration
-func SaveGitHook(c *gin.Context) {
-	projectName := c.Param("name")
-
-	var req struct {
-		Enhook     bool   `json:"enhook"`
-		Hookmode   string `json:"hookmode"`
-		Hookbranch string `json:"hookbranch"`
-		Hooksecret string `json:"hooksecret"`
-	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request parameters"})
-		return
-	}
-
-	// find project and update configuration
-	projectFound := false
-	for i, proj := range types.GoHookVersionData.Projects {
-		if proj.Name == projectName && proj.Enabled {
-			types.GoHookVersionData.Projects[i].Enhook = req.Enhook
-			types.GoHookVersionData.Projects[i].Hookmode = req.Hookmode
-			types.GoHookVersionData.Projects[i].Hookbranch = req.Hookbranch
-			types.GoHookVersionData.Projects[i].Hooksecret = req.Hooksecret
-			projectFound = true
-			break
-		}
-	}
-
-	if !projectFound {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
-		return
-	}
-
-	// save configuration file
-	if err := config.SaveVersionConfig(); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Save configuration failed: " + err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"message": "GitHook configuration saved successfully",
-	})
-}
-
-// GitHook handle GitHook request
-func GitHook(c *gin.Context) {
-	projectName := c.Param("name")
-
-	// find project configuration
-	var project *types.ProjectConfig
-	for _, proj := range types.GoHookVersionData.Projects {
-		if proj.Name == projectName && proj.Enabled && proj.Enhook {
-			project = &proj
-			break
-		}
-	}
-
-	if project == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found or GitHook not enabled"})
-		return
-	}
-
-	// read original payload data
-	var payloadBody []byte
-	if c.Request.Body != nil {
-		var err error
-		payloadBody, err = io.ReadAll(c.Request.Body)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Read payload failed"})
-			return
-		}
-		// reset body for subsequent use
-		c.Request.Body = io.NopCloser(bytes.NewReader(payloadBody))
-	}
-
-	// verify webhook password (if set)
-	if project.Hooksecret != "" {
-		if err := verifyWebhookSignature(c, payloadBody, project.Hooksecret); err != nil {
-			log.Printf("GitHook password verification failed: project=%s, error=%v", project.Name, err)
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Password verification failed: " + err.Error()})
-			return
-		}
-	}
-
-	// parse webhook payload (support GitHub, GitLab, etc.)
-	var payload map[string]interface{}
-	if err := c.ShouldBindJSON(&payload); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid webhook payload"})
-		return
-	}
-
-	// handle GitHook logic
-	if err := handleGitHook(project, payload); err != nil {
-		log.Printf("GitHook processing failed: project=%s, error=%v", project.Name, err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "GitHook processing failed: " + err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "GitHook processing successfully"})
 }
