@@ -10,24 +10,23 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"os/exec"
-	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/mycoool/gohook/internal/hook"
+	"github.com/mycoool/gohook/internal/config"
 	"github.com/mycoool/gohook/internal/pidfile"
+	"github.com/mycoool/gohook/internal/webhook"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/gin-gonic/gin"
 	"github.com/mycoool/gohook/internal/router"
-	"github.com/mycoool/gohook/internal/stream"
 	"github.com/mycoool/gohook/ui"
 )
 
 var (
 	ip                 = flag.String("ip", "0.0.0.0", "ip the webhook should serve hooks on")
 	port               = flag.Int("port", 9000, "port the webhook should serve hooks on")
+	mode               = flag.String("mode", "test", "the gohook server for test or dev or production")
 	verbose            = flag.Bool("verbose", false, "show verbose output")
 	logPath            = flag.String("logfile", "", "send log output to a file; implicitly enables verbose logging")
 	debug              = flag.Bool("debug", false, "show debug output")
@@ -47,10 +46,10 @@ var (
 	httpMethods        = flag.String("http-methods", "", `set default allowed HTTP methods (ie. "POST"); separate methods with comma`)
 	pidPath            = flag.String("pidfile", "", "create PID file at the given path")
 
-	responseHeaders hook.ResponseHeaders
-	hooksFiles      hook.HooksFiles
+	responseHeaders webhook.ResponseHeaders
+	hooksFiles      webhook.HooksFiles
 
-	loadedHooksFromFiles = make(map[string]hook.Hooks)
+	loadedHooksFromFiles = make(map[string]webhook.Hooks)
 
 	watcher *fsnotify.Watcher
 	signals chan os.Signal
@@ -100,6 +99,9 @@ func main() {
 		*verbose = true
 	}
 
+	// set mode according to mode flag
+	//types.GoHookAppConfig.SetMode(*mode)
+
 	if len(hooksFiles) == 0 {
 		hooksFiles = append(hooksFiles, "hooks.json")
 	}
@@ -119,8 +121,8 @@ func main() {
 
 	// first try to load app config to get port setting
 	// create a temporary router instance to load config
-	hook.LoadedHooksFromFiles = &loadedHooksFromFiles
-	hook.HookManager = hook.NewHookManager(&loadedHooksFromFiles, hooksFiles, *asTemplate)
+	webhook.LoadedHooksFromFiles = &loadedHooksFromFiles
+	webhook.HookManager = webhook.NewHookManager(&loadedHooksFromFiles, hooksFiles, *asTemplate)
 	router.InitRouter() // this will load app.yaml config file
 
 	// determine final port: app.yaml > command line flag > default
@@ -128,8 +130,9 @@ func main() {
 
 	// check if app.yaml exists
 	if _, err := os.Stat("app.yaml"); err == nil {
+		log.SetPrefix("[GoHook] ")
 		// app.yaml exists, use port from app.yaml
-		if appConfig := router.GetAppConfig(); appConfig != nil {
+		if appConfig := config.GetAppConfig(); appConfig != nil {
 			finalPort = appConfig.Port
 			log.Printf("listen port %d", finalPort)
 		} else {
@@ -174,7 +177,7 @@ func main() {
 		}
 	}
 
-	log.SetPrefix("[gohook] ")
+	log.SetPrefix("[GoHook] ")
 	log.SetFlags(log.Ldate | log.Ltime)
 
 	if len(logQueue) != 0 {
@@ -216,7 +219,7 @@ func main() {
 	for _, hooksFilePath := range hooksFiles {
 		log.Printf("attempting to load hooks from %s\n", hooksFilePath)
 
-		newHooks := hook.Hooks{}
+		newHooks := webhook.Hooks{}
 
 		err := newHooks.LoadFromFile(hooksFilePath, *asTemplate)
 
@@ -226,7 +229,7 @@ func main() {
 			log.Printf("found %d hook(s) in file\n", len(newHooks))
 
 			for _, hookValue := range newHooks {
-				if hook.HookManager.MatchLoadedHook(hookValue.ID) != nil {
+				if webhook.HookManager.MatchLoadedHook(hookValue.ID) != nil {
 					log.Fatalf("error: hook with the id %s has already been loaded!\nplease check your hooks file for duplicate hooks ids!\n", hookValue.ID)
 				}
 				log.Printf("\tloaded: %s\n", hookValue.ID)
@@ -245,7 +248,7 @@ func main() {
 
 	hooksFiles = newHooksFiles
 
-	if !*verbose && !*noPanic && hook.HookManager.LenLoadedHooks() == 0 {
+	if !*verbose && !*noPanic && webhook.HookManager.LenLoadedHooks() == 0 {
 		log.SetOutput(os.Stdout)
 		log.Fatalln("couldn't load any hooks from file!\naborting webhook execution since the -verbose flag is set to false.\nIf, for some reason, you want webhook to start without the hooks, either use -verbose flag, or -nopanic")
 	}
@@ -270,7 +273,7 @@ func main() {
 			}
 		}
 
-		go hook.WatchForFileChange(watcher, &loadedHooksFromFiles, hooksFiles, *asTemplate)
+		go webhook.WatchForFileChange(watcher, &loadedHooksFromFiles, hooksFiles, *asTemplate)
 	}
 
 	// gin mode has been set before
@@ -328,7 +331,7 @@ func main() {
 
 	// Serve HTTP
 	if !*secure {
-		log.Printf("serving hooks on http://%s%s", addr, hook.MakeHumanPattern(hooksURLPrefix))
+		log.Printf("serving hooks on http://%s%s", addr, webhook.MakeHumanPattern(hooksURLPrefix))
 		log.Print(svr.Serve(ln))
 
 		return
@@ -343,12 +346,12 @@ func main() {
 	}
 	svr.TLSNextProto = make(map[string]func(*http.Server, *tls.Conn, http.Handler)) // disable http/2
 
-	log.Printf("serving hooks on https://%s%s", addr, hook.MakeHumanPattern(hooksURLPrefix))
+	log.Printf("serving hooks on https://%s%s", addr, webhook.MakeHumanPattern(hooksURLPrefix))
 	log.Print(svr.ServeTLS(ln, *cert, *key))
 }
 
 func ginHookHandler(c *gin.Context) {
-	req := &hook.Request{
+	req := &webhook.Request{
 		ID:         c.GetString("request-id"), // can be set by middleware
 		RawRequest: c.Request,
 	}
@@ -370,7 +373,7 @@ func ginHookHandler(c *gin.Context) {
 	// get id from path parameter
 	id := strings.TrimPrefix(c.Param("id"), "/")
 
-	matchedHook := hook.HookManager.MatchLoadedHook(id)
+	matchedHook := webhook.HookManager.MatchLoadedHook(id)
 	if matchedHook == nil {
 		c.String(http.StatusNotFound, "Hook not found.")
 		return
@@ -539,7 +542,7 @@ func ginHookHandler(c *gin.Context) {
 
 		ok, err = matchedHook.TriggerRule.Evaluate(req)
 		if err != nil {
-			if !hook.IsParameterNodeError(err) {
+			if !webhook.IsParameterNodeError(err) {
 				msg := fmt.Sprintf("[%s] error evaluating hook: %s", req.ID, err)
 				log.Println(msg)
 				c.String(http.StatusInternalServerError, "Error occurred while evaluating hook rules.")
@@ -558,7 +561,7 @@ func ginHookHandler(c *gin.Context) {
 		}
 
 		if matchedHook.CaptureCommandOutput {
-			response, err := handleHook(matchedHook, req)
+			response, err := webhook.HandleHook(matchedHook, req)
 
 			if err != nil {
 				if matchedHook.CaptureCommandOutputOnError {
@@ -579,7 +582,7 @@ func ginHookHandler(c *gin.Context) {
 				log.Printf("[%s] executing hook in background\n", req.ID)
 			}
 			go func() {
-				_, err := handleHook(matchedHook, req)
+				_, err := webhook.HandleHook(matchedHook, req)
 				if err != nil && *verbose {
 					log.Printf("[%s] background hook execution failed: %v\n", req.ID, err)
 				}
@@ -609,128 +612,4 @@ func ginHookHandler(c *gin.Context) {
 	}
 
 	log.Printf("[%s] %s got matched, but didn't get triggered because the trigger rules were not satisfied\n", req.ID, matchedHook.ID)
-}
-
-func handleHook(h *hook.Hook, r *hook.Request) (string, error) {
-	var errors []error
-
-	// check the command exists
-	var lookpath string
-	if filepath.IsAbs(h.ExecuteCommand) || h.CommandWorkingDirectory == "" {
-		lookpath = h.ExecuteCommand
-	} else {
-		lookpath = filepath.Join(h.CommandWorkingDirectory, h.ExecuteCommand)
-	}
-
-	cmdPath, err := exec.LookPath(lookpath)
-	if err != nil {
-		log.Printf("[%s] error in %s", r.ID, err)
-
-		// check if parameters specified in execute-command by mistake
-		if strings.IndexByte(h.ExecuteCommand, ' ') != -1 {
-			s := strings.Fields(h.ExecuteCommand)[0]
-			log.Printf("[%s] use 'pass-arguments-to-command' to specify args for '%s'", r.ID, s)
-		}
-
-		return "", err
-	}
-
-	cmd := exec.Command(cmdPath)
-	cmd.Dir = h.CommandWorkingDirectory
-
-	cmd.Args, errors = h.ExtractCommandArguments(r)
-	for _, err := range errors {
-		log.Printf("[%s] error extracting command arguments: %s\n", r.ID, err)
-	}
-
-	var envs []string
-	envs, errors = h.ExtractCommandArgumentsForEnv(r)
-
-	for _, err := range errors {
-		log.Printf("[%s] error extracting command arguments for environment: %s\n", r.ID, err)
-	}
-
-	files, errors := h.ExtractCommandArgumentsForFile(r)
-
-	for _, err := range errors {
-		log.Printf("[%s] error extracting command arguments for file: %s\n", r.ID, err)
-	}
-
-	for i := range files {
-		tmpfile, err := os.CreateTemp(h.CommandWorkingDirectory, files[i].EnvName)
-		if err != nil {
-			log.Printf("[%s] error creating temp file [%s]", r.ID, err)
-			continue
-		}
-		log.Printf("[%s] writing env %s file %s", r.ID, files[i].EnvName, tmpfile.Name())
-		if _, err := tmpfile.Write(files[i].Data); err != nil {
-			log.Printf("[%s] error writing file %s [%s]", r.ID, tmpfile.Name(), err)
-			continue
-		}
-		if err := tmpfile.Close(); err != nil {
-			log.Printf("[%s] error closing file %s [%s]", r.ID, tmpfile.Name(), err)
-			continue
-		}
-
-		files[i].File = tmpfile
-		envs = append(envs, files[i].EnvName+"="+tmpfile.Name())
-	}
-
-	cmd.Env = append(os.Environ(), envs...)
-
-	log.Printf("[%s] executing %s (%s) with arguments %q and environment %s using %s as cwd\n", r.ID, h.ExecuteCommand, cmd.Path, cmd.Args, envs, cmd.Dir)
-
-	out, err := cmd.CombinedOutput()
-
-	log.Printf("[%s] command output: %s\n", r.ID, out)
-
-	if err != nil {
-		log.Printf("[%s] error occurred: %+v\n", r.ID, err)
-	}
-
-	for i := range files {
-		if files[i].File != nil {
-			log.Printf("[%s] removing file %s\n", r.ID, files[i].File.Name())
-			err := os.Remove(files[i].File.Name())
-			if err != nil {
-				log.Printf("[%s] error removing file %s [%s]", r.ID, files[i].File.Name(), err)
-			}
-		}
-	}
-
-	log.Printf("[%s] finished handling %s\n", r.ID, h.ID)
-
-	// push WebSocket message to notify hook execution completed
-	wsMessage := stream.WsMessage{
-		Type:      "hook_triggered",
-		Timestamp: time.Now(),
-		Data: stream.HookTriggeredMessage{
-			HookID:   h.ID,
-			HookName: h.ID,
-			Method: func() string {
-				if r.RawRequest != nil {
-					return r.RawRequest.Method
-				}
-				return ""
-			}(),
-			RemoteAddr: func() string {
-				if r.RawRequest != nil {
-					return r.RawRequest.RemoteAddr
-				}
-				return ""
-			}(),
-			Success: err == nil,
-			Output:  string(out),
-			Error: func() string {
-				if err != nil {
-					return err.Error()
-				} else {
-					return ""
-				}
-			}(),
-		},
-	}
-	stream.Global.Broadcast(wsMessage)
-
-	return string(out), err
 }

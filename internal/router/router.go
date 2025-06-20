@@ -4,132 +4,31 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os/exec"
-	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/mycoool/gohook/internal/client"
 	"github.com/mycoool/gohook/internal/config"
-	"github.com/mycoool/gohook/internal/hook"
+	"github.com/mycoool/gohook/internal/middleware"
 	"github.com/mycoool/gohook/internal/stream"
 	"github.com/mycoool/gohook/internal/types"
 	"github.com/mycoool/gohook/internal/version"
+	"github.com/mycoool/gohook/internal/webhook"
 )
-
-// authMiddleware JWT认证中间件
-func authMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		tokenString := c.GetHeader("X-GoHook-Key")
-		if tokenString == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Missing token"})
-			c.Abort()
-			return
-		}
-
-		claims, err := client.ValidateToken(tokenString)
-		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
-			c.Abort()
-			return
-		}
-
-		// 更新会话最后使用时间
-		client.UpdateSessionLastUsed(tokenString)
-
-		c.Set("username", claims.Username)
-		c.Set("role", claims.Role)
-		c.Set("token", tokenString)
-		c.Next()
-	}
-}
-
-// noLogMiddleware disable logging for the request
-func noLogMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// set a flag to indicate that this request should not be logged
-		c.Set("disable_log", true)
-		c.Next()
-	}
-}
-
-// wsAuthMiddleware WebSocket auth middleware, support query parameter token and Sec-WebSocket-Protocol header
-func wsAuthMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// get token from header first
-		tokenString := c.GetHeader("X-GoHook-Key")
-
-		// if no token in header, try to get it from Sec-WebSocket-Protocol header
-		if tokenString == "" {
-			protocols := c.GetHeader("Sec-WebSocket-Protocol")
-			if protocols != "" {
-				// parse protocols: "Authorization, <token>"
-				parts := strings.Split(protocols, ",")
-				if len(parts) >= 2 {
-					// trim whitespace and check if first part is "Authorization"
-					protocol := strings.TrimSpace(parts[0])
-					if protocol == "Authorization" {
-						tokenString = strings.TrimSpace(parts[1])
-					}
-				}
-			}
-		}
-
-		// if still no token, get it from query parameter (fallback)
-		if tokenString == "" {
-			tokenString = c.Query("token")
-		}
-
-		if tokenString == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Missing token"})
-			c.Abort()
-			return
-		}
-
-		claims, err := client.ValidateToken(tokenString)
-		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
-			c.Abort()
-			return
-		}
-
-		// update session last used time
-		client.UpdateSessionLastUsed(tokenString)
-
-		c.Set("username", claims.Username)
-		c.Set("role", claims.Role)
-		c.Set("token", tokenString)
-		c.Next()
-	}
-}
-
-// adminMiddleware admin permission middleware
-func adminMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		role, exists := c.Get("role")
-		if !exists || role != "admin" {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Admin access required"})
-			c.Abort()
-			return
-		}
-		c.Next()
-	}
-}
 
 func InitRouter() *gin.Engine {
 	// 创建不带默认中间件的engine
 	g := gin.New()
 
-	// 添加自定义的日志中间件，跳过标记为"no_log"的请求
+	// 添加自定义的日志中间件，跳过标记为"disable_log"的请求
 	g.Use(gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
-		// 如果上下文中有"no_log"标记，不记录日志
+		// 如果上下文中有"disable_log"标记，不记录日志
 		if param.Keys != nil {
 			if noLog, exists := param.Keys["disable_log"]; exists && noLog == true {
 				return ""
 			}
 		}
 		// 否则使用默认格式记录日志
-		return fmt.Sprintf("[WEB] %v | %3d | %13v | %15s | %-7s %#v\n%s",
+		return fmt.Sprintf("[GoHook] %v | %3d | %13v | %15s | %-7s %#v\n%s",
 			param.TimeStamp.Format("2006/01/02 - 15:04:05"),
 			param.StatusCode,
 			param.Latency,
@@ -212,178 +111,62 @@ func InitRouter() *gin.Engine {
 	g.POST("/client", client.Login)
 
 	// get current user info interface
-	g.GET("/current/user", noLogMiddleware(), authMiddleware(), client.GetCurrentUser)
+	g.GET("/current/user", middleware.DisableLogMiddleware(), middleware.AuthMiddleware(), client.GetCurrentUser)
 
 	// get application config interface
-	g.GET("/app/config", noLogMiddleware(), authMiddleware(), func(c *gin.Context) {
-		if types.GoHookAppConfig == nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "App config not loaded"})
-			return
-		}
-
-		// only return safe config fields, not including secrets
-		c.JSON(http.StatusOK, gin.H{
-			"port": types.GoHookAppConfig.Port,
-			"mode": types.GoHookAppConfig.Mode,
-		})
-	})
+	g.GET("/app/config", middleware.DisableLogMiddleware(), middleware.AuthMiddleware(), config.HandleGetAppConfig)
 
 	// user management API group
 	userAPI := g.Group("/user")
-	userAPI.Use(authMiddleware())
+	userAPI.Use(middleware.AuthMiddleware())
 	{
 		// get all users list (only admin)
-		userAPI.GET("", adminMiddleware(), client.GetAllUsers)
+		userAPI.GET("", middleware.AdminMiddleware(), client.GetAllUsers)
 
 		// create user (only admin)
-		userAPI.POST("", adminMiddleware(), client.CreateUser)
+		userAPI.POST("", middleware.AdminMiddleware(), client.CreateUser)
 
 		// delete user (only admin)
-		userAPI.DELETE("/:username", adminMiddleware(), client.DeleteUser)
+		userAPI.DELETE("/:username", middleware.AdminMiddleware(), client.DeleteUser)
 
 		// change password
 		userAPI.POST("/password", client.ChangePassword)
 
 		// admin reset user password
-		userAPI.POST("/:username/reset-password", adminMiddleware(), client.ResetPassword)
+		userAPI.POST("/:username/reset-password", middleware.AdminMiddleware(), client.ResetPassword)
 	}
 
 	// Hooks API group
 	hookAPI := g.Group("/hook")
-	hookAPI.Use(authMiddleware()) // add auth middleware
+	hookAPI.Use(middleware.AuthMiddleware()) // add auth middleware
 	{
 		// get all hooks
-		hookAPI.GET("", hook.GetAllHooks)
+		hookAPI.GET("", webhook.GetAllHooks)
 
 		// get single hook detail
-		hookAPI.GET("/:id", func(c *gin.Context) {
-			hookID := c.Param("id")
-			hookResponse := hook.GetHookByID(hookID)
-			if hookResponse == nil {
-				c.JSON(http.StatusNotFound, gin.H{"error": "Hook not found"})
-				return
-			}
-			c.JSON(http.StatusOK, hookResponse)
-		})
+		hookAPI.GET("/:id", webhook.HandleGetHookByID)
 
 		// trigger hook (test interface)
-		hookAPI.POST("/:id/trigger", func(c *gin.Context) {
-			hookID := c.Param("id")
-			hookResponse := hook.GetHookByID(hookID)
-			if hookResponse == nil {
-				c.JSON(http.StatusNotFound, gin.H{"error": "Hook not found"})
-				return
-			}
-
-			// execute hook command
-			success := false
-			output := ""
-			errorMsg := ""
-
-			if hookResponse.ExecuteCommand != "" {
-				// execute command
-				var cmd *exec.Cmd
-				if hookResponse.WorkingDirectory != "" {
-					cmd = exec.Command("bash", "-c", hookResponse.ExecuteCommand)
-					cmd.Dir = hookResponse.WorkingDirectory
-				} else {
-					cmd = exec.Command("bash", "-c", hookResponse.ExecuteCommand)
-				}
-
-				result, err := cmd.CombinedOutput()
-				output = string(result)
-				if err != nil {
-					errorMsg = err.Error()
-				} else {
-					success = true
-				}
-			} else {
-				success = true
-				output = "Hook triggered successfully (no execute command)"
-			}
-
-			// push WebSocket message
-			wsMessage := stream.WsMessage{
-				Type:      "hook_triggered",
-				Timestamp: time.Now(),
-				Data: stream.HookTriggeredMessage{
-					HookID:     hookID,
-					HookName:   hookResponse.Name,
-					Method:     c.Request.Method,
-					RemoteAddr: c.ClientIP(),
-					Success:    success,
-					Output:     output,
-					Error:      errorMsg,
-				},
-			}
-			stream.Global.Broadcast(wsMessage)
-
-			if success {
-				c.JSON(http.StatusOK, gin.H{
-					"message": "Hook triggered successfully",
-					"hook":    hookResponse.Name,
-					"output":  output,
-				})
-			} else {
-				c.JSON(http.StatusInternalServerError, gin.H{
-					"message": "Hook triggered failed",
-					"hook":    hookResponse.Name,
-					"error":   errorMsg,
-					"output":  output,
-				})
-			}
-		})
+		hookAPI.POST("/:id/trigger", webhook.HandleTriggerHook)
 
 		// reload hooks config interface
-		hookAPI.POST("/reload-config", func(c *gin.Context) {
-			if hook.HookManager == nil {
-				c.JSON(http.StatusInternalServerError, gin.H{
-					"error": "Hook manager not initialized",
-				})
-				return
-			}
-
-			// execute actual reload
-			err := hook.HookManager.ReloadAllHooks()
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{
-					"error":     "Load Hook failed",
-					"details":   err.Error(),
-					"hookCount": hook.HookManager.GetHookCount(),
-				})
-				return
-			}
-
-			// get loaded hooks count
-			hookCount := hook.HookManager.GetHookCount()
-
-			c.JSON(http.StatusOK, gin.H{
-				"message":   "Hooks config loaded successfully",
-				"hookCount": hookCount,
-			})
-		})
+		hookAPI.POST("/reload-config", webhook.HandleReloadHooksConfig)
 	}
 
 	// add websocket
 	ws := g.Group("/stream")
-	ws.Use(wsAuthMiddleware()) // use WebSocket auth middleware, support query parameter token
+	ws.Use(middleware.WsAuthMiddleware()) // use WebSocket auth middleware, support query parameter token
 	{
 		// frontend access address: "/stream?token=jwt-token-here"
-		ws.GET("", func(c *gin.Context) {
-			// Token has been verified by middleware, directly process WebSocket connection
-			stream.HandleWebSocket(c)
-		})
+		ws.GET("", stream.HandleWebSocket)
 
 		// also support path format with ID: /stream/:id
-		ws.GET("/:id", func(c *gin.Context) {
-			// Token has been verified by middleware, directly process WebSocket connection
-			stream.HandleWebSocket(c)
-		})
+		ws.GET("/:id", stream.HandleWebSocket)
 	}
 
 	// version management API group
 	versionAPI := g.Group("/version")
-	versionAPI.Use(authMiddleware()) // add auth middleware
+	versionAPI.Use(middleware.AuthMiddleware()) // add auth middleware
 	{
 		// get all projects list
 		versionAPI.GET("", version.GetProjects)
@@ -451,7 +234,7 @@ func InitRouter() *gin.Engine {
 
 	// plugin management API group (temporary empty interface)
 	pluginAPI := g.Group("/plugin")
-	pluginAPI.Use(authMiddleware()) // add authentication middleware
+	pluginAPI.Use(middleware.AuthMiddleware()) // add authentication middleware
 	{
 		// get all plugins list
 		pluginAPI.GET("", func(c *gin.Context) {
@@ -496,13 +279,13 @@ func InitRouter() *gin.Engine {
 	}
 
 	// client list API (get all sessions for current user)
-	g.GET("/client", authMiddleware(), client.GetClientSessions)
+	g.GET("/client", middleware.AuthMiddleware(), client.GetClientSessions)
 
 	// delete client API (logout specified session)
-	g.DELETE("/client/:id", authMiddleware(), adminMiddleware(), client.DeleteClientSession)
+	g.DELETE("/client/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), client.DeleteClientSession)
 
 	// delete current user's session
-	g.DELETE("/client/current", authMiddleware(), client.DeleteCurrentClientSession)
+	g.DELETE("/client/current", middleware.AuthMiddleware(), client.DeleteCurrentClientSession)
 
 	// modify current user password API (add to existing current route)
 	g.POST("/current/user/password", client.ModifyCurrentClientPassword)
@@ -511,24 +294,6 @@ func InitRouter() *gin.Engine {
 	routerInstance = g
 
 	return g
-}
-
-// GetAppConfig get application configuration
-func GetAppConfig() *types.AppConfig {
-	return types.GoHookAppConfig
-}
-
-// GetUsersConfig get users configuration
-func GetUsersConfig() *types.UsersConfig {
-	return types.GoHookUsersConfig
-}
-
-// GetConfiguredPort get configured port
-func GetConfiguredPort() int {
-	if types.GoHookAppConfig != nil {
-		return types.GoHookAppConfig.Port
-	}
-	return 9000 // default port
 }
 
 // global router instance

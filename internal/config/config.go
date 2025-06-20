@@ -3,8 +3,10 @@ package config
 import (
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 
+	"github.com/gin-gonic/gin"
 	"github.com/mycoool/gohook/internal/types"
 	"gopkg.in/yaml.v2"
 )
@@ -107,4 +109,35 @@ func SaveVersionConfig() error {
 	}
 
 	return nil
+}
+
+// GetAppConfig get application configuration
+func GetAppConfig() *types.AppConfig {
+	return types.GoHookAppConfig
+}
+
+// GetUsersConfig get users configuration
+func GetUsersConfig() *types.UsersConfig {
+	return types.GoHookUsersConfig
+}
+
+// GetConfiguredPort get configured port
+func GetConfiguredPort() int {
+	if types.GoHookAppConfig != nil {
+		return types.GoHookAppConfig.Port
+	}
+	return 9000 // default port
+}
+
+func HandleGetAppConfig(c *gin.Context) {
+	if types.GoHookAppConfig == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "App config not loaded"})
+		return
+	}
+
+	// only return safe config fields, not including secrets
+	c.JSON(http.StatusOK, gin.H{
+		"port": types.GoHookAppConfig.Port,
+		"mode": types.GoHookAppConfig.Mode,
+	})
 }

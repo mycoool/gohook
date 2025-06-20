@@ -166,3 +166,11 @@ type HookResponse struct {
 	LastUsed               *string  `json:"lastUsed"`
 	Status                 string   `json:"status"` // active, inactive
 }
+
+func (c *AppConfig) SetMode(mode string) {
+	// only "test" or "dev" or "prod" is allowed
+	if mode != "test" && mode != "dev" && mode != "prod" {
+		mode = "test"
+	}
+	c.Mode = mode
+}
