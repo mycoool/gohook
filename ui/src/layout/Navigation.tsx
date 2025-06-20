@@ -1,42 +1,43 @@
-import Divider from '@material-ui/core/Divider';
-import Drawer from '@material-ui/core/Drawer';
-import {StyleRules, Theme, WithStyles, withStyles} from '@material-ui/core/styles';
+import Divider from '@mui/material/Divider';
+import Drawer from '@mui/material/Drawer';
+import {Theme, styled} from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import React, {Component} from 'react';
 import {Link} from 'react-router-dom';
 import {observer} from 'mobx-react';
 import {mayAllowPermission, requestPermission} from '../snack/browserNotification';
 import {
     Button,
-    Hidden,
     IconButton,
     Typography,
     ListItem,
+    ListItemButton,
     ListItemText,
     ListItemAvatar,
     Avatar,
-} from '@material-ui/core';
-import {DrawerProps} from '@material-ui/core/Drawer/Drawer';
-import CloseIcon from '@material-ui/icons/Close';
-import PeopleIcon from '@material-ui/icons/People';
+} from '@mui/material';
+import {DrawerProps} from '@mui/material/Drawer';
+import CloseIcon from '@mui/icons-material/Close';
+import PeopleIcon from '@mui/icons-material/People';
 
-const styles = (theme: Theme): StyleRules<'root' | 'drawerPaper' | 'toolbar' | 'link'> => ({
-    root: {
-        height: '100%',
-    },
-    drawerPaper: {
-        position: 'relative',
+const StyledDrawer = styled(Drawer)(({ theme }) => ({
+    height: '100%',
+    '& .MuiDrawer-paper': {
+        position: 'fixed',
         width: 250,
-        minHeight: '100%',
         height: '100vh',
+        top: 10, // Header的高度
+        left: 0,
+        zIndex: theme.zIndex.drawer,
     },
-    toolbar: theme.mixins.toolbar,
-    link: {
-        color: 'inherit',
-        textDecoration: 'none',
-    },
-});
+}));
 
-type Styles = WithStyles<'root' | 'drawerPaper' | 'toolbar' | 'link'>;
+const Toolbar = styled('div')(({ theme }) => theme.mixins.toolbar);
+
+const StyledLink = styled(Link)({
+    color: 'inherit',
+    textDecoration: 'none',
+});
 
 interface IProps {
     loggedIn: boolean;
@@ -46,32 +47,30 @@ interface IProps {
 }
 
 @observer
-class Navigation extends Component<IProps & Styles, {showRequestNotification: boolean}> {
+class Navigation extends Component<IProps, {showRequestNotification: boolean}> {
     public state = {showRequestNotification: mayAllowPermission()};
 
     public render() {
-        const {classes, loggedIn, navOpen, setNavOpen, user} = this.props;
+        const {loggedIn, navOpen, setNavOpen, user} = this.props;
         const {showRequestNotification} = this.state;
 
         const isAdmin = user?.admin ?? user?.role === 'admin';
 
         return (
             <ResponsiveDrawer
-                classes={{root: classes.root, paper: classes.drawerPaper}}
                 navOpen={navOpen}
                 setNavOpen={setNavOpen}
                 id="message-navigation">
-                <div className={classes.toolbar} />
+                <Toolbar />
                 {React.createElement(
-                    Link as any,
+                    StyledLink as any,
                     {
-                        className: classes.link,
                         to: '/',
                         onClick: () => setNavOpen(false),
                     },
-                    <ListItem button disabled={!loggedIn} className="all">
+                    <ListItemButton disabled={!loggedIn} className="all">
                         <ListItemText primary="All Projects" />
-                    </ListItem>
+                    </ListItemButton>
                 )}
                 <Divider />
                 <Typography align="center" style={{marginTop: 10}}>
@@ -92,22 +91,43 @@ class Navigation extends Component<IProps & Styles, {showRequestNotification: bo
 
 const ResponsiveDrawer: React.FC<
     DrawerProps & {navOpen: boolean; setNavOpen: (open: boolean) => void}
-> = ({navOpen, setNavOpen, children, ...rest}) => (
-    <>
-        <Hidden smUp implementation="css">
-            <Drawer variant="temporary" open={navOpen} {...rest}>
-                <IconButton onClick={() => setNavOpen(false)}>
-                    <CloseIcon />
-                </IconButton>
-                {children}
-            </Drawer>
-        </Hidden>
-        <Hidden xsDown implementation="css">
-            <Drawer variant="permanent" {...rest}>
-                {children}
-            </Drawer>
-        </Hidden>
-    </>
-);
+> = ({navOpen, setNavOpen, children, ...rest}) => {
+    const isSmUp = useMediaQuery((theme: Theme) => theme.breakpoints.up('sm'));
+    const isXsDown = useMediaQuery((theme: Theme) => theme.breakpoints.down('sm'));
 
-export default withStyles(styles, {withTheme: true})(Navigation);
+    return (
+        <>
+            {!isSmUp && (
+                <Drawer 
+                    variant="temporary" 
+                    open={navOpen} 
+                    onClose={() => setNavOpen(false)}
+                    ModalProps={{
+                        keepMounted: true, // 提高移动端性能
+                    }}
+                    {...rest}
+                    sx={{
+                        '& .MuiDrawer-paper': {
+                            position: 'fixed',
+                            top: 0,
+                            height: '100vh',
+                            width: 250,
+                        }
+                    }}
+                >
+                    <IconButton onClick={() => setNavOpen(false)} size="large">
+                        <CloseIcon />
+                    </IconButton>
+                    {children}
+                </Drawer>
+            )}
+            {!isXsDown && (
+                <StyledDrawer variant="permanent" {...rest}>
+                    {children}
+                </StyledDrawer>
+            )}
+        </>
+    );
+};
+
+export default Navigation;

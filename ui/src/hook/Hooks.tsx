@@ -1,47 +1,49 @@
-import Grid from '@material-ui/core/Grid';
-import IconButton from '@material-ui/core/IconButton';
-import Paper from '@material-ui/core/Paper';
-import Table from '@material-ui/core/Table';
-import TableBody from '@material-ui/core/TableBody';
-import TableCell from '@material-ui/core/TableCell';
-import TableHead from '@material-ui/core/TableHead';
-import TableRow from '@material-ui/core/TableRow';
-import Delete from '@material-ui/icons/Delete';
-import PlayArrow from '@material-ui/icons/PlayArrow';
-import Refresh from '@material-ui/icons/Refresh';
-import CloudDownload from '@material-ui/icons/CloudDownload';
-import ButtonGroup from '@material-ui/core/ButtonGroup';
+import Grid from '@mui/material/Grid';
+import IconButton from '@mui/material/IconButton';
+import Paper from '@mui/material/Paper';
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
+import Delete from '@mui/icons-material/Delete';
+import PlayArrow from '@mui/icons-material/PlayArrow';
+import Refresh from '@mui/icons-material/Refresh';
+import CloudDownload from '@mui/icons-material/CloudDownload';
+import ButtonGroup from '@mui/material/ButtonGroup';
 import React, {Component} from 'react';
 import ConfirmDialog from '../common/ConfirmDialog';
 import DefaultPage from '../common/DefaultPage';
-import Button from '@material-ui/core/Button';
-import Chip from '@material-ui/core/Chip';
+import Button from '@mui/material/Button';
+import Chip from '@mui/material/Chip';
 import {observer} from 'mobx-react';
 import {observable} from 'mobx';
 import {inject, Stores} from '../inject';
 import {IHook} from '../types';
 import {LastUsedCell} from '../common/LastUsedCell';
 import useTranslation from '../i18n/useTranslation';
-import {withStyles, WithStyles, Theme, createStyles} from '@material-ui/core/styles';
+import { Theme } from '@mui/material/styles';
 
-// 添加样式定义
-const styles = (theme: Theme) =>
+import { WithStyles } from '@mui/styles';
+import withStyles from '@mui/styles/withStyles';
+import createStyles from '@mui/styles/createStyles';
+
+// 添加样式定义 - 优化代码块显示效果
+const styles = () =>
     createStyles({
         codeBlock: {
-            fontSize: '0.85em',
-            backgroundColor:
-                theme.palette.type === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
-            color: theme.palette.text.primary,
-            padding: '2px 4px',
-            borderRadius: '3px',
-            border:
-                theme.palette.type === 'dark'
-                    ? '1px solid rgba(255, 255, 255, 0.2)'
-                    : '1px solid rgba(0, 0, 0, 0.2)',
+            fontSize: '0.875rem',
+            backgroundColor: '#21262d',
+            color: '#e6edf3',
+            padding: '4px 8px',
+            borderRadius: '6px',
+            border: '1px solid #30363d',
+            fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+            fontWeight: 400,
         },
         workingDir: {
             fontSize: '0.8em',
-            color: theme.palette.text.secondary,
+            color: '#8b949e',
             marginTop: '4px',
         },
     });
@@ -130,7 +132,7 @@ const HooksContainer: React.FC<{
                 </ButtonGroup>
             }
             maxWidth={1200}>
-            <Grid item xs={12}>
+            <Grid size={12}>
                 <Paper elevation={6} style={{overflowX: 'auto'}}>
                     <Table id="hook-table">
                         <TableHead>

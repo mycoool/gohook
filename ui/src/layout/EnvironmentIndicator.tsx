@@ -1,6 +1,6 @@
 import React, {Component} from 'react';
 import {observer} from 'mobx-react';
-import {Chip} from '@material-ui/core';
+import {Chip} from '@mui/material';
 import {inject, Stores} from '../inject';
 import useTranslation from '../i18n/useTranslation';
 

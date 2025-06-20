@@ -1,5 +1,5 @@
-import Grid from '@material-ui/core/Grid';
-import Typography from '@material-ui/core/Typography';
+import Grid from '@mui/material/Grid';
+import Typography from '@mui/material/Typography';
 import React, {FC} from 'react';
 
 interface IProps {
@@ -7,6 +7,7 @@ interface IProps {
     rightControl?: React.ReactNode;
     maxWidth?: number;
     centerTitle?: boolean;
+    children?: React.ReactNode;
 }
 
 const DefaultPage: FC<IProps> = ({
@@ -17,11 +18,17 @@ const DefaultPage: FC<IProps> = ({
     children,
 }) => (
     <main style={{margin: '0 auto', maxWidth}}>
-        <Grid container spacing={4}>
-            <Grid item xs={12} style={{display: 'flex', flexWrap: 'wrap'}}>
+        <Grid container spacing={2}>
+            <Grid size={12} style={{display: 'flex', flexWrap: 'wrap', alignItems: 'center', marginBottom: '16px'}}>
                 <Typography
                     variant="h4"
-                    style={{flex: 1, textAlign: centerTitle ? 'center' : 'left'}}>
+                    style={{
+                        flex: 1, 
+                        textAlign: centerTitle ? 'center' : 'left',
+                        fontWeight: 600,
+                        color: '#f0f6fc',
+                        margin: 0
+                    }}>
                     {title}
                 </Typography>
                 {rightControl}

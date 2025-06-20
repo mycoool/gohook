@@ -1,8 +1,8 @@
-import Button from '@material-ui/core/Button';
-import Container from '@material-ui/core/Container';
-import Grid from '@material-ui/core/Grid';
-import TextField from '@material-ui/core/TextField';
-import Paper from '@material-ui/core/Paper';
+import Button from '@mui/material/Button';
+import Container from '@mui/material/Container';
+import Grid from '@mui/material/Grid';
+import TextField from '@mui/material/TextField';
+import Paper from '@mui/material/Paper';
 import React, {Component} from 'react';
 import {observable} from 'mobx';
 import {observer} from 'mobx-react';
@@ -135,7 +135,7 @@ const LoginContainer: React.FC<{
 
     return (
         <DefaultPage title={t('auth.login')} maxWidth={340} centerTitle={true}>
-            <Grid item xs={12} style={{textAlign: 'center'}}>
+            <Grid size={12} style={{textAlign: "center"}}>
                 <Container>
                     <Paper style={{padding: '30px 20px', marginTop: 30}}>
                         <LoginForm

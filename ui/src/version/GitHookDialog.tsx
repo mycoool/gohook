@@ -19,61 +19,67 @@ import {
     IconButton,
     InputAdornment,
     Snackbar,
-} from '@material-ui/core';
+} from '@mui/material';
 
-import {makeStyles} from '@material-ui/core/styles';
-import {FileCopy, Refresh} from '@material-ui/icons';
+import { styled } from '@mui/material/styles';
+import {FileCopy, Refresh} from '@mui/icons-material';
 import {IVersion} from '../types';
 import {useTranslation} from '../i18n/useTranslation';
 
-const useStyles = makeStyles((theme) => ({
-    content: {
-        minWidth: '500px',
-        paddingTop: theme.spacing(2),
-    },
-    section: {
-        marginBottom: theme.spacing(3),
-    },
-    statusChip: {
-        marginLeft: theme.spacing(1),
-    },
-    branchInput: {
-        marginTop: theme.spacing(1),
-        width: '100%',
-    },
-    description: {
-        color: theme.palette.text.secondary,
-        fontSize: '0.875rem',
-        marginTop: theme.spacing(1),
-    },
-    webhookUrl: {
-        backgroundColor:
-            theme.palette.type === 'dark' ? theme.palette.grey[800] : theme.palette.grey[100],
-        color:
-            theme.palette.type === 'dark' ? theme.palette.common.white : theme.palette.common.black,
-        padding: theme.spacing(1),
-        borderRadius: theme.shape.borderRadius,
-        fontFamily: 'monospace',
-        fontSize: '0.875rem',
-        wordBreak: 'break-all',
-        marginTop: theme.spacing(1),
-        border: `1px solid ${
-            theme.palette.type === 'dark' ? theme.palette.grey[600] : theme.palette.grey[300]
-        }`,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-    },
-    webhookUrlText: {
-        flex: 1,
-        marginRight: theme.spacing(1),
-    },
-    passwordField: {
-        '& .MuiInputBase-input': {
-            fontFamily: 'monospace',
-        },
-    },
+const StyledDialogContent = styled(DialogContent)(({ theme }) => ({
+    minWidth: '500px',
+    paddingTop: '16px',
 }));
+
+const StyledSection = styled(Box)(({ theme }) => ({
+    marginBottom: '24px',
+}));
+
+const StyledStatusChip = styled(Chip)(({ theme }) => ({
+    marginLeft: '8px',
+}));
+
+const StyledBranchInput = styled(TextField)(({ theme }) => ({
+    marginTop: '8px',
+    width: '100%',
+}));
+
+const StyledDescription = styled(Typography)(({ theme }) => ({
+    color: theme.palette.text.secondary,
+    fontSize: '0.875rem',
+    marginTop: '8px',
+}));
+
+const StyledWebhookUrl = styled(Box)(({ theme }) => ({
+    backgroundColor: theme.palette.grey[100],
+    color: theme.palette.common.black,
+    padding: '8px',
+    borderRadius: theme.shape.borderRadius,
+    fontFamily: 'monospace',
+    fontSize: '0.875rem',
+    wordBreak: 'break-all',
+    marginTop: '8px',
+    border: `1px solid ${theme.palette.grey[300]}`,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    ...theme.applyStyles('dark', {
+        backgroundColor: theme.palette.grey[800],
+        color: theme.palette.common.white,
+        border: `1px solid ${theme.palette.grey[600]}`,
+    }),
+}));
+
+const StyledWebhookUrlText = styled(Box)(({ theme }) => ({
+    flex: 1,
+    marginRight: '8px',
+}));
+
+const StyledPasswordField = styled(TextField)({
+    '& .MuiInputBase-input': {
+        fontFamily: 'monospace',
+    },
+});
 
 interface GitHookDialogProps {
     open: boolean;
@@ -90,7 +96,6 @@ export interface GitHookConfig {
 }
 
 const GitHookDialog: React.FC<GitHookDialogProps> = ({open, project, onClose, onSave}) => {
-    const classes = useStyles();
     const {t} = useTranslation();
     const [enhook, setEnhook] = useState(false);
     const [hookmode, setHookmode] = useState<'branch' | 'tag'>('branch');
@@ -171,15 +176,14 @@ const GitHookDialog: React.FC<GitHookDialogProps> = ({open, project, onClose, on
         <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
             <DialogTitle>
                 {t('githook.title')} - {project.name}
-                <Chip
+                <StyledStatusChip
                     label={enhook ? t('githook.enabled') : t('githook.disabled')}
                     size="small"
                     color={enhook ? 'primary' : 'default'}
-                    className={classes.statusChip}
                 />
             </DialogTitle>
-            <DialogContent className={classes.content}>
-                <Box className={classes.section}>
+            <StyledDialogContent>
+                <StyledSection>
                     <FormControlLabel
                         control={
                             <Switch
@@ -190,14 +194,14 @@ const GitHookDialog: React.FC<GitHookDialogProps> = ({open, project, onClose, on
                         }
                         label={t('githook.enable')}
                     />
-                    <Typography className={classes.description}>
+                    <StyledDescription>
                         {t('githook.enableDescription')}
-                    </Typography>
-                </Box>
+                    </StyledDescription>
+                </StyledSection>
 
                 {enhook && (
                     <>
-                        <Box className={classes.section}>
+                        <StyledSection>
                             <FormControl component="fieldset">
                                 <FormLabel component="legend">{t('githook.runMode')}</FormLabel>
                                 <RadioGroup
@@ -217,15 +221,15 @@ const GitHookDialog: React.FC<GitHookDialogProps> = ({open, project, onClose, on
                                     />
                                 </RadioGroup>
                             </FormControl>
-                            <Typography className={classes.description}>
+                            <StyledDescription>
                                 {hookmode === 'branch'
                                     ? t('githook.branchModeDescription')
                                     : t('githook.tagModeDescription')}
-                            </Typography>
-                        </Box>
+                            </StyledDescription>
+                        </StyledSection>
 
                         {hookmode === 'branch' && (
-                            <Box className={classes.section}>
+                            <StyledSection>
                                 <FormControl component="fieldset" fullWidth>
                                     <FormLabel component="legend">
                                         {t('githook.branchSettings')}
@@ -252,8 +256,7 @@ const GitHookDialog: React.FC<GitHookDialogProps> = ({open, project, onClose, on
                                     </RadioGroup>
 
                                     {hookbranch !== '*' && (
-                                        <TextField
-                                            className={classes.branchInput}
+                                        <StyledBranchInput
                                             label={t('githook.branchName')}
                                             value={hookbranch}
                                             onChange={(e) => setHookbranch(e.target.value)}
@@ -263,21 +266,21 @@ const GitHookDialog: React.FC<GitHookDialogProps> = ({open, project, onClose, on
                                         />
                                     )}
                                 </FormControl>
-                                <Typography className={classes.description}>
+                                <StyledDescription>
                                     {hookbranch === '*'
                                         ? t('githook.anyBranchDescription')
                                         : t('githook.specificBranchDescription', {
                                               branch: hookbranch,
                                           })}
-                                </Typography>
-                            </Box>
+                                </StyledDescription>
+                            </StyledSection>
                         )}
 
-                        <Box className={classes.section}>
+                        <StyledSection>
                             <Typography variant="subtitle2" gutterBottom>
                                 {t('githook.webhookPassword')}
                             </Typography>
-                            <TextField
+                            <StyledPasswordField
                                 fullWidth
                                 label={t('githook.webhookPassword')}
                                 value={hooksecret}
@@ -286,7 +289,6 @@ const GitHookDialog: React.FC<GitHookDialogProps> = ({open, project, onClose, on
                                 variant="outlined"
                                 size="small"
                                 type="text"
-                                className={classes.passwordField}
                                 InputProps={{
                                     endAdornment: (
                                         <InputAdornment position="end">
@@ -312,17 +314,17 @@ const GitHookDialog: React.FC<GitHookDialogProps> = ({open, project, onClose, on
                                     ),
                                 }}
                             />
-                            <Typography className={classes.description}>
+                            <StyledDescription>
                                 {t('githook.webhookPasswordDescription')}
-                            </Typography>
-                        </Box>
+                            </StyledDescription>
+                        </StyledSection>
 
-                        <Box className={classes.section}>
+                        <StyledSection>
                             <Typography variant="subtitle2" gutterBottom>
                                 {t('githook.webhookUrl')}
                             </Typography>
-                            <Box className={classes.webhookUrl}>
-                                <span className={classes.webhookUrlText}>{getWebhookUrl()}</span>
+                            <StyledWebhookUrl>
+                                <StyledWebhookUrlText>{getWebhookUrl()}</StyledWebhookUrlText>
                                 <IconButton
                                     onClick={() =>
                                         copyToClipboard(getWebhookUrl(), t('githook.urlCopied'))
@@ -331,14 +333,14 @@ const GitHookDialog: React.FC<GitHookDialogProps> = ({open, project, onClose, on
                                     title={t('githook.copyUrl')}>
                                     <FileCopy fontSize="small" />
                                 </IconButton>
-                            </Box>
-                            <Typography className={classes.description}>
+                            </StyledWebhookUrl>
+                            <StyledDescription>
                                 {t('githook.webhookUrlDescription')}
-                            </Typography>
-                        </Box>
+                            </StyledDescription>
+                        </StyledSection>
                     </>
                 )}
-            </DialogContent>
+            </StyledDialogContent>
             <DialogActions>
                 <Button onClick={onClose} disabled={saving}>
                     {t('common.cancel')}

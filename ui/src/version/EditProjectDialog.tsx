@@ -10,7 +10,7 @@ import {
     Button,
     Grid,
     CircularProgress,
-} from '@material-ui/core';
+} from '@mui/material';
 import {IVersion} from '../types';
 import useTranslation from '../i18n/useTranslation';
 
@@ -120,7 +120,7 @@ const EditProjectDialogContent: React.FC<EditDialogContentProps> = ({
             <DialogTitle>{t('version.editProject')} - {project.name}</DialogTitle>
             <DialogContent>
                 <Grid container spacing={2}>
-                    <Grid item xs={12}>
+                    <Grid size={12}>
                         <TextField
                             autoFocus
                             margin="dense"
@@ -135,7 +135,7 @@ const EditProjectDialogContent: React.FC<EditDialogContentProps> = ({
                             helperText={t('version.projectNamePlaceholder')}
                         />
                     </Grid>
-                    <Grid item xs={12}>
+                    <Grid size={12}>
                         <TextField
                             margin="dense"
                             label={t('version.projectPath')}
@@ -150,7 +150,7 @@ const EditProjectDialogContent: React.FC<EditDialogContentProps> = ({
                             placeholder="/www/wwwroot/my-project"
                         />
                     </Grid>
-                    <Grid item xs={12}>
+                    <Grid size={12}>
                         <TextField
                             margin="dense"
                             label={t('version.projectDescription')}

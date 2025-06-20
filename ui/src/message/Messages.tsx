@@ -1,9 +1,9 @@
-import Grid from '@material-ui/core/Grid';
-import Typography from '@material-ui/core/Typography';
+import Grid from '@mui/material/Grid';
+import Typography from '@mui/material/Typography';
 import React, {Component} from 'react';
 import {RouteComponentProps} from 'react-router';
 import DefaultPage from '../common/DefaultPage';
-import Button from '@material-ui/core/Button';
+import Button from '@mui/material/Button';
 import Message from './Message';
 import {observer} from 'mobx-react';
 import {inject, Stores} from '../inject';
@@ -39,11 +39,7 @@ class Messages extends Component<IProps & Stores<'messagesStore'>, IState> {
 
     private isLoadingMore = false;
 
-    public componentWillReceiveProps(nextProps: IProps & Stores<'messagesStore'>) {
-        this.updateAllWithProps(nextProps);
-    }
-
-    public componentWillMount() {
+    public componentDidMount() {
         window.onscroll = () => {
             if (
                 window.innerHeight + window.pageYOffset >=
@@ -53,6 +49,12 @@ class Messages extends Component<IProps & Stores<'messagesStore'>, IState> {
             }
         };
         this.updateAll();
+    }
+
+    public componentDidUpdate(prevProps: IProps & Stores<'messagesStore'>) {
+        if (prevProps.match.params.id !== this.props.match.params.id) {
+            this.updateAllWithProps(this.props);
+        }
     }
 
     public render() {
@@ -122,7 +124,7 @@ class Messages extends Component<IProps & Stores<'messagesStore'>, IState> {
     }
 
     private label = (text: string) => (
-        <Grid item xs={12}>
+        <Grid size={12}>
             <Typography variant="caption" component="div" gutterBottom align="center">
                 {text}
             </Typography>
@@ -145,7 +147,7 @@ const MessagesContainer: React.FC<{
     onCloseDeleteAll: () => void;
     onConfirmDeleteAll: () => void;
     onLoadMore: () => void;
-    renderMessage: (message: IMessage) => JSX.Element;
+    renderMessage: (message: IMessage) => React.ReactElement;
 }> = ({
     appId,
     messages,
@@ -164,7 +166,7 @@ const MessagesContainer: React.FC<{
     const {t} = useTranslation();
 
     const label = (text: string) => (
-        <Grid item xs={12}>
+        <Grid size={12}>
             <Typography variant="caption" component="div" gutterBottom align="center">
                 {text}
             </Typography>

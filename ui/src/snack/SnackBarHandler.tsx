@@ -1,6 +1,6 @@
-import IconButton from '@material-ui/core/IconButton';
-import Snackbar from '@material-ui/core/Snackbar';
-import Close from '@material-ui/icons/Close';
+import IconButton from '@mui/material/IconButton';
+import Snackbar from '@mui/material/Snackbar';
+import Close from '@mui/icons-material/Close';
 import React, {Component} from 'react';
 import {observable, reaction} from 'mobx';
 import {observer} from 'mobx-react';
@@ -44,7 +44,8 @@ class SnackBarHandler extends Component<Stores<'snackManager'>> {
                         key="close"
                         aria-label="Close"
                         color="inherit"
-                        onClick={this.closeCurrentSnack}>
+                        onClick={this.closeCurrentSnack}
+                        size="large">
                         <Close />
                     </IconButton>
                 }

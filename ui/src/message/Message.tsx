@@ -1,7 +1,7 @@
-import IconButton from '@material-ui/core/IconButton';
-import {createStyles, Theme, withStyles, WithStyles} from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
-import Delete from '@material-ui/icons/Delete';
+import IconButton from '@mui/material/IconButton';
+import { styled } from '@mui/material/styles';
+import Typography from '@mui/material/Typography';
+import Delete from '@mui/icons-material/Delete';
 import React from 'react';
 import TimeAgo from 'react-timeago';
 import Container from '../common/Container';
@@ -10,63 +10,69 @@ import {Markdown} from '../common/Markdown';
 import {RenderMode, contentType} from './extras';
 import {IMessageExtras} from '../types';
 
-const styles = (theme: Theme) =>
-    createStyles({
-        header: {
-            display: 'flex',
-            flexWrap: 'wrap',
-            marginBottom: 0,
-        },
-        headerTitle: {
-            flex: 1,
-        },
-        trash: {
-            marginTop: -15,
-            marginRight: -15,
-        },
-        wrapperPadding: {
-            padding: 12,
-        },
-        messageContentWrapper: {
-            width: '100%',
-            maxWidth: 585,
-        },
-        image: {
-            marginRight: 15,
-            [theme.breakpoints.down('sm')]: {
-                width: 32,
-                height: 32,
-            },
-        },
-        date: {
-            [theme.breakpoints.down('sm')]: {
-                order: 1,
-                flexBasis: '100%',
-                opacity: 0.7,
-            },
-        },
-        imageWrapper: {
-            display: 'flex',
-        },
-        plainContent: {
-            whiteSpace: 'pre-wrap',
-        },
-        content: {
-            wordBreak: 'break-all',
-            '& p': {
-                margin: 0,
-            },
-            '& a': {
-                color: '#ff7f50',
-            },
-            '& pre': {
-                overflow: 'auto',
-            },
-            '& img': {
-                maxWidth: '100%',
-            },
-        },
-    });
+const MessageWrapper = styled('div')(({ theme }) => ({
+    padding: 12,
+}));
+
+const Header = styled('div')({
+    display: 'flex',
+    flexWrap: 'wrap',
+    marginBottom: 0,
+});
+
+const HeaderTitle = styled(Typography)({
+    flex: 1,
+});
+
+const TrashButton = styled(IconButton)({
+    marginTop: -15,
+    marginRight: -15,
+});
+
+const MessageContentWrapper = styled('div')({
+    width: '100%',
+    maxWidth: 585,
+});
+
+const Image = styled('img')(({ theme }) => ({
+    marginRight: 15,
+    [theme.breakpoints.down('lg')]: {
+        width: 32,
+        height: 32,
+    },
+}));
+
+const Date = styled(Typography)(({ theme }) => ({
+    [theme.breakpoints.down('lg')]: {
+        order: 1,
+        flexBasis: '100%',
+        opacity: 0.7,
+    },
+}));
+
+const ImageWrapper = styled('div')({
+    display: 'flex',
+});
+
+const PlainContent = styled('span')({
+    whiteSpace: 'pre-wrap',
+});
+
+const Content = styled('div')({
+    wordBreak: 'break-all',
+    '& p': {
+        margin: 0,
+    },
+    '& a': {
+        color: '#ff7f50',
+    },
+    '& pre': {
+        overflow: 'auto',
+    },
+    '& img': {
+        maxWidth: '100%',
+    },
+});
 
 interface IProps {
     title: string;
@@ -89,7 +95,7 @@ const priorityColor = (priority: number) => {
     }
 };
 
-class Message extends React.PureComponent<IProps & WithStyles<typeof styles>> {
+class Message extends React.PureComponent<IProps> {
     private node: HTMLDivElement | null = null;
 
     public componentDidMount = () =>
@@ -102,15 +108,15 @@ class Message extends React.PureComponent<IProps & WithStyles<typeof styles>> {
                 return <Markdown>{content}</Markdown>;
             case RenderMode.Plain:
             default:
-                return <span className={this.props.classes.plainContent}>{content}</span>;
+                return <PlainContent>{content}</PlainContent>;
         }
     };
 
     public render(): React.ReactNode {
-        const {fDelete, classes, title, date, image, priority} = this.props;
+        const {fDelete, title, date, image, priority} = this.props;
 
         return (
-            <div className={`${classes.wrapperPadding} message`} ref={(ref) => (this.node = ref)}>
+            <MessageWrapper className="message" ref={(ref) => { this.node = ref; }}>
                 <Container
                     style={{
                         display: 'flex',
@@ -118,37 +124,36 @@ class Message extends React.PureComponent<IProps & WithStyles<typeof styles>> {
                         borderLeftWidth: 6,
                         borderLeftStyle: 'solid',
                     }}>
-                    <div className={classes.imageWrapper}>
+                    <ImageWrapper>
                         {image !== null ? (
-                            <img
+                            <Image
                                 src={config.get('url') + image}
                                 alt="app logo"
                                 width="70"
                                 height="70"
-                                className={classes.image}
                             />
                         ) : null}
-                    </div>
-                    <div className={classes.messageContentWrapper}>
-                        <div className={classes.header}>
-                            <Typography className={`${classes.headerTitle} title`} variant="h5">
+                    </ImageWrapper>
+                    <MessageContentWrapper>
+                        <Header>
+                            <HeaderTitle className="title" variant="h5">
                                 {title}
-                            </Typography>
-                            <Typography variant="body1" className={classes.date}>
+                            </HeaderTitle>
+                            <Date variant="body1">
                                 <TimeAgo date={date} />
-                            </Typography>
-                            <IconButton onClick={fDelete} className={`${classes.trash} delete`}>
+                            </Date>
+                            <TrashButton onClick={fDelete} className="delete" size="large">
                                 <Delete />
-                            </IconButton>
-                        </div>
-                        <Typography component="div" className={`${classes.content} content`}>
+                            </TrashButton>
+                        </Header>
+                        <Content className="content">
                             {this.renderContent()}
-                        </Typography>
-                    </div>
+                        </Content>
+                    </MessageContentWrapper>
                 </Container>
-            </div>
+            </MessageWrapper>
         );
     }
 }
 
-export default withStyles(styles, {withTheme: true})(Message);
+export default Message;

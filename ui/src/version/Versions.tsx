@@ -1,32 +1,32 @@
-import Grid from '@material-ui/core/Grid';
-import Paper from '@material-ui/core/Paper';
-import Table from '@material-ui/core/Table';
-import TableBody from '@material-ui/core/TableBody';
-import TableCell from '@material-ui/core/TableCell';
-import TableHead from '@material-ui/core/TableHead';
-import TableRow from '@material-ui/core/TableRow';
-import Button from '@material-ui/core/Button';
-import ButtonGroup from '@material-ui/core/ButtonGroup';
-import IconButton from '@material-ui/core/IconButton';
-import Chip from '@material-ui/core/Chip';
-import TextField from '@material-ui/core/TextField';
-import Dialog from '@material-ui/core/Dialog';
-import DialogTitle from '@material-ui/core/DialogTitle';
-import DialogContent from '@material-ui/core/DialogContent';
-import DialogContentText from '@material-ui/core/DialogContentText';
-import DialogActions from '@material-ui/core/DialogActions';
-import CircularProgress from '@material-ui/core/CircularProgress';
-import Refresh from '@material-ui/icons/Refresh';
-import CloudDownload from '@material-ui/icons/CloudDownload';
-import Add from '@material-ui/icons/Add';
-import Delete from '@material-ui/icons/Delete';
-import Edit from '@material-ui/icons/Edit';
-import AccountTree from '@material-ui/icons/AccountTree';
-import LocalOffer from '@material-ui/icons/LocalOffer';
-import CloudQueue from '@material-ui/icons/CloudQueue';
-import GitHubIcon from '@material-ui/icons/GitHub';
-import Settings from '@material-ui/icons/SettingsApplications';
-import Link from '@material-ui/icons/Link';
+import Grid from '@mui/material/Grid';
+import Paper from '@mui/material/Paper';
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
+import Button from '@mui/material/Button';
+import ButtonGroup from '@mui/material/ButtonGroup';
+import IconButton from '@mui/material/IconButton';
+import Chip from '@mui/material/Chip';
+import TextField from '@mui/material/TextField';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogActions from '@mui/material/DialogActions';
+import CircularProgress from '@mui/material/CircularProgress';
+import Refresh from '@mui/icons-material/Refresh';
+import CloudDownload from '@mui/icons-material/CloudDownload';
+import Add from '@mui/icons-material/Add';
+import Delete from '@mui/icons-material/Delete';
+import Edit from '@mui/icons-material/Edit';
+import AccountTree from '@mui/icons-material/AccountTree';
+import LocalOffer from '@mui/icons-material/LocalOffer';
+import CloudQueue from '@mui/icons-material/CloudQueue';
+import GitHubIcon from '@mui/icons-material/GitHub';
+import Settings from '@mui/icons-material/SettingsApplications';
+import Link from '@mui/icons-material/Link';
 import React, {Component} from 'react';
 import DefaultPage from '../common/DefaultPage';
 import ConfirmDialog from '../common/ConfirmDialog';
@@ -553,7 +553,7 @@ const VersionsContainer: React.FC<{
                 </ButtonGroup>
             }
             maxWidth={1200}>
-            <Grid item xs={12}>
+            <Grid size={12}>
                 <Paper elevation={6} style={{overflowX: 'auto'}}>
                     <Table id="version-table">
                         <TableHead>

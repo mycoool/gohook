@@ -12,9 +12,10 @@ import {
     Select,
     FormControl,
     InputLabel,
-    withTheme,
     Theme,
-} from '@material-ui/core';
+    SelectChangeEvent,
+} from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import {inject, Stores} from '../inject';
 import {observer} from 'mobx-react';
 import Editor from 'react-simple-code-editor';
@@ -359,7 +360,7 @@ class EnvFileDialogModal extends Component<IProps & Stores<'snackManager'>, ISta
         });
     };
 
-    handleTemplateChange = (event: React.ChangeEvent<{value: unknown}>) => {
+    handleTemplateChange = (event: SelectChangeEvent<string>) => {
         const templateKey = event.target.value as string;
         this.setState({
             selectedTemplate: templateKey,
@@ -416,8 +417,8 @@ class EnvFileDialogModal extends Component<IProps & Stores<'snackManager'>, ISta
         const formatIndicator = isTomlContent ? 'TOML' : 'ENV';
         const formatColor = isTomlContent ? '#4CAF50' : '#2196F3';
 
-        // 检测是否为深色主题
-        const isDarkTheme = theme?.palette?.type === 'dark';
+        // 检测是否为深色主题 - 从localStorage获取
+        const isDarkTheme = localStorage.getItem('gohook-theme') === 'dark';
 
         // 根据主题选择编辑器样式
         const editorStyles = {
@@ -434,7 +435,7 @@ class EnvFileDialogModal extends Component<IProps & Stores<'snackManager'>, ISta
         const editorContainerStyle = {
             border: `1px solid ${isDarkTheme ? '#444' : '#e0e0e0'}`,
             borderRadius: 4,
-            background: isDarkTheme ? '#1e1e1e' : isEditMode ? '#f8f8f8' : '#fafafa',
+            background: isDarkTheme ? '#2d2d2d' : isEditMode ? '#f8f8f8' : '#fafafa',
             maxHeight: 400, // 限制容器最大高度
             overflow: 'auto', // 容器处理滚动
         };
@@ -450,6 +451,8 @@ class EnvFileDialogModal extends Component<IProps & Stores<'snackManager'>, ISta
                     style: {
                         maxHeight: '85vh', // 限制对话框最大高度
                         height: 'auto',
+                        backgroundColor: isDarkTheme ? '#161b22' : '#ffffff',
+                        color: isDarkTheme ? '#ffffff' : '#000000',
                     },
                 }}>
                 <DialogTitle>
@@ -569,4 +572,4 @@ class EnvFileDialogModal extends Component<IProps & Stores<'snackManager'>, ISta
     }
 }
 
-export default inject('snackManager')(withTheme(EnvFileDialogModal));
+export default inject('snackManager')(EnvFileDialogModal);

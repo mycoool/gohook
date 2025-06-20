@@ -10,7 +10,8 @@ import {
     Typography,
     Box,
     Grid,
-} from '@material-ui/core';
+} from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 
 import DefaultPage from '../common/DefaultPage';
 import {inject, Stores} from '../inject';
@@ -253,7 +254,8 @@ class EnvFileDialog extends Component<IProps & Stores<'versionStore' | 'snackMan
 
     render() {
         const {editingEnvFile, envFileContent, hasEnvFile, errors, isTomlContent} = this.state;
-        const isDarkMode = false; // We'll get this from theme later
+        // 获取当前主题模式
+        const isDarkMode = localStorage.getItem('gohook-theme') === 'dark';
 
         // format indicator
         const formatIndicator = isTomlContent ? 'TOML' : 'ENV';
@@ -321,7 +323,6 @@ app.cache.size = 1024`;
                         format content.
                     </Typography>
                 </Box>
-
                 {hasEnvFile ? (
                     <Box mb={2}>
                         <Box
@@ -351,11 +352,26 @@ app.cache.size = 1024`;
                         <Box
                             p={2}
                             border={1}
-                            borderColor="grey.300"
-                            borderRadius={1}
-                            bgcolor={isDarkMode ? 'grey.900' : 'grey.50'}
+                            borderColor={isDarkMode ? '#30363d' : '#d0d7de'}
+                            borderRadius="6px"
+                            bgcolor={isDarkMode ? '#0d1117' : '#f6f8fa'}
                             maxHeight="400px"
-                            overflow="auto">
+                            overflow="auto"
+                            sx={{
+                                '&::-webkit-scrollbar': {
+                                    width: '8px',
+                                },
+                                '&::-webkit-scrollbar-track': {
+                                    backgroundColor: isDarkMode ? '#161b22' : '#f1f3f4',
+                                },
+                                '&::-webkit-scrollbar-thumb': {
+                                    backgroundColor: isDarkMode ? '#30363d' : '#c1c8cd',
+                                    borderRadius: '4px',
+                                },
+                                '&::-webkit-scrollbar-thumb:hover': {
+                                    backgroundColor: isDarkMode ? '#484f58' : '#a8b3ba',
+                                },
+                            }}>
                             <Typography
                                 variant="body2"
                                 component="div"
@@ -381,8 +397,13 @@ app.cache.size = 1024`;
                             No .env file found. You can create one using different formats:
                         </Typography>
                         <Grid container spacing={2}>
-                            <Grid item xs={12} sm={6}>
-                                <Box p={2} border={1} borderColor="grey.300" borderRadius={1}>
+                            <Grid size={{xs: 12, sm: 6}}>
+                                <Box 
+                                    p={2} 
+                                    border={1} 
+                                    borderColor={isDarkMode ? '#30363d' : '#d0d7de'} 
+                                    borderRadius="6px"
+                                    bgcolor={isDarkMode ? '#161b22' : '#ffffff'}>
                                     <Typography variant="h6" gutterBottom>
                                         Standard ENV Format
                                     </Typography>
@@ -397,8 +418,13 @@ app.cache.size = 1024`;
                                     </Button>
                                 </Box>
                             </Grid>
-                            <Grid item xs={12} sm={6}>
-                                <Box p={2} border={1} borderColor="grey.300" borderRadius={1}>
+                            <Grid size={{xs: 12, sm: 6}}>
+                                <Box 
+                                    p={2} 
+                                    border={1} 
+                                    borderColor={isDarkMode ? '#30363d' : '#d0d7de'} 
+                                    borderRadius="6px"
+                                    bgcolor={isDarkMode ? '#161b22' : '#ffffff'}>
                                     <Typography variant="h6" gutterBottom>
                                         TOML Format
                                     </Typography>
@@ -424,12 +450,17 @@ app.cache.size = 1024`;
                         </Box>
                     </Box>
                 )}
-
                 <Dialog
                     open={editingEnvFile}
                     onClose={this.closeEnvFileEditor}
                     maxWidth="md"
-                    fullWidth>
+                    fullWidth
+                    PaperProps={{
+                        sx: {
+                            backgroundColor: isDarkMode ? '#161b22' : '#ffffff',
+                            color: isDarkMode ? '#e6edf3' : '#000000',
+                        }
+                    }}>
                     <DialogTitle>
                         <Box display="flex" alignItems="center" justifyContent="space-between">
                             <span>Edit .env File</span>
@@ -456,8 +487,31 @@ app.cache.size = 1024`;
                             }
                             InputProps={{
                                 style: {
-                                    fontFamily: 'monospace',
+                                    fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
                                     fontSize: '13px',
+                                    backgroundColor: isDarkMode ? '#0d1117' : '#ffffff',
+                                    color: isDarkMode ? '#e6edf3' : '#000000',
+                                },
+                            }}
+                            sx={{
+                                '& .MuiOutlinedInput-root': {
+                                    backgroundColor: isDarkMode ? '#0d1117' : '#ffffff',
+                                    '& fieldset': {
+                                        borderColor: isDarkMode ? '#30363d' : '#d0d7de',
+                                    },
+                                    '&:hover fieldset': {
+                                        borderColor: isDarkMode ? '#58a6ff' : '#0969da',
+                                    },
+                                    '&.Mui-focused fieldset': {
+                                        borderColor: isDarkMode ? '#58a6ff' : '#0969da',
+                                    },
+                                },
+                                '& .MuiInputBase-input': {
+                                    color: isDarkMode ? '#e6edf3' : '#000000',
+                                },
+                                '& .MuiInputBase-input::placeholder': {
+                                    color: isDarkMode ? '#8b949e' : '#656d76',
+                                    opacity: 1,
                                 },
                             }}
                         />

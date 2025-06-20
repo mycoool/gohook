@@ -5,12 +5,12 @@ import {UnControlled as CodeMirror} from 'react-codemirror2';
 import 'codemirror/lib/codemirror.css';
 import 'codemirror/theme/material.css';
 import 'codemirror/mode/yaml/yaml';
-import Info from '@material-ui/icons/Info';
-import Build from '@material-ui/icons/Build';
-import Subject from '@material-ui/icons/Subject';
-import Refresh from '@material-ui/icons/Refresh';
-import Button from '@material-ui/core/Button';
-import Typography from '@material-ui/core/Typography';
+import Info from '@mui/icons-material/Info';
+import Build from '@mui/icons-material/Build';
+import Subject from '@mui/icons-material/Subject';
+import Refresh from '@mui/icons-material/Refresh';
+import Button from '@mui/material/Button';
+import Typography from '@mui/material/Typography';
 import DefaultPage from '../common/DefaultPage';
 import * as config from '../config';
 import Container from '../common/Container';
@@ -34,13 +34,15 @@ class PluginDetailView extends Component<IProps & Stores<'pluginStore'>, IState>
         currentConfig: null,
     };
 
-    public componentWillMount() {
+    public componentDidMount() {
         this.refreshFeatures();
     }
 
-    public componentWillReceiveProps(nextProps: IProps & Stores<'pluginStore'>) {
-        this.pluginID = parseInt(nextProps.match.params.id, 10);
-        this.refreshFeatures();
+    public componentDidUpdate(prevProps: IProps & Stores<'pluginStore'>) {
+        if (prevProps.match.params.id !== this.props.match.params.id) {
+            this.pluginID = parseInt(this.props.match.params.id, 10);
+            this.refreshFeatures();
+        }
     }
 
     private async refreshFeatures() {
@@ -124,6 +126,7 @@ interface IPanelWrapperProps {
     description?: string;
     refresh?: () => Promise<void>;
     icon?: React.ComponentType;
+    children?: React.ReactNode;
 }
 
 const PanelWrapper: React.FC<IPanelWrapperProps> = ({

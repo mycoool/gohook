@@ -7,7 +7,7 @@ import {
     TextField,
     Button,
     Grid,
-} from '@material-ui/core';
+} from '@mui/material';
 import {observer} from 'mobx-react';
 import {observable} from 'mobx';
 
@@ -46,7 +46,7 @@ export default class AddProjectDialog extends Component<IProps> {
                 <DialogTitle>添加新项目</DialogTitle>
                 <DialogContent>
                     <Grid container spacing={2}>
-                        <Grid item xs={12}>
+                        <Grid size={12}>
                             <TextField
                                 autoFocus
                                 margin="dense"
@@ -61,7 +61,7 @@ export default class AddProjectDialog extends Component<IProps> {
                                 helperText="项目的唯一标识符"
                             />
                         </Grid>
-                        <Grid item xs={12}>
+                        <Grid size={12}>
                             <TextField
                                 margin="dense"
                                 label="项目路径"
@@ -76,7 +76,7 @@ export default class AddProjectDialog extends Component<IProps> {
                                 placeholder="/www/wwwroot/my-project"
                             />
                         </Grid>
-                        <Grid item xs={12}>
+                        <Grid size={12}>
                             <TextField
                                 margin="dense"
                                 label="项目描述"

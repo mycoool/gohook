@@ -1,6 +1,6 @@
 import React from 'react';
-import {IconButton, Menu, MenuItem, Tooltip} from '@material-ui/core';
-import {GTranslate as LanguageIcon} from '@material-ui/icons';
+import {IconButton, Menu, MenuItem, Tooltip} from '@mui/material';
+import {GTranslate as LanguageIcon} from '@mui/icons-material';
 // import { useTranslation } from 'react-i18next';
 
 interface LanguageOption {
@@ -43,7 +43,7 @@ export const LanguageSwitcher: React.FC = () => {
     return (
         <>
             <Tooltip title="切换语言 / Switch Language">
-                <IconButton color="inherit" onClick={handleClick}>
+                <IconButton color="inherit" onClick={handleClick} size="large">
                     <LanguageIcon />
                 </IconButton>
             </Tooltip>
@@ -52,7 +52,6 @@ export const LanguageSwitcher: React.FC = () => {
                 keepMounted
                 open={Boolean(anchorEl)}
                 onClose={handleClose}
-                getContentAnchorEl={null}
                 anchorOrigin={{
                     vertical: 'bottom',
                     horizontal: 'center',

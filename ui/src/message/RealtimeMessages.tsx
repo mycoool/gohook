@@ -11,7 +11,7 @@ import {
     IconButton,
     Tooltip,
     Fab,
-} from '@material-ui/core';
+} from '@mui/material';
 import {
     CheckCircle as SuccessIcon,
     Error as ErrorIcon,
@@ -20,7 +20,7 @@ import {
     Refresh as RefreshIcon,
     Visibility as VisibilityIcon,
     VisibilityOff as VisibilityOffIcon,
-} from '@material-ui/icons';
+} from '@mui/icons-material';
 import {observer} from 'mobx-react';
 import {observable, action} from 'mobx';
 import {inject, Stores} from '../inject';

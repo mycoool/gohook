@@ -35,6 +35,6 @@ export const inject =
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         mobxInject(...stores)(node) as any;
 
-export const InjectProvider: React.FC<{stores: StoreMapping}> = ({children, stores}) => (
+export const InjectProvider: React.FC<{stores: StoreMapping; children?: React.ReactNode}> = ({children, stores}) => (
     <Provider {...stores}>{children}</Provider>
 );
