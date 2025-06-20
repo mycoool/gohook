@@ -68,21 +68,19 @@ export class CurrentUser {
         this.authenticating = true;
         const browser = detect();
         const name = (browser && browser.name + ' ' + browser.version) || 'unknown browser';
-        
+
         try {
-            const resp = await axios
-                .create()
-                .request({
-                    url: config.get('url') + 'client',
-                    method: 'POST',
-                    data: {name},
-                    // eslint-disable-next-line @typescript-eslint/naming-convention
-                    headers: {Authorization: 'Basic ' + Base64.encode(username + ':' + password)},
-                });
-            
+            const resp = await axios.create().request({
+                url: config.get('url') + 'client',
+                method: 'POST',
+                data: {name},
+                // eslint-disable-next-line @typescript-eslint/naming-convention
+                headers: {Authorization: 'Basic ' + Base64.encode(username + ':' + password)},
+            });
+
             this.snack(`A client named '${name}' was created for your session.`);
             this.setToken(resp.data.token);
-            
+
             try {
                 await this.tryAuthenticate();
                 return true;
@@ -94,16 +92,16 @@ export class CurrentUser {
             }
         } catch (error: unknown) {
             this.authenticating = false;
-            
+
             // 处理不同类型的错误
             const axiosError = error as AxiosError;
             if (!axiosError || !axiosError.response) {
                 this.snack('No network connection or server unavailable.');
                 return false;
             }
-            
+
             const {data, status} = axiosError.response;
-            
+
             if (status === 401) {
                 // 用户名或密码错误
                 const errorMessage = data?.error || 'Invalid username or password';
@@ -113,7 +111,7 @@ export class CurrentUser {
             } else {
                 this.snack(`Login failed: ${data?.error || 'Unknown error'}`);
             }
-            
+
             return false;
         }
     };
@@ -168,14 +166,17 @@ export class CurrentUser {
             if (token) {
                 // 优先尝试删除服务器上的会话
                 await axios.delete(config.get('url') + 'client/current', {
-                    headers: {'X-GoHook-Key': token}
+                    headers: {'X-GoHook-Key': token},
                 });
                 console.log('Session deletion request sent to server.');
             }
         } catch (error) {
             // 即使请求失败，我们也不关心，因为最终会清理本地状态
             if (process.env.NODE_ENV === 'development') {
-                console.warn('Failed to delete session on server. This can be ignored as user will be logged out locally.', error);
+                console.warn(
+                    'Failed to delete session on server. This can be ignored as user will be logged out locally.',
+                    error
+                );
             }
         } finally {
             // 无论如何，都确保清理本地状态，完成登出
@@ -188,15 +189,21 @@ export class CurrentUser {
 
     public changePassword = (oldPassword: string, newPassword: string) => {
         axios
-            .post(config.get('url') + 'user/password', {
-                oldPassword: oldPassword,
-                newPassword: newPassword
-            }, {
-                headers: {'X-GoHook-Key': this.token()}
-            })
+            .post(
+                config.get('url') + 'user/password',
+                {
+                    oldPassword: oldPassword,
+                    newPassword: newPassword,
+                },
+                {
+                    headers: {'X-GoHook-Key': this.token()},
+                }
+            )
             .then(() => this.snack('Password changed'))
             .catch((error) => {
-                this.snack('Failed to change password: ' + (error.response?.data?.error || error.message));
+                this.snack(
+                    'Failed to change password: ' + (error.response?.data?.error || error.message)
+                );
             });
     };
 

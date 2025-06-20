@@ -22,7 +22,9 @@ export const clickByText = async (page: Page, selector: string, text: string): P
             if (element) {
                 (element as HTMLElement).click();
             } else {
-                throw new Error(`Element with selector "${_selector}" and text "${_text}" not found for clicking.`);
+                throw new Error(
+                    `Element with selector "${_selector}" and text "${_text}" not found for clicking.`
+                );
             }
         },
         selector,

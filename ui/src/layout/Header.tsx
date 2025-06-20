@@ -120,7 +120,7 @@ class Header extends Component<IProps> {
                     {loggedIn && this.renderButtons(name, admin, logout, width, setNavOpen)}
                     <div>
                         <LanguageSwitcher />
-                        
+
                         <IconButton onClick={toggleTheme} color="inherit">
                             <Highlight />
                         </IconButton>
@@ -165,9 +165,9 @@ class Header extends Component<IProps> {
                         icon={<AccountTree />}
                         translationKey="nav.versions"
                         fallbackLabel="versions"
-                            width={width}
-                            color="inherit"
-                        />
+                        width={width}
+                        color="inherit"
+                    />
                 </RouterLink>
                 <RouterLink className={classes.link} to="/hooks" id="navigate-hooks">
                     <ResponsiveButtonWithTranslation
@@ -234,11 +234,11 @@ const ResponsiveButtonWithTranslation: React.FC<{
     onClick?: () => void;
     icon: React.ReactNode;
 }> = ({width, icon, translationKey, fallbackLabel, customLabel, ...rest}) => {
-    const { t } = useTranslation();
-    
+    const {t} = useTranslation();
+
     // 如果有自定义标签（如用户名），优先使用
     const label = customLabel ?? t(translationKey) ?? fallbackLabel;
-    
+
     if (width === 'xs' || width === 'sm') {
         return <IconButton {...rest}>{icon}</IconButton>;
     }

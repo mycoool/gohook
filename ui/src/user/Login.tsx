@@ -38,13 +38,13 @@ class Login extends Component<Stores<'currentUser'>> {
         if (event) {
             event.preventDefault();
         }
-        
+
         if (this.isLogging) {
             return;
         }
-        
+
         this.isLogging = true;
-        
+
         try {
             await this.props.currentUser.login(this.username, this.password);
         } catch (error) {
@@ -65,7 +65,7 @@ const LoginForm: React.FC<{
     disabled: boolean;
     isLogging: boolean;
 }> = ({username, password, onUsernameChange, onPasswordChange, onLogin, disabled, isLogging}) => {
-    const { t } = useTranslation();
+    const {t} = useTranslation();
 
     const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -81,43 +81,43 @@ const LoginForm: React.FC<{
 
     return (
         <form onSubmit={handleSubmit} id="login-form">
-                            <TextField
-                                autoFocus
-                                className="name"
+            <TextField
+                autoFocus
+                className="name"
                 label={t('auth.username')}
-                                margin="dense"
+                margin="dense"
                 fullWidth
-                                autoComplete="username"
-                                value={username}
+                autoComplete="username"
+                value={username}
                 onChange={(e) => onUsernameChange(e.target.value)}
-                                onKeyDown={handleKeyDown}
-                                disabled={disabled}
-                            />
-                            <TextField
-                                type="password"
-                                className="password"
+                onKeyDown={handleKeyDown}
+                disabled={disabled}
+            />
+            <TextField
+                type="password"
+                className="password"
                 label={t('auth.password')}
-                                margin="normal"
+                margin="normal"
                 fullWidth
-                                autoComplete="current-password"
-                                value={password}
+                autoComplete="current-password"
+                value={password}
                 onChange={(e) => onPasswordChange(e.target.value)}
-                                onKeyDown={handleKeyDown}
-                                disabled={disabled}
-                            />
-                            <Button
-                                type="submit"
-                                variant="contained"
-                                size="large"
-                                className="login"
-                                color="primary"
+                onKeyDown={handleKeyDown}
+                disabled={disabled}
+            />
+            <Button
+                type="submit"
+                variant="contained"
+                size="large"
+                className="login"
+                color="primary"
                 fullWidth
                 disabled={disabled}
-                                style={{marginTop: 15, marginBottom: 5}}
+                style={{marginTop: 15, marginBottom: 5}}
                 onClick={() => onLogin()}>
-                {isLogging ? (t('auth.logging_in') || 'Logging in...') : t('auth.login')}
-                            </Button>
-                        </form>
+                {isLogging ? t('auth.logging_in') || 'Logging in...' : t('auth.login')}
+            </Button>
+        </form>
     );
 };
 
@@ -130,34 +130,23 @@ const LoginContainer: React.FC<{
     onLogin: (event?: React.FormEvent) => void;
     disabled: boolean;
     isLogging: boolean;
-}> = ({
-    username,
-    password,
-    onUsernameChange,
-    onPasswordChange,
-    onLogin,
-    disabled,
-    isLogging,
-}) => {
-    const { t } = useTranslation();
+}> = ({username, password, onUsernameChange, onPasswordChange, onLogin, disabled, isLogging}) => {
+    const {t} = useTranslation();
 
     return (
-        <DefaultPage 
-            title={t('auth.login')} 
-            maxWidth={340}
-            centerTitle={true}>
+        <DefaultPage title={t('auth.login')} maxWidth={340} centerTitle={true}>
             <Grid item xs={12} style={{textAlign: 'center'}}>
                 <Container>
                     <Paper style={{padding: '30px 20px', marginTop: 30}}>
-                    <LoginForm
-                        username={username}
-                        password={password}
-                        onUsernameChange={onUsernameChange}
-                        onPasswordChange={onPasswordChange}
-                        onLogin={onLogin}
-                        disabled={disabled}
-                        isLogging={isLogging}
-                    />
+                        <LoginForm
+                            username={username}
+                            password={password}
+                            onUsernameChange={onUsernameChange}
+                            onPasswordChange={onPasswordChange}
+                            onLogin={onLogin}
+                            disabled={disabled}
+                            isLogging={isLogging}
+                        />
                     </Paper>
                 </Container>
             </Grid>

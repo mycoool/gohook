@@ -11,23 +11,28 @@ export interface IUserResponse {
 }
 
 export class UserStore extends BaseStore<IUser> {
-    constructor(private readonly snack: SnackReporter, private readonly tokenProvider: () => string) {
+    constructor(
+        private readonly snack: SnackReporter,
+        private readonly tokenProvider: () => string
+    ) {
         super();
     }
 
     protected requestItems = (): Promise<IUser[]> =>
-        axios.get<IUserResponse[]>(`${config.get('url')}user`, {
-            headers: {'X-GoHook-Key': this.tokenProvider()}
-        }).then((response) => 
-            // 转换响应数据为IUser格式
-            response.data.map((user, index) => ({
-                id: index + 1, // 使用索引作为临时ID
-                name: user.username,
-                username: user.username,
-                admin: user.role === 'admin',
-                role: user.role
-            }))
-        );
+        axios
+            .get<IUserResponse[]>(`${config.get('url')}user`, {
+                headers: {'X-GoHook-Key': this.tokenProvider()},
+            })
+            .then((response) =>
+                // 转换响应数据为IUser格式
+                response.data.map((user, index) => ({
+                    id: index + 1, // 使用索引作为临时ID
+                    name: user.username,
+                    username: user.username,
+                    admin: user.role === 'admin',
+                    role: user.role,
+                }))
+            );
 
     protected requestDelete(id: number): Promise<void> {
         // 从当前项目中找到对应的用户名
@@ -35,10 +40,10 @@ export class UserStore extends BaseStore<IUser> {
         if (!user || !user.username) {
             return Promise.reject(new Error('User not found'));
         }
-        
+
         return axios
             .delete(`${config.get('url')}user/${user.username}`, {
-                headers: {'X-GoHook-Key': this.tokenProvider()}
+                headers: {'X-GoHook-Key': this.tokenProvider()},
             })
             .then(() => this.snack('User deleted'));
     }
@@ -46,13 +51,17 @@ export class UserStore extends BaseStore<IUser> {
     @action
     public create = async (name: string, pass: string, admin: boolean) => {
         const role = admin ? 'admin' : 'user';
-        await axios.post(`${config.get('url')}user`, {
-            username: name,
-            password: pass,
-            role: role
-        }, {
-            headers: {'X-GoHook-Key': this.tokenProvider()}
-        });
+        await axios.post(
+            `${config.get('url')}user`,
+            {
+                username: name,
+                password: pass,
+                role: role,
+            },
+            {
+                headers: {'X-GoHook-Key': this.tokenProvider()},
+            }
+        );
         await this.refresh();
         this.snack('User created');
     };
@@ -67,12 +76,16 @@ export class UserStore extends BaseStore<IUser> {
             if (!user || !user.username) {
                 throw new Error('User not found');
             }
-            
-            await axios.post(`${config.get('url')}user/${user.username}/reset-password`, {
-                newPassword: pass
-            }, {
-                headers: {'X-GoHook-Key': this.tokenProvider()}
-            });
+
+            await axios.post(
+                `${config.get('url')}user/${user.username}/reset-password`,
+                {
+                    newPassword: pass,
+                },
+                {
+                    headers: {'X-GoHook-Key': this.tokenProvider()},
+                }
+            );
             this.snack('Password updated');
         } else {
             this.snack('User update functionality is limited. Only password reset is supported.');
@@ -82,12 +95,16 @@ export class UserStore extends BaseStore<IUser> {
 
     @action
     public changePassword = async (oldPassword: string, newPassword: string) => {
-        await axios.post(`${config.get('url')}user/password`, {
-            oldPassword: oldPassword,
-            newPassword: newPassword
-        }, {
-            headers: {'X-GoHook-Key': this.tokenProvider()}
-        });
+        await axios.post(
+            `${config.get('url')}user/password`,
+            {
+                oldPassword: oldPassword,
+                newPassword: newPassword,
+            },
+            {
+                headers: {'X-GoHook-Key': this.tokenProvider()},
+            }
+        );
         this.snack('Password changed successfully');
     };
 }

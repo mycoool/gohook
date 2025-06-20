@@ -20,7 +20,7 @@ interface IState {
 
 // 使用函数组件包装类组件以支持Hook
 const ChangePasswordDialogWrapper: React.FC<IProps> = (props) => {
-    const { t } = useTranslation();
+    const {t} = useTranslation();
     return <ChangePasswordDialog {...props} t={t} />;
 };
 
@@ -38,7 +38,7 @@ class ChangePasswordDialog extends Component<IPropsWithTranslation, IState> {
     public render() {
         const {fClose, fOnSubmit, t} = this.props;
         const {oldPassword, newPassword, confirmPassword} = this.state;
-        
+
         const oldPasswordPresent = oldPassword.length > 0;
         const newPasswordPresent = newPassword.length > 0;
         const passwordsMatch = newPassword === confirmPassword;
@@ -86,8 +86,14 @@ class ChangePasswordDialog extends Component<IPropsWithTranslation, IState> {
                         value={confirmPassword}
                         onChange={this.handleChange('confirmPassword')}
                         fullWidth
-                        error={newPassword.length > 0 && confirmPassword.length > 0 && !passwordsMatch}
-                        helperText={newPassword.length > 0 && confirmPassword.length > 0 && !passwordsMatch ? t('user.passwordMismatch') : ''}
+                        error={
+                            newPassword.length > 0 && confirmPassword.length > 0 && !passwordsMatch
+                        }
+                        helperText={
+                            newPassword.length > 0 && confirmPassword.length > 0 && !passwordsMatch
+                                ? t('user.passwordMismatch')
+                                : ''
+                        }
                     />
                 </DialogContent>
                 <DialogActions>
@@ -105,12 +111,13 @@ class ChangePasswordDialog extends Component<IPropsWithTranslation, IState> {
         );
     }
 
-    private handleChange = (propertyName: keyof IState) => (event: ChangeEvent<HTMLInputElement>) => {
-        this.setState({
-            ...this.state,
-            [propertyName]: event.target.value
-        });
-    }
+    private handleChange =
+        (propertyName: keyof IState) => (event: ChangeEvent<HTMLInputElement>) => {
+            this.setState({
+                ...this.state,
+                [propertyName]: event.target.value,
+            });
+        };
 }
 
-export default ChangePasswordDialogWrapper; 
+export default ChangePasswordDialogWrapper;

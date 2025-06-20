@@ -17,7 +17,10 @@ export class MessagesStore {
 
     private loading = false;
 
-    public constructor(private readonly snack: SnackReporter, private readonly tokenProvider: () => string) {
+    public constructor(
+        private readonly snack: SnackReporter,
+        private readonly tokenProvider: () => string
+    ) {
         this.state = this.emptyState();
     }
 
@@ -52,7 +55,7 @@ export class MessagesStore {
     @action
     public removeByApp = async () => {
         await axios.delete(config.get('url') + 'message', {
-            headers: {'X-GoHook-Key': this.tokenProvider()}
+            headers: {'X-GoHook-Key': this.tokenProvider()},
         });
         this.snack('已删除所有消息');
         this.clearAll();
@@ -62,7 +65,7 @@ export class MessagesStore {
     @action
     public removeSingle = async (message: IMessage) => {
         await axios.delete(config.get('url') + 'message/' + message.id, {
-            headers: {'X-GoHook-Key': this.tokenProvider()}
+            headers: {'X-GoHook-Key': this.tokenProvider()},
         });
         this.removeFromList(this.state.messages, message);
         this.snack('消息已删除');
@@ -94,7 +97,7 @@ export class MessagesStore {
 
     private fetchMessages = (since: number): Promise<AxiosResponse<IPagedMessages>> =>
         axios.get(config.get('url') + 'message?since=' + since, {
-            headers: {'X-GoHook-Key': this.tokenProvider()}
+            headers: {'X-GoHook-Key': this.tokenProvider()},
         });
 
     public get = (): Array<IMessage & {image: string | null}> =>

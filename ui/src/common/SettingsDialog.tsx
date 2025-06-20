@@ -17,7 +17,7 @@ interface IProps {
 
 // 使用函数组件包装类组件以支持Hook
 const SettingsDialogWrapper: React.FC<IProps & Stores<'currentUser'>> = (props) => {
-    const { t } = useTranslation();
+    const {t} = useTranslation();
     return <SettingsDialog {...props} t={t} />;
 };
 
@@ -37,7 +37,7 @@ class SettingsDialog extends Component<IPropsWithTranslation> {
     public render() {
         const {oldPassword, newPassword, confirmPassword} = this;
         const {fClose, currentUser, t} = this.props;
-        
+
         const oldPasswordPresent = oldPassword.length > 0;
         const newPasswordPresent = newPassword.length > 0;
         const passwordsMatch = newPassword === confirmPassword && confirmPassword.length > 0;
@@ -83,17 +83,28 @@ class SettingsDialog extends Component<IPropsWithTranslation> {
                         value={confirmPassword}
                         onChange={(e) => (this.confirmPassword = e.target.value)}
                         fullWidth
-                        error={newPassword.length > 0 && confirmPassword.length > 0 && !passwordsMatch}
-                        helperText={newPassword.length > 0 && confirmPassword.length > 0 && !passwordsMatch ? t('user.passwordMismatch') : ''}
+                        error={
+                            newPassword.length > 0 && confirmPassword.length > 0 && !passwordsMatch
+                        }
+                        helperText={
+                            newPassword.length > 0 && confirmPassword.length > 0 && !passwordsMatch
+                                ? t('user.passwordMismatch')
+                                : ''
+                        }
                     />
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={fClose}>{t('common.cancel')}</Button>
-                    <Tooltip title={
-                        !oldPasswordPresent ? t('user.passwordRequired') :
-                        !newPasswordPresent ? t('user.passwordRequired') :
-                        !passwordsMatch ? t('user.passwordMismatch') : ''
-                    }>
+                    <Tooltip
+                        title={
+                            !oldPasswordPresent
+                                ? t('user.passwordRequired')
+                                : !newPasswordPresent
+                                ? t('user.passwordRequired')
+                                : !passwordsMatch
+                                ? t('user.passwordMismatch')
+                                : ''
+                        }>
                         <div>
                             <Button
                                 className="change"

@@ -2,7 +2,13 @@ import {SnackReporter} from '../snack/SnackManager';
 import {CurrentUser} from '../CurrentUser';
 import * as config from '../config';
 import {AxiosError} from 'axios';
-import {IMessage, IWebSocketMessage, IHookTriggeredMessage, IVersionSwitchMessage, IProjectManageMessage} from '../types';
+import {
+    IMessage,
+    IWebSocketMessage,
+    IHookTriggeredMessage,
+    IVersionSwitchMessage,
+    IProjectManageMessage,
+} from '../types';
 
 export class WebSocketStore {
     private wsActive = false;
@@ -60,10 +66,10 @@ export class WebSocketStore {
             try {
                 const message: IWebSocketMessage = JSON.parse(event.data);
                 console.log('WebSocket message received:', message);
-                
+
                 this.showMessageNotification(message);
-                
-                this.messageCallbacks.forEach(callback => {
+
+                this.messageCallbacks.forEach((callback) => {
                     try {
                         callback(message);
                     } catch (error) {
@@ -78,7 +84,7 @@ export class WebSocketStore {
         ws.onclose = (event) => {
             this.wsActive = false;
             console.log('WebSocket connection closed', event);
-            
+
             this.currentUser
                 .tryAuthenticate()
                 .then(() => {
@@ -107,7 +113,9 @@ export class WebSocketStore {
                 if (hookMsg.success) {
                     this.snack(`Hook "${hookMsg.hookName}" 执行成功`);
                 } else {
-                    this.snack(`Hook "${hookMsg.hookName}" 执行失败: ${hookMsg.error ?? '未知错误'}`);
+                    this.snack(
+                        `Hook "${hookMsg.hookName}" 执行失败: ${hookMsg.error ?? '未知错误'}`
+                    );
                 }
                 break;
             }
@@ -128,7 +136,9 @@ export class WebSocketStore {
                         default:
                             actionText = versionMsg.action;
                     }
-                    this.snack(`项目 "${versionMsg.projectName}" ${actionText}成功: ${versionMsg.target}`);
+                    this.snack(
+                        `项目 "${versionMsg.projectName}" ${actionText}成功: ${versionMsg.target}`
+                    );
                 } else {
                     let actionText = '';
                     switch (versionMsg.action) {
@@ -144,16 +154,28 @@ export class WebSocketStore {
                         default:
                             actionText = versionMsg.action;
                     }
-                    this.snack(`项目 "${versionMsg.projectName}" ${actionText}失败: ${versionMsg.error ?? '未知错误'}`);
+                    this.snack(
+                        `项目 "${versionMsg.projectName}" ${actionText}失败: ${
+                            versionMsg.error ?? '未知错误'
+                        }`
+                    );
                 }
                 break;
             }
             case 'project_managed': {
                 const projectMsg = message.data as IProjectManageMessage;
                 if (projectMsg.success) {
-                    this.snack(`项目 "${projectMsg.projectName}" ${projectMsg.action === 'add' ? '添加' : '删除'}成功`);
+                    this.snack(
+                        `项目 "${projectMsg.projectName}" ${
+                            projectMsg.action === 'add' ? '添加' : '删除'
+                        }成功`
+                    );
                 } else {
-                    this.snack(`项目 "${projectMsg.projectName}" ${projectMsg.action === 'add' ? '添加' : '删除'}失败: ${projectMsg.error ?? '未知错误'}`);
+                    this.snack(
+                        `项目 "${projectMsg.projectName}" ${
+                            projectMsg.action === 'add' ? '添加' : '删除'
+                        }失败: ${projectMsg.error ?? '未知错误'}`
+                    );
                 }
                 break;
             }
@@ -168,10 +190,12 @@ export class WebSocketStore {
 
     public sendPing = () => {
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-            this.ws.send(JSON.stringify({
-                type: 'ping',
-                timestamp: new Date().toISOString()
-            }));
+            this.ws.send(
+                JSON.stringify({
+                    type: 'ping',
+                    timestamp: new Date().toISOString(),
+                })
+            );
         }
     };
 

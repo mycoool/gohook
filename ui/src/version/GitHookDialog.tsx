@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, {useState, useEffect} from 'react';
 import {
     Dialog,
     DialogTitle,
@@ -18,13 +18,13 @@ import {
     Divider,
     IconButton,
     InputAdornment,
-    Snackbar
+    Snackbar,
 } from '@material-ui/core';
 
-import { makeStyles } from '@material-ui/core/styles';
-import { FileCopy, Refresh } from '@material-ui/icons';
-import { IVersion } from '../types';
-import { useTranslation } from '../i18n/useTranslation';
+import {makeStyles} from '@material-ui/core/styles';
+import {FileCopy, Refresh} from '@material-ui/icons';
+import {IVersion} from '../types';
+import {useTranslation} from '../i18n/useTranslation';
 
 const useStyles = makeStyles((theme) => ({
     content: {
@@ -47,15 +47,19 @@ const useStyles = makeStyles((theme) => ({
         marginTop: theme.spacing(1),
     },
     webhookUrl: {
-        backgroundColor: theme.palette.type === 'dark' ? theme.palette.grey[800] : theme.palette.grey[100],
-        color: theme.palette.type === 'dark' ? theme.palette.common.white : theme.palette.common.black,
+        backgroundColor:
+            theme.palette.type === 'dark' ? theme.palette.grey[800] : theme.palette.grey[100],
+        color:
+            theme.palette.type === 'dark' ? theme.palette.common.white : theme.palette.common.black,
         padding: theme.spacing(1),
         borderRadius: theme.shape.borderRadius,
         fontFamily: 'monospace',
         fontSize: '0.875rem',
         wordBreak: 'break-all',
         marginTop: theme.spacing(1),
-        border: `1px solid ${theme.palette.type === 'dark' ? theme.palette.grey[600] : theme.palette.grey[300]}`,
+        border: `1px solid ${
+            theme.palette.type === 'dark' ? theme.palette.grey[600] : theme.palette.grey[300]
+        }`,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -85,14 +89,9 @@ export interface GitHookConfig {
     hooksecret?: string;
 }
 
-const GitHookDialog: React.FC<GitHookDialogProps> = ({
-    open,
-    project,
-    onClose,
-    onSave
-}) => {
+const GitHookDialog: React.FC<GitHookDialogProps> = ({open, project, onClose, onSave}) => {
     const classes = useStyles();
-    const { t } = useTranslation();
+    const {t} = useTranslation();
     const [enhook, setEnhook] = useState(false);
     const [hookmode, setHookmode] = useState<'branch' | 'tag'>('branch');
     const [hookbranch, setHookbranch] = useState('*');
@@ -144,7 +143,7 @@ const GitHookDialog: React.FC<GitHookDialogProps> = ({
 
     const handleSave = async () => {
         if (!project) return;
-        
+
         setSaving(true);
         try {
             await onSave(project.name, {
@@ -203,8 +202,9 @@ const GitHookDialog: React.FC<GitHookDialogProps> = ({
                                 <FormLabel component="legend">{t('githook.runMode')}</FormLabel>
                                 <RadioGroup
                                     value={hookmode}
-                                    onChange={(e) => setHookmode(e.target.value as 'branch' | 'tag')}
-                                >
+                                    onChange={(e) =>
+                                        setHookmode(e.target.value as 'branch' | 'tag')
+                                    }>
                                     <FormControlLabel
                                         value="branch"
                                         control={<Radio />}
@@ -218,17 +218,18 @@ const GitHookDialog: React.FC<GitHookDialogProps> = ({
                                 </RadioGroup>
                             </FormControl>
                             <Typography className={classes.description}>
-                                {hookmode === 'branch' 
+                                {hookmode === 'branch'
                                     ? t('githook.branchModeDescription')
-                                    : t('githook.tagModeDescription')
-                                }
+                                    : t('githook.tagModeDescription')}
                             </Typography>
                         </Box>
 
                         {hookmode === 'branch' && (
                             <Box className={classes.section}>
                                 <FormControl component="fieldset" fullWidth>
-                                    <FormLabel component="legend">{t('githook.branchSettings')}</FormLabel>
+                                    <FormLabel component="legend">
+                                        {t('githook.branchSettings')}
+                                    </FormLabel>
                                     <RadioGroup
                                         value={hookbranch === '*' ? 'all' : 'specific'}
                                         onChange={(e) => {
@@ -237,8 +238,7 @@ const GitHookDialog: React.FC<GitHookDialogProps> = ({
                                             } else {
                                                 setHookbranch(project.currentBranch || 'main');
                                             }
-                                        }}
-                                    >
+                                        }}>
                                         <FormControlLabel
                                             value="all"
                                             control={<Radio />}
@@ -250,7 +250,7 @@ const GitHookDialog: React.FC<GitHookDialogProps> = ({
                                             label={t('githook.specificBranch')}
                                         />
                                     </RadioGroup>
-                                    
+
                                     {hookbranch !== '*' && (
                                         <TextField
                                             className={classes.branchInput}
@@ -264,10 +264,11 @@ const GitHookDialog: React.FC<GitHookDialogProps> = ({
                                     )}
                                 </FormControl>
                                 <Typography className={classes.description}>
-                                    {hookbranch === '*' 
+                                    {hookbranch === '*'
                                         ? t('githook.anyBranchDescription')
-                                        : t('githook.specificBranchDescription', { branch: hookbranch })
-                                    }
+                                        : t('githook.specificBranchDescription', {
+                                              branch: hookbranch,
+                                          })}
                                 </Typography>
                             </Box>
                         )}
@@ -290,22 +291,25 @@ const GitHookDialog: React.FC<GitHookDialogProps> = ({
                                     endAdornment: (
                                         <InputAdornment position="end">
                                             <IconButton
-                                                onClick={() => copyToClipboard(hooksecret, t('githook.passwordCopied'))}
+                                                onClick={() =>
+                                                    copyToClipboard(
+                                                        hooksecret,
+                                                        t('githook.passwordCopied')
+                                                    )
+                                                }
                                                 disabled={!hooksecret}
                                                 size="small"
-                                                title={t('githook.copyPassword')}
-                                            >
+                                                title={t('githook.copyPassword')}>
                                                 <FileCopy fontSize="small" />
                                             </IconButton>
                                             <IconButton
                                                 onClick={() => setHooksecret(generatePassword())}
                                                 size="small"
-                                                title={t('githook.generatePassword')}
-                                            >
+                                                title={t('githook.generatePassword')}>
                                                 <Refresh fontSize="small" />
                                             </IconButton>
                                         </InputAdornment>
-                                    )
+                                    ),
                                 }}
                             />
                             <Typography className={classes.description}>
@@ -320,10 +324,11 @@ const GitHookDialog: React.FC<GitHookDialogProps> = ({
                             <Box className={classes.webhookUrl}>
                                 <span className={classes.webhookUrlText}>{getWebhookUrl()}</span>
                                 <IconButton
-                                    onClick={() => copyToClipboard(getWebhookUrl(), t('githook.urlCopied'))}
+                                    onClick={() =>
+                                        copyToClipboard(getWebhookUrl(), t('githook.urlCopied'))
+                                    }
                                     size="small"
-                                    title={t('githook.copyUrl')}
-                                >
+                                    title={t('githook.copyUrl')}>
                                     <FileCopy fontSize="small" />
                                 </IconButton>
                             </Box>
@@ -338,12 +343,7 @@ const GitHookDialog: React.FC<GitHookDialogProps> = ({
                 <Button onClick={onClose} disabled={saving}>
                     {t('common.cancel')}
                 </Button>
-                <Button 
-                    onClick={handleSave} 
-                    color="primary" 
-                    variant="contained"
-                    disabled={saving}
-                >
+                <Button onClick={handleSave} color="primary" variant="contained" disabled={saving}>
                     {saving ? t('githook.saving') : t('common.save')}
                 </Button>
             </DialogActions>
@@ -352,10 +352,10 @@ const GitHookDialog: React.FC<GitHookDialogProps> = ({
                 autoHideDuration={3000}
                 onClose={() => setSnackbarOpen(false)}
                 message={snackbarMessage}
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+                anchorOrigin={{vertical: 'bottom', horizontal: 'center'}}
             />
         </Dialog>
     );
 };
 
-export default GitHookDialog; 
+export default GitHookDialog;

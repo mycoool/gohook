@@ -58,7 +58,7 @@ class Messages extends Component<IProps & Stores<'messagesStore'>, IState> {
     public render() {
         const {appId} = this.state;
         const {messagesStore} = this.props;
-                        const messages = messagesStore.get();
+        const messages = messagesStore.get();
         const hasMore = messagesStore.canLoadMore();
         const name = appId === -1 ? 'All Messages' : 'Messages';
         const hasMessages = messages.length !== 0;
@@ -74,8 +74,8 @@ class Messages extends Component<IProps & Stores<'messagesStore'>, IState> {
                 deleteAll={this.deleteAll}
                 heights={this.heights}
                 onRefresh={() => messagesStore.refreshByApp()}
-                onDeleteAll={() => this.deleteAll = true}
-                onCloseDeleteAll={() => this.deleteAll = false}
+                onDeleteAll={() => (this.deleteAll = true)}
+                onCloseDeleteAll={() => (this.deleteAll = false)}
                 onConfirmDeleteAll={() => messagesStore.removeByApp()}
                 onLoadMore={() => this.checkIfLoadMore()}
                 renderMessage={this.renderMessage}
@@ -159,9 +159,9 @@ const MessagesContainer: React.FC<{
     onDeleteAll,
     onCloseDeleteAll,
     onConfirmDeleteAll,
-    renderMessage
+    renderMessage,
 }) => {
-    const { t } = useTranslation();
+    const {t} = useTranslation();
 
     const label = (text: string) => (
         <Grid item xs={12}>
@@ -198,12 +198,16 @@ const MessagesContainer: React.FC<{
                 <LoadingSpinner />
             ) : hasMessages ? (
                 <div style={{width: '100%'}} id="messages">
-                    {React.createElement(ReactInfinite as any, {
-                        key: appId,
-                        useWindowAsScrollContainer: true,
-                        preloadBatchSize: window.innerHeight * 3,
-                        elementHeight: messages.map((m) => heights[m.id] || 1)
-                    }, messages.map(renderMessage))}
+                    {React.createElement(
+                        ReactInfinite as any,
+                        {
+                            key: appId,
+                            useWindowAsScrollContainer: true,
+                            preloadBatchSize: window.innerHeight * 3,
+                            elementHeight: messages.map((m) => heights[m.id] || 1),
+                        },
+                        messages.map(renderMessage)
+                    )}
 
                     {hasMore ? <LoadingSpinner /> : label(t('message.reachedEnd'))}
                 </div>

@@ -26,7 +26,7 @@ interface IState {
 
 // 使用函数组件包装类组件以支持Hook
 const AddEditDialogWrapper: React.FC<IProps> = (props) => {
-    const { t } = useTranslation();
+    const {t} = useTranslation();
     return <AddEditDialog {...props} t={t} />;
 };
 
@@ -57,7 +57,9 @@ class AddEditDialog extends Component<IPropsWithTranslation, IState> {
                 aria-labelledby="form-dialog-title"
                 id="add-edit-user-dialog">
                 <DialogTitle id="form-dialog-title">
-                    {isEdit ? t('user.editUserTitle', { name: this.props.name ?? '' }) : t('user.addUserTitle')}
+                    {isEdit
+                        ? t('user.editUserTitle', {name: this.props.name ?? ''})
+                        : t('user.addUserTitle')}
                 </DialogTitle>
                 <DialogContent>
                     <TextField
@@ -118,19 +120,20 @@ class AddEditDialog extends Component<IPropsWithTranslation, IState> {
         );
     }
 
-    private handleChange = (propertyName: 'name' | 'pass') => (event: ChangeEvent<HTMLInputElement>) => {
-        this.setState({
-            ...this.state,
-            [propertyName]: event.target.value
-        });
-    }
+    private handleChange =
+        (propertyName: 'name' | 'pass') => (event: ChangeEvent<HTMLInputElement>) => {
+            this.setState({
+                ...this.state,
+                [propertyName]: event.target.value,
+            });
+        };
 
     private handleChecked = (propertyName: 'admin') => (event: ChangeEvent<HTMLInputElement>) => {
         this.setState({
             ...this.state,
-            [propertyName]: event.target.checked
+            [propertyName]: event.target.checked,
         });
-    }
+    };
 }
 
 export default AddEditDialogWrapper;

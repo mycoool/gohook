@@ -26,7 +26,7 @@ import {observable} from 'mobx';
 import {inject, Stores} from '../inject';
 import {ConnectionErrorBanner} from '../common/ConnectionErrorBanner';
 
-const { HashRouter, Route, Switch } = ReactRouter;
+const {HashRouter, Route, Switch} = ReactRouter;
 
 const styles = (theme: Theme) => ({
     content: {
@@ -108,7 +108,9 @@ class Layout extends React.Component<
         const versionInfo = config.get('version');
         return (
             <ThemeProvider theme={theme}>
-                {React.createElement(HashRouter as any, null,
+                {React.createElement(
+                    HashRouter as any,
+                    null,
                     <div>
                         {!connectionErrorMessage ? null : (
                             <ConnectionErrorBanner
@@ -138,20 +140,74 @@ class Layout extends React.Component<
                                     user={{admin, role}}
                                 />
                                 <main className={classes.content}>
-                                    {React.createElement(Switch as any, null,
-                                        authenticating ? React.createElement(Route as any, { path: "/" }, React.createElement(LoadingSpinner)) : null,
-                                        React.createElement(Route as any, { exact: true, path: "/login", render: loginRoute }),
-                                        loggedIn ? null : React.createElement(CustomRedirect, { to: "/login" }),
-                                        React.createElement(Route as any, { exact: true, path: "/", component: Messages }),
-                                        React.createElement(Route as any, { exact: true, path: "/messages/:id", component: Messages }),
-                                        React.createElement(Route as any, { exact: true, path: "/versions", component: Versions }),
-                                        React.createElement(Route as any, { exact: true, path: "/versions/:projectName/branches", component: Branches }),
-                                        React.createElement(Route as any, { exact: true, path: "/versions/:projectName/tags", component: Tags }),
-                                        React.createElement(Route as any, { exact: true, path: "/versions/:projectName/env", component: EnvFileDialog }),
-                                        React.createElement(Route as any, { exact: true, path: "/hooks", component: Hooks }),
-                                        React.createElement(Route as any, { exact: true, path: "/users", component: Users }),
-                                        React.createElement(Route as any, { exact: true, path: "/plugins", component: Plugins }),
-                                        React.createElement(Route as any, { exact: true, path: "/plugins/:id", component: PluginDetailView })
+                                    {React.createElement(
+                                        Switch as any,
+                                        null,
+                                        authenticating
+                                            ? React.createElement(
+                                                  Route as any,
+                                                  {path: '/'},
+                                                  React.createElement(LoadingSpinner)
+                                              )
+                                            : null,
+                                        React.createElement(Route as any, {
+                                            exact: true,
+                                            path: '/login',
+                                            render: loginRoute,
+                                        }),
+                                        loggedIn
+                                            ? null
+                                            : React.createElement(CustomRedirect, {to: '/login'}),
+                                        React.createElement(Route as any, {
+                                            exact: true,
+                                            path: '/',
+                                            component: Messages,
+                                        }),
+                                        React.createElement(Route as any, {
+                                            exact: true,
+                                            path: '/messages/:id',
+                                            component: Messages,
+                                        }),
+                                        React.createElement(Route as any, {
+                                            exact: true,
+                                            path: '/versions',
+                                            component: Versions,
+                                        }),
+                                        React.createElement(Route as any, {
+                                            exact: true,
+                                            path: '/versions/:projectName/branches',
+                                            component: Branches,
+                                        }),
+                                        React.createElement(Route as any, {
+                                            exact: true,
+                                            path: '/versions/:projectName/tags',
+                                            component: Tags,
+                                        }),
+                                        React.createElement(Route as any, {
+                                            exact: true,
+                                            path: '/versions/:projectName/env',
+                                            component: EnvFileDialog,
+                                        }),
+                                        React.createElement(Route as any, {
+                                            exact: true,
+                                            path: '/hooks',
+                                            component: Hooks,
+                                        }),
+                                        React.createElement(Route as any, {
+                                            exact: true,
+                                            path: '/users',
+                                            component: Users,
+                                        }),
+                                        React.createElement(Route as any, {
+                                            exact: true,
+                                            path: '/plugins',
+                                            component: Plugins,
+                                        }),
+                                        React.createElement(Route as any, {
+                                            exact: true,
+                                            path: '/plugins/:id',
+                                            component: PluginDetailView,
+                                        })
                                     )}
                                 </main>
                             </div>

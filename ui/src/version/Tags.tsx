@@ -32,39 +32,47 @@ import {withRouter, RouteComponentProps} from 'react-router-dom';
 import {withStyles, WithStyles, Theme, createStyles} from '@material-ui/core/styles';
 
 // 添加样式定义
-const styles = (theme: Theme) => createStyles({
-    codeBlock: {
-        fontSize: '0.85em',
-        backgroundColor: theme.palette.type === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
-        color: theme.palette.text.primary,
-        padding: '2px 4px',
-        borderRadius: '3px',
-        border: theme.palette.type === 'dark' ? '1px solid rgba(255, 255, 255, 0.2)' : '1px solid rgba(0, 0, 0, 0.2)',
-    },
-    filterContainer: {
-        marginBottom: theme.spacing(2),
-        padding: theme.spacing(2),
-    },
-    filterInput: {
-        minWidth: 280,
-        maxWidth: 300,
-    },
-    loadingContainer: {
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: theme.spacing(2),
-    },
-    statsContainer: {
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: theme.spacing(1, 2),
-        backgroundColor: theme.palette.type === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
-    },
-});
+const styles = (theme: Theme) =>
+    createStyles({
+        codeBlock: {
+            fontSize: '0.85em',
+            backgroundColor:
+                theme.palette.type === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+            color: theme.palette.text.primary,
+            padding: '2px 4px',
+            borderRadius: '3px',
+            border:
+                theme.palette.type === 'dark'
+                    ? '1px solid rgba(255, 255, 255, 0.2)'
+                    : '1px solid rgba(0, 0, 0, 0.2)',
+        },
+        filterContainer: {
+            marginBottom: theme.spacing(2),
+            padding: theme.spacing(2),
+        },
+        filterInput: {
+            minWidth: 280,
+            maxWidth: 300,
+        },
+        loadingContainer: {
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: theme.spacing(2),
+        },
+        statsContainer: {
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: theme.spacing(1, 2),
+            backgroundColor:
+                theme.palette.type === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
+        },
+    });
 
-type TagsProps = RouteComponentProps<{projectName: string}> & Stores<'versionStore'> & WithStyles<typeof styles>;
+type TagsProps = RouteComponentProps<{projectName: string}> &
+    Stores<'versionStore'> &
+    WithStyles<typeof styles>;
 
 @observer
 class Tags extends Component<TagsProps> {
@@ -83,7 +91,7 @@ class Tags extends Component<TagsProps> {
     public componentDidMount = () => {
         const projectName = this.props.match.params.projectName;
         this.props.versionStore.refreshTags(projectName);
-        
+
         // 添加滚动监听器
         window.addEventListener('scroll', this.handleScroll);
     };
@@ -105,15 +113,13 @@ class Tags extends Component<TagsProps> {
         const tagsTotal = versionStore.getTagsTotal();
         const tagsHasMore = versionStore.getTagsHasMore();
         const tagsLoading = versionStore.getTagsLoading();
-        
+
         return (
             <DefaultPage
                 title={`标签管理 - ${projectName}`}
                 rightControl={
                     <ButtonGroup variant="contained" color="primary">
-                        <Button
-                            startIcon={<ArrowBack />}
-                            onClick={() => this.goBack()}>
+                        <Button startIcon={<ArrowBack />} onClick={() => this.goBack()}>
                             返回
                         </Button>
                         <Button
@@ -130,7 +136,6 @@ class Tags extends Component<TagsProps> {
                             onClick={() => this.refreshTags()}>
                             刷新
                         </Button>
-
                     </ButtonGroup>
                 }
                 maxWidth={1200}>
@@ -177,7 +182,7 @@ class Tags extends Component<TagsProps> {
                                 </Typography>
                             )}
                         </div>
-                        
+
                         <Table id="tag-table">
                             <TableHead>
                                 <TableRow>
@@ -200,7 +205,7 @@ class Tags extends Component<TagsProps> {
                                 ))}
                             </TableBody>
                         </Table>
-                        
+
                         {/* 加载状态 */}
                         {tagsLoading && (
                             <div className={classes.loadingContainer}>
@@ -212,7 +217,7 @@ class Tags extends Component<TagsProps> {
                                 </Box>
                             </div>
                         )}
-                        
+
                         {/* 没有更多数据提示 */}
                         {!tagsLoading && !tagsHasMore && tags.length > 0 && (
                             <div className={classes.loadingContainer}>
@@ -221,7 +226,7 @@ class Tags extends Component<TagsProps> {
                                 </Typography>
                             </div>
                         )}
-                        
+
                         {/* 空状态 */}
                         {!tagsLoading && tags.length === 0 && (
                             <div className={classes.loadingContainer}>
@@ -296,7 +301,7 @@ class Tags extends Component<TagsProps> {
         const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
         const windowHeight = window.innerHeight;
         const documentHeight = document.documentElement.scrollHeight;
-        
+
         // 当滚动到距离底部100px时开始加载
         if (scrollTop + windowHeight >= documentHeight - 100) {
             const projectName = this.props.match.params.projectName;
@@ -343,18 +348,14 @@ const Row: React.FC<IRowProps> = observer(({tag, onSwitch, onDelete, classes}) =
                 size="small"
                 style={{
                     backgroundColor: tag.isCurrent ? '#2196f3' : '#4caf50',
-                    color: 'white'
+                    color: 'white',
                 }}
             />
         </TableCell>
         <TableCell>
-            <code className={classes.codeBlock}>
-                {tag.commitHash}
-            </code>
+            <code className={classes.codeBlock}>{tag.commitHash}</code>
         </TableCell>
-        <TableCell style={{fontSize: '0.85em'}}>
-            {new Date(tag.date).toLocaleString()}
-        </TableCell>
+        <TableCell style={{fontSize: '0.85em'}}>{new Date(tag.date).toLocaleString()}</TableCell>
         <TableCell style={{maxWidth: 200, wordWrap: 'break-word', fontSize: '0.85em'}}>
             {tag.message || '无说明'}
         </TableCell>
@@ -376,4 +377,6 @@ const Row: React.FC<IRowProps> = observer(({tag, onSwitch, onDelete, classes}) =
 // 使用 withStyles 包装 Row 组件
 const StyledRow = withStyles(styles)(Row);
 
-export default (withRouter as any)((inject as any)('versionStore')((withStyles as any)(styles)(Tags))); 
+export default (withRouter as any)(
+    (inject as any)('versionStore')((withStyles as any)(styles)(Tags))
+);

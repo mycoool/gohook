@@ -67,4 +67,4 @@ export default i18n;
 */
 
 // 临时导出空对象，使用自定义的useTranslation Hook
-export default {}; 
+export default {};

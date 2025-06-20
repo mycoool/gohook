@@ -116,11 +116,7 @@ export default class AddProjectDialog extends Component<IProps> {
 
         this.submitting = true;
         try {
-            await this.props.onSubmit(
-                this.name.trim(),
-                this.path.trim(),
-                this.description.trim()
-            );
+            await this.props.onSubmit(this.name.trim(), this.path.trim(), this.description.trim());
             this.props.onClose();
         } catch (error) {
             // 错误处理已在Store中完成
@@ -128,4 +124,4 @@ export default class AddProjectDialog extends Component<IProps> {
             this.submitting = false;
         }
     };
-} 
+}

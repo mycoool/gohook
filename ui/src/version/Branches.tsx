@@ -27,16 +27,21 @@ import {withRouter, RouteComponentProps} from 'react-router-dom';
 import {withStyles, WithStyles, Theme, createStyles} from '@material-ui/core/styles';
 
 // 添加样式定义
-const styles = (theme: Theme) => createStyles({
-    codeBlock: {
-        fontSize: '0.85em',
-        backgroundColor: theme.palette.type === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
-        color: theme.palette.text.primary,
-        padding: '2px 4px',
-        borderRadius: '3px',
-        border: theme.palette.type === 'dark' ? '1px solid rgba(255, 255, 255, 0.2)' : '1px solid rgba(0, 0, 0, 0.2)',
-    },
-});
+const styles = (theme: Theme) =>
+    createStyles({
+        codeBlock: {
+            fontSize: '0.85em',
+            backgroundColor:
+                theme.palette.type === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+            color: theme.palette.text.primary,
+            padding: '2px 4px',
+            borderRadius: '3px',
+            border:
+                theme.palette.type === 'dark'
+                    ? '1px solid rgba(255, 255, 255, 0.2)'
+                    : '1px solid rgba(0, 0, 0, 0.2)',
+        },
+    });
 
 type BranchesProps = RouteComponentProps<{projectName: string}> & Stores<'versionStore'>;
 
@@ -60,15 +65,13 @@ class Branches extends Component<BranchesProps> {
         } = this;
         const projectName = match.params.projectName;
         const branches = versionStore.getBranches();
-        
+
         return (
             <DefaultPage
                 title={`分支管理 - ${projectName}`}
                 rightControl={
                     <ButtonGroup variant="contained" color="primary">
-                        <Button
-                            startIcon={<ArrowBack />}
-                            onClick={() => this.goBack()}>
+                        <Button startIcon={<ArrowBack />} onClick={() => this.goBack()}>
                             返回
                         </Button>
                         <Button
@@ -125,7 +128,9 @@ class Branches extends Component<BranchesProps> {
                         title="确认删除分支"
                         text={`确定要删除分支 "${this.deleteBranch}" 吗？此操作不可撤销。`}
                         fClose={() => (this.deleteBranch = false)}
-                        fOnSubmit={() => this.deleteBranch && this.performDeleteBranch(this.deleteBranch)}
+                        fOnSubmit={() =>
+                            this.deleteBranch && this.performDeleteBranch(this.deleteBranch)
+                        }
                     />
                 )}
             </DefaultPage>
@@ -207,7 +212,7 @@ const Row: React.FC<IRowProps> = observer(({branch, onSwitch, onDelete, classes}
                         size="small"
                         style={{
                             backgroundColor: branch.isCurrent ? '#4caf50' : '#2196f3',
-                            color: 'white'
+                            color: 'white',
                         }}
                     />
                 ) : (
@@ -215,9 +220,7 @@ const Row: React.FC<IRowProps> = observer(({branch, onSwitch, onDelete, classes}
                 )}
             </TableCell>
             <TableCell>
-                <code className={classes.codeBlock}>
-                    {branch.lastCommit}
-                </code>
+                <code className={classes.codeBlock}>{branch.lastCommit}</code>
             </TableCell>
             <TableCell style={{fontSize: '0.85em'}}>
                 {new Date(branch.lastCommitTime).toLocaleString()}
@@ -241,4 +244,4 @@ const Row: React.FC<IRowProps> = observer(({branch, onSwitch, onDelete, classes}
 // 使用 withStyles 包装 Row 组件
 const StyledRow = withStyles(styles)(Row);
 
-export default (withRouter as any)((inject('versionStore') as any)(Branches)); 
+export default (withRouter as any)((inject('versionStore') as any)(Branches));

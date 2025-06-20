@@ -10,7 +10,7 @@ import {
     Box,
     IconButton,
     Tooltip,
-    Fab
+    Fab,
 } from '@material-ui/core';
 import {
     CheckCircle as SuccessIcon,
@@ -19,12 +19,17 @@ import {
     Delete as DeleteIcon,
     Refresh as RefreshIcon,
     Visibility as VisibilityIcon,
-    VisibilityOff as VisibilityOffIcon
+    VisibilityOff as VisibilityOffIcon,
 } from '@material-ui/icons';
 import {observer} from 'mobx-react';
 import {observable, action} from 'mobx';
 import {inject, Stores} from '../inject';
-import {IWebSocketMessage, IHookTriggeredMessage, IVersionSwitchMessage, IProjectManageMessage} from '../types';
+import {
+    IWebSocketMessage,
+    IHookTriggeredMessage,
+    IVersionSwitchMessage,
+    IProjectManageMessage,
+} from '../types';
 
 // 空接口用于扩展
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
@@ -34,10 +39,10 @@ interface IProps {}
 class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
     @observable
     private messages: IWebSocketMessage[] = [];
-    
+
     @observable
     private isVisible = true;
-    
+
     @observable
     private maxMessages = 100;
 
@@ -60,7 +65,7 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
 
         // 添加消息到列表开头
         this.messages.unshift(message);
-        
+
         // 限制消息数量
         if (this.messages.length > this.maxMessages) {
             this.messages = this.messages.slice(0, this.maxMessages);
@@ -81,15 +86,27 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
         switch (message.type) {
             case 'hook_triggered': {
                 const hookMsg = message.data as IHookTriggeredMessage;
-                return hookMsg.success ? <SuccessIcon style={{color: '#4caf50'}} /> : <ErrorIcon style={{color: '#f44336'}} />;
+                return hookMsg.success ? (
+                    <SuccessIcon style={{color: '#4caf50'}} />
+                ) : (
+                    <ErrorIcon style={{color: '#f44336'}} />
+                );
             }
             case 'version_switched': {
                 const versionMsg = message.data as IVersionSwitchMessage;
-                return versionMsg.success ? <SuccessIcon style={{color: '#4caf50'}} /> : <ErrorIcon style={{color: '#f44336'}} />;
+                return versionMsg.success ? (
+                    <SuccessIcon style={{color: '#4caf50'}} />
+                ) : (
+                    <ErrorIcon style={{color: '#f44336'}} />
+                );
             }
             case 'project_managed': {
                 const projectMsg = message.data as IProjectManageMessage;
-                return projectMsg.success ? <SuccessIcon style={{color: '#4caf50'}} /> : <ErrorIcon style={{color: '#f44336'}} />;
+                return projectMsg.success ? (
+                    <SuccessIcon style={{color: '#4caf50'}} />
+                ) : (
+                    <ErrorIcon style={{color: '#f44336'}} />
+                );
             }
             default:
                 return <InfoIcon style={{color: '#2196f3'}} />;
@@ -120,7 +137,13 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
             case 'hook_triggered': {
                 const hookMsg = message.data as IHookTriggeredMessage;
                 if (hookMsg.success) {
-                    return `执行成功 (${hookMsg.method} from ${hookMsg.remoteAddr})${hookMsg.output ? '\n输出: ' + hookMsg.output.substring(0, 100) + (hookMsg.output.length > 100 ? '...' : '') : ''}`;
+                    return `执行成功 (${hookMsg.method} from ${hookMsg.remoteAddr})${
+                        hookMsg.output
+                            ? '\n输出: ' +
+                              hookMsg.output.substring(0, 100) +
+                              (hookMsg.output.length > 100 ? '...' : '')
+                            : ''
+                    }`;
                 } else {
                     return `执行失败: ${hookMsg.error ?? '未知错误'}`;
                 }
@@ -141,7 +164,7 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
                     default:
                         actionText = versionMsg.action;
                 }
-                
+
                 if (versionMsg.success) {
                     return `${actionText}成功: ${versionMsg.target}`;
                 } else {
@@ -151,9 +174,13 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
             case 'project_managed': {
                 const projectMsg = message.data as IProjectManageMessage;
                 if (projectMsg.success) {
-                    return `项目${projectMsg.action === 'add' ? '添加' : '删除'}成功${projectMsg.projectPath ? ' (' + projectMsg.projectPath + ')' : ''}`;
+                    return `项目${projectMsg.action === 'add' ? '添加' : '删除'}成功${
+                        projectMsg.projectPath ? ' (' + projectMsg.projectPath + ')' : ''
+                    }`;
                 } else {
-                    return `项目${projectMsg.action === 'add' ? '添加' : '删除'}失败: ${projectMsg.error ?? '未知错误'}`;
+                    return `项目${projectMsg.action === 'add' ? '添加' : '删除'}失败: ${
+                        projectMsg.error ?? '未知错误'
+                    }`;
                 }
             }
             default:
@@ -161,13 +188,14 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
         }
     };
 
-    private formatTime = (timestamp: string): string => new Date(timestamp).toLocaleString('zh-CN', {
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-    });
+    private formatTime = (timestamp: string): string =>
+        new Date(timestamp).toLocaleString('zh-CN', {
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+        });
 
     private getStatusChip = (message: IWebSocketMessage) => {
         let success = true;
@@ -226,7 +254,7 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
                             maxHeight: 500,
                             overflow: 'hidden',
                             display: 'flex',
-                            flexDirection: 'column'
+                            flexDirection: 'column',
                         }}>
                         {/* 头部 */}
                         <Box
@@ -235,9 +263,7 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
                             justifyContent="space-between"
                             alignItems="center"
                             style={{borderBottom: '1px solid #e0e0e0'}}>
-                            <Typography variant="h6">
-                                Messages ({this.messages.length})
-                            </Typography>
+                            <Typography variant="h6">Messages ({this.messages.length})</Typography>
                             <Box>
                                 <Tooltip title="清空消息">
                                     <IconButton size="small" onClick={this.clearMessages}>
@@ -245,8 +271,8 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
                                     </IconButton>
                                 </Tooltip>
                                 <Tooltip title="发送心跳">
-                                    <IconButton 
-                                        size="small" 
+                                    <IconButton
+                                        size="small"
                                         onClick={() => this.props.wsStore.sendPing()}>
                                         <RefreshIcon />
                                     </IconButton>
@@ -274,7 +300,10 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
                                                 </ListItemIcon>
                                                 <ListItemText
                                                     primary={
-                                                        <Box display="flex" justifyContent="space-between" alignItems="center">
+                                                        <Box
+                                                            display="flex"
+                                                            justifyContent="space-between"
+                                                            alignItems="center">
                                                             <Typography variant="subtitle2">
                                                                 {this.getMessageTitle(message)}
                                                             </Typography>
@@ -283,10 +312,16 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
                                                     }
                                                     secondary={
                                                         <Box>
-                                                            <Typography variant="body2" style={{marginBottom: 4}}>
-                                                                {this.getMessageDescription(message)}
+                                                            <Typography
+                                                                variant="body2"
+                                                                style={{marginBottom: 4}}>
+                                                                {this.getMessageDescription(
+                                                                    message
+                                                                )}
                                                             </Typography>
-                                                            <Typography variant="caption" color="textSecondary">
+                                                            <Typography
+                                                                variant="caption"
+                                                                color="textSecondary">
                                                                 {this.formatTime(message.timestamp)}
                                                             </Typography>
                                                         </Box>
@@ -305,4 +340,4 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
     }
 }
 
-export default inject('wsStore')(RealtimeMessages); 
+export default inject('wsStore')(RealtimeMessages);

@@ -30,19 +30,19 @@ const highlightEnv = (code: string, isDark: boolean = false) => {
         // 使用自定义语法解析ENV格式
         return code
             .split('\n')
-            .map(line => {
+            .map((line) => {
                 const trimmed = line.trim();
-                
+
                 // 注释行
                 if (trimmed.startsWith('#')) {
                     return `<span class="token comment">${escapeHtml(line)}</span>`;
                 }
-                
+
                 // 空行
                 if (trimmed === '') {
                     return line;
                 }
-                
+
                 // ENV键值对 KEY = VALUE (支持等号前后空格，支持点号和中划线)
                 const envMatch = line.match(/^(\s*)([A-Za-z_][A-Za-z0-9_.-]*)(\s*=\s*)(.*)$/);
                 if (envMatch) {
@@ -52,13 +52,23 @@ const highlightEnv = (code: string, isDark: boolean = false) => {
                     const equalsMatch = equalsWithSpaces.match(/^(\s*)(=)(\s*)$/);
                     if (equalsMatch) {
                         const [, spaceBefore, equals, spaceAfter] = equalsMatch;
-                        return `${escapeHtml(indent)}<span class="token variable">${escapeHtml(key)}</span>${escapeHtml(spaceBefore)}<span class="token operator">${escapeHtml(equals)}</span>${escapeHtml(spaceAfter)}${highlightedValue}`;
+                        return `${escapeHtml(indent)}<span class="token variable">${escapeHtml(
+                            key
+                        )}</span>${escapeHtml(
+                            spaceBefore
+                        )}<span class="token operator">${escapeHtml(equals)}</span>${escapeHtml(
+                            spaceAfter
+                        )}${highlightedValue}`;
                     } else {
                         // 降级处理
-                        return `${escapeHtml(indent)}<span class="token variable">${escapeHtml(key)}</span><span class="token operator">${escapeHtml(equalsWithSpaces)}</span>${highlightedValue}`;
+                        return `${escapeHtml(indent)}<span class="token variable">${escapeHtml(
+                            key
+                        )}</span><span class="token operator">${escapeHtml(
+                            equalsWithSpaces
+                        )}</span>${highlightedValue}`;
                     }
                 }
-                
+
                 return escapeHtml(line);
             })
             .join('\n');
@@ -74,20 +84,22 @@ const highlightEnvValue = (value: string) => {
     if (!leadingSpaceMatch) {
         return `<span class="token builtin">${escapeHtml(value)}</span>`;
     }
-    
+
     const [, leadingSpace, content, trailingSpace] = leadingSpaceMatch;
     const trimmedValue = content.trim();
-    
+
     // 如果没有内容，返回原始值
     if (!content) {
         return escapeHtml(value);
     }
-    
+
     let highlightedContent = '';
-    
+
     // 带引号的字符串
-    if ((trimmedValue.startsWith('"') && trimmedValue.endsWith('"')) ||
-        (trimmedValue.startsWith("'") && trimmedValue.endsWith("'"))) {
+    if (
+        (trimmedValue.startsWith('"') && trimmedValue.endsWith('"')) ||
+        (trimmedValue.startsWith("'") && trimmedValue.endsWith("'"))
+    ) {
         highlightedContent = `<span class="token string">${escapeHtml(content)}</span>`;
     }
     // 布尔值
@@ -106,7 +118,7 @@ const highlightEnvValue = (value: string) => {
     else {
         highlightedContent = `<span class="token builtin">${escapeHtml(content)}</span>`;
     }
-    
+
     // 组合前导空格、高亮内容和尾随空格
     return `${escapeHtml(leadingSpace)}${highlightedContent}${escapeHtml(trailingSpace)}`;
 };
@@ -131,7 +143,7 @@ interface IProps {
     open: boolean;
     projectName: string;
     onClose: () => void;
-    onGetEnvFile: (name: string) => Promise<{ content: string; exists: boolean; path: string }>;
+    onGetEnvFile: (name: string) => Promise<{content: string; exists: boolean; path: string}>;
     onSaveEnvFile: (name: string, content: string) => Promise<void>;
     onDeleteEnvFile: (name: string) => Promise<void>;
     theme?: Theme;
@@ -248,37 +260,37 @@ format = "json"
 
 [monitoring]
 enable_metrics = true
-metrics_port = 9090`
+metrics_port = 9090`,
 };
 
 // 检测TOML格式
 function detectTomlFormat(content: string): boolean {
     const lines = content.split('\n');
-    
+
     for (const line of lines) {
         const trimmedLine = line.trim();
-        
+
         if (trimmedLine === '' || trimmedLine.startsWith('#')) {
             continue;
         }
-        
+
         if (trimmedLine.startsWith('[') && trimmedLine.endsWith(']')) {
             return true;
         }
-        
+
         if (trimmedLine.includes('"""')) {
             return true;
         }
-        
+
         if (/^\w+\s*=\s*\[.*\]/.test(trimmedLine)) {
             return true;
         }
-        
+
         if (/^\w+\.\w+\s*=/.test(trimmedLine)) {
             return true;
         }
     }
-    
+
     return false;
 }
 
@@ -347,7 +359,7 @@ class EnvFileDialogModal extends Component<IProps & Stores<'snackManager'>, ISta
         });
     };
 
-    handleTemplateChange = (event: React.ChangeEvent<{ value: unknown }>) => {
+    handleTemplateChange = (event: React.ChangeEvent<{value: unknown}>) => {
         const templateKey = event.target.value as string;
         this.setState({
             selectedTemplate: templateKey,
@@ -397,15 +409,16 @@ class EnvFileDialogModal extends Component<IProps & Stores<'snackManager'>, ISta
     };
 
     render() {
-        const { open, projectName, theme } = this.props;
-        const { envFileContent, hasEnvFile, errors, isTomlContent, selectedTemplate, isEditMode } = this.state;
+        const {open, projectName, theme} = this.props;
+        const {envFileContent, hasEnvFile, errors, isTomlContent, selectedTemplate, isEditMode} =
+            this.state;
 
         const formatIndicator = isTomlContent ? 'TOML' : 'ENV';
         const formatColor = isTomlContent ? '#4CAF50' : '#2196F3';
-        
+
         // 检测是否为深色主题
         const isDarkTheme = theme?.palette?.type === 'dark';
-        
+
         // 根据主题选择编辑器样式
         const editorStyles = {
             fontFamily: 'Consolas, Monaco, "Courier New", monospace',
@@ -417,11 +430,11 @@ class EnvFileDialogModal extends Component<IProps & Stores<'snackManager'>, ISta
             whiteSpace: 'pre' as const,
             color: isDarkTheme ? '#ffffff' : '#000000',
         };
-        
+
         const editorContainerStyle = {
             border: `1px solid ${isDarkTheme ? '#444' : '#e0e0e0'}`,
             borderRadius: 4,
-            background: isDarkTheme ? '#1e1e1e' : (isEditMode ? '#f8f8f8' : '#fafafa'),
+            background: isDarkTheme ? '#1e1e1e' : isEditMode ? '#f8f8f8' : '#fafafa',
             maxHeight: 400, // 限制容器最大高度
             overflow: 'auto', // 容器处理滚动
         };
@@ -437,11 +450,13 @@ class EnvFileDialogModal extends Component<IProps & Stores<'snackManager'>, ISta
                     style: {
                         maxHeight: '85vh', // 限制对话框最大高度
                         height: 'auto',
-                    }
+                    },
                 }}>
                 <DialogTitle>
                     <Box display="flex" alignItems="center" justifyContent="space-between">
-                        <span>{isEditMode ? '编辑环境文件' : '创建环境文件'} - {projectName}</span>
+                        <span>
+                            {isEditMode ? '编辑环境文件' : '创建环境文件'} - {projectName}
+                        </span>
                         {(isEditMode || envFileContent) && (
                             <Chip
                                 label={`格式: ${formatIndicator}`}
@@ -451,7 +466,7 @@ class EnvFileDialogModal extends Component<IProps & Stores<'snackManager'>, ISta
                         )}
                     </Box>
                 </DialogTitle>
-                <DialogContent style={{ paddingBottom: 0, overflow: 'visible' }}>
+                <DialogContent style={{paddingBottom: 0, overflow: 'visible'}}>
                     {/* 模板选择器 - 仅在创建模式显示 */}
                     {!isEditMode && (
                         <Box mb={2}>
@@ -468,30 +483,39 @@ class EnvFileDialogModal extends Component<IProps & Stores<'snackManager'>, ISta
                                     <MenuItem value="microservice">微服务配置</MenuItem>
                                 </Select>
                             </FormControl>
-                            <Typography variant="caption" color="textSecondary" style={{display: 'block', marginTop: '8px'}}>
+                            <Typography
+                                variant="caption"
+                                color="textSecondary"
+                                style={{display: 'block', marginTop: '8px'}}>
                                 选择模板将自动填充内容到编辑器中
                             </Typography>
                         </Box>
                     )}
 
                     {/* 语法高亮编辑器 */}
-                    <Box mb={2} style={editorContainerStyle} className={isDarkTheme ? 'prism-dark' : 'prism-light'}>
+                    <Box
+                        mb={2}
+                        style={editorContainerStyle}
+                        className={isDarkTheme ? 'prism-dark' : 'prism-light'}>
                         <Editor
                             value={envFileContent}
                             onValueChange={this.handleContentChange}
-                            highlight={(code) => isTomlContent ? highlightToml(code, isDarkTheme) : highlightEnv(code, isDarkTheme)}
+                            highlight={(code) =>
+                                isTomlContent
+                                    ? highlightToml(code, isDarkTheme)
+                                    : highlightEnv(code, isDarkTheme)
+                            }
                             padding={16}
                             style={editorStyles}
                             textareaId="envfile-editor"
-                            placeholder={!isEditMode ? 
-                                (isTomlContent ? 
-                                    "# TOML格式内容\n[section]\nkey = \"value\"\n\n# 选择上方模板快速开始" :
-                                    "# 标准ENV格式\nKEY=value\nANOTHER_KEY=another_value\n\n# 选择上方模板快速开始"
-                                ) : 
-                                (isTomlContent ?
-                                    "# TOML格式配置文件" :
-                                    "# 环境变量配置文件"
-                                )
+                            placeholder={
+                                !isEditMode
+                                    ? isTomlContent
+                                        ? '# TOML格式内容\n[section]\nkey = "value"\n\n# 选择上方模板快速开始'
+                                        : '# 标准ENV格式\nKEY=value\nANOTHER_KEY=another_value\n\n# 选择上方模板快速开始'
+                                    : isTomlContent
+                                    ? '# TOML格式配置文件'
+                                    : '# 环境变量配置文件'
                             }
                         />
                     </Box>
@@ -514,7 +538,8 @@ class EnvFileDialogModal extends Component<IProps & Stores<'snackManager'>, ISta
                     <Box mt={2} mb={1}>
                         {(isEditMode || envFileContent) && (
                             <Typography variant="body2" color="textSecondary">
-                                <strong>检测到格式：</strong>{formatIndicator} 格式内容
+                                <strong>检测到格式：</strong>
+                                {formatIndicator} 格式内容
                             </Typography>
                         )}
                         <Typography variant="body2" color="textSecondary">
@@ -534,13 +559,8 @@ class EnvFileDialogModal extends Component<IProps & Stores<'snackManager'>, ISta
                         </Button>
                     )}
                     <Box flexGrow={1} />
-                    <Button onClick={this.handleClose}>
-                        取消
-                    </Button>
-                    <Button
-                        onClick={this.handleSave}
-                        color="primary"
-                        variant="contained">
+                    <Button onClick={this.handleClose}>取消</Button>
+                    <Button onClick={this.handleSave} color="primary" variant="contained">
                         保存
                     </Button>
                 </DialogActions>
@@ -549,4 +569,4 @@ class EnvFileDialogModal extends Component<IProps & Stores<'snackManager'>, ISta
     }
 }
 
-export default inject('snackManager')(withTheme(EnvFileDialogModal)); 
+export default inject('snackManager')(withTheme(EnvFileDialogModal));

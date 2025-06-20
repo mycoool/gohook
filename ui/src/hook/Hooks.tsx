@@ -25,21 +25,26 @@ import useTranslation from '../i18n/useTranslation';
 import {withStyles, WithStyles, Theme, createStyles} from '@material-ui/core/styles';
 
 // 添加样式定义
-const styles = (theme: Theme) => createStyles({
-    codeBlock: {
-        fontSize: '0.85em',
-        backgroundColor: theme.palette.type === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
-        color: theme.palette.text.primary,
-        padding: '2px 4px',
-        borderRadius: '3px',
-        border: theme.palette.type === 'dark' ? '1px solid rgba(255, 255, 255, 0.2)' : '1px solid rgba(0, 0, 0, 0.2)',
-    },
-    workingDir: {
-        fontSize: '0.8em',
-        color: theme.palette.text.secondary,
-        marginTop: '4px',
-    },
-});
+const styles = (theme: Theme) =>
+    createStyles({
+        codeBlock: {
+            fontSize: '0.85em',
+            backgroundColor:
+                theme.palette.type === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+            color: theme.palette.text.primary,
+            padding: '2px 4px',
+            borderRadius: '3px',
+            border:
+                theme.palette.type === 'dark'
+                    ? '1px solid rgba(255, 255, 255, 0.2)'
+                    : '1px solid rgba(0, 0, 0, 0.2)',
+        },
+        workingDir: {
+            fontSize: '0.8em',
+            color: theme.palette.text.secondary,
+            marginTop: '4px',
+        },
+    });
 
 @observer
 class Hooks extends Component<Stores<'hookStore'>> {
@@ -63,8 +68,8 @@ class Hooks extends Component<Stores<'hookStore'>> {
                 onRefresh={this.refreshHooks}
                 onReloadConfig={this.reloadConfig}
                 onTriggerHook={this.triggerHook}
-                onDeleteHook={(id) => this.deleteId = id}
-                onCancelDelete={() => this.deleteId = false}
+                onDeleteHook={(id) => (this.deleteId = id)}
+                onCancelDelete={() => (this.deleteId = false)}
                 onConfirmDelete={() => hookStore.remove(deleteId as string)}
                 hookStore={hookStore}
             />
@@ -94,7 +99,7 @@ const HooksContainer: React.FC<{
     onDeleteHook: (id: string) => void;
     onCancelDelete: () => void;
     onConfirmDelete: () => void;
-    hookStore: { getByID: (id: string) => IHook };
+    hookStore: {getByID: (id: string) => IHook};
 }> = ({
     hooks,
     deleteId,
@@ -104,19 +109,16 @@ const HooksContainer: React.FC<{
     onDeleteHook,
     onCancelDelete,
     onConfirmDelete,
-    hookStore
+    hookStore,
 }) => {
-    const { t } = useTranslation();
+    const {t} = useTranslation();
 
     return (
         <DefaultPage
             title={t('hook.title')}
             rightControl={
                 <ButtonGroup variant="contained" color="primary">
-                    <Button
-                        id="refresh-hooks"
-                        startIcon={<Refresh />}
-                        onClick={onRefresh}>
+                    <Button id="refresh-hooks" startIcon={<Refresh />} onClick={onRefresh}>
                         {t('common.refresh')}
                     </Button>
                     <Button
@@ -159,7 +161,7 @@ const HooksContainer: React.FC<{
             {deleteId !== false && (
                 <ConfirmDialog
                     title={t('hook.confirmDelete')}
-                    text={t('hook.confirmDeleteText', { name: hookStore.getByID(deleteId).name })}
+                    text={t('hook.confirmDeleteText', {name: hookStore.getByID(deleteId).name})}
                     fClose={onCancelDelete}
                     fOnSubmit={onConfirmDelete}
                 />
@@ -176,8 +178,8 @@ interface IRowProps extends WithStyles<typeof styles> {
 }
 
 const Row: React.FC<IRowProps> = observer(({hook, fTrigger, fDelete, classes}) => {
-    const { t } = useTranslation();
-    
+    const {t} = useTranslation();
+
     return (
         <TableRow>
             <TableCell>
@@ -189,9 +191,7 @@ const Row: React.FC<IRowProps> = observer(({hook, fTrigger, fDelete, classes}) =
                 {hook.description}
             </TableCell>
             <TableCell>
-                <code className={classes.codeBlock}>
-                    {hook.executeCommand}
-                </code>
+                <code className={classes.codeBlock}>{hook.executeCommand}</code>
                 {hook.workingDirectory && (
                     <div className={classes.workingDir}>
                         {t('hook.workingDir')}: {hook.workingDirectory}
@@ -209,7 +209,7 @@ const Row: React.FC<IRowProps> = observer(({hook, fTrigger, fDelete, classes}) =
                             marginBottom: '2px',
                             backgroundColor: getMethodColor(method),
                             color: 'white',
-                            fontSize: '0.7em'
+                            fontSize: '0.7em',
                         }}
                     />
                 ))}
@@ -223,7 +223,7 @@ const Row: React.FC<IRowProps> = observer(({hook, fTrigger, fDelete, classes}) =
                     size="small"
                     style={{
                         backgroundColor: hook.status === 'active' ? '#4caf50' : '#f44336',
-                        color: 'white'
+                        color: 'white',
                     }}
                 />
             </TableCell>
@@ -231,10 +231,18 @@ const Row: React.FC<IRowProps> = observer(({hook, fTrigger, fDelete, classes}) =
                 <LastUsedCell lastUsed={hook.lastUsed} />
             </TableCell>
             <TableCell align="center" padding="none">
-                <IconButton onClick={fTrigger} className="trigger" title={t('hook.triggerHook')} size="small">
+                <IconButton
+                    onClick={fTrigger}
+                    className="trigger"
+                    title={t('hook.triggerHook')}
+                    size="small">
                     <PlayArrow />
                 </IconButton>
-                <IconButton onClick={fDelete} className="delete" title={t('hook.deleteHook')} size="small">
+                <IconButton
+                    onClick={fDelete}
+                    className="delete"
+                    title={t('hook.deleteHook')}
+                    size="small">
                     <Delete />
                 </IconButton>
             </TableCell>
@@ -263,4 +271,4 @@ function getMethodColor(method: string): string {
 // 使用 withStyles 包装 Row 组件
 const StyledRow = withStyles(styles)(Row);
 
-export default inject('hookStore')(Hooks); 
+export default inject('hookStore')(Hooks);

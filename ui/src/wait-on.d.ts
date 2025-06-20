@@ -1,1 +1,1 @@
-declare module 'wait-on'; 
+declare module 'wait-on';

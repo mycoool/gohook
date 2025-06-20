@@ -31,79 +31,83 @@ interface IState {
 // detect if content uses TOML format (inside .env file)
 function detectTomlFormat(content: string): boolean {
     const lines = content.split('\n');
-    
+
     for (const line of lines) {
         const trimmedLine = line.trim();
-        
+
         // skip empty lines and comments
         if (trimmedLine === '' || trimmedLine.startsWith('#')) {
             continue;
         }
-        
+
         // check for TOML section headers [section]
         if (trimmedLine.startsWith('[') && trimmedLine.endsWith(']')) {
             return true;
         }
-        
+
         // check for TOML multiline strings
         if (trimmedLine.includes('"""')) {
             return true;
         }
-        
+
         // check for TOML arrays
         if (/^\w+\s*=\s*\[.*\]/.test(trimmedLine)) {
             return true;
         }
-        
+
         // check for TOML dotted keys
         if (/^\w+\.\w+\s*=/.test(trimmedLine)) {
             return true;
         }
     }
-    
+
     return false;
 }
 
 // enhanced syntax highlighting for both .env and TOML content
 function highlightEnvSyntax(content: string, isTomlContent: boolean, isDarkMode: boolean): string {
     const lines = content.split('\n');
-    const highlightedLines = lines.map(line => {
+    const highlightedLines = lines.map((line) => {
         const trimmedLine = line.trim();
-        
+
         // empty line
         if (trimmedLine === '') {
             return '&nbsp;';
         }
-        
+
         // comment line
         if (trimmedLine.startsWith('#')) {
-            return `<span style="color: ${isDarkMode ? '#6A9955' : '#008000'}; font-style: italic;">${escapeHtml(line)}</span>`;
+            return `<span style="color: ${
+                isDarkMode ? '#6A9955' : '#008000'
+            }; font-style: italic;">${escapeHtml(line)}</span>`;
         }
-        
+
         // TOML content highlighting
         if (isTomlContent) {
             // TOML section headers [section]
             if (trimmedLine.startsWith('[') && trimmedLine.endsWith(']')) {
-                return `<span style="color: ${isDarkMode ? '#569CD6' : '#0000FF'}; font-weight: bold;">${escapeHtml(line)}</span>`;
+                return `<span style="color: ${
+                    isDarkMode ? '#569CD6' : '#0000FF'
+                }; font-weight: bold;">${escapeHtml(line)}</span>`;
             }
         }
-        
+
         // key=value lines
         if (line.includes('=')) {
             const equalIndex = line.indexOf('=');
             const beforeEqual = line.substring(0, equalIndex);
             const afterEqual = line.substring(equalIndex);
-            
+
             let keyColor = isDarkMode ? '#9CDCFE' : '#0451A5';
             let valueColor = isDarkMode ? '#CE9178' : '#A31515';
-            
+
             // TOML content special coloring
             if (isTomlContent) {
                 // dotted keys
                 if (beforeEqual.trim().includes('.')) {
                     keyColor = isDarkMode ? '#4EC9B0' : '#008080';
                 }
-                
+
                 const value = afterEqual.substring(1).trim();
                 // boolean values
                 if (value === 'true' || value === 'false') {
@@ -118,14 +122,20 @@ function highlightEnvSyntax(content: string, isTomlContent: boolean, isDarkMode:
                     valueColor = isDarkMode ? '#D4D4D4' : '#000000';
                 }
             }
-            
-            return `<span style="color: ${keyColor};">${escapeHtml(beforeEqual)}</span><span style="color: ${isDarkMode ? '#D4D4D4' : '#000000'};">=</span><span style="color: ${valueColor};">${escapeHtml(afterEqual.substring(1))}</span>`;
+
+            return `<span style="color: ${keyColor};">${escapeHtml(
+                beforeEqual
+            )}</span><span style="color: ${
+                isDarkMode ? '#D4D4D4' : '#000000'
+            };">=</span><span style="color: ${valueColor};">${escapeHtml(
+                afterEqual.substring(1)
+            )}</span>`;
         }
-        
+
         // other lines
         return escapeHtml(line);
     });
-    
+
     return highlightedLines.join('<br/>');
 }
 
@@ -299,20 +309,27 @@ enable_metrics = false
 app.cache.ttl = 3600
 app.cache.size = 1024`;
 
-    return (
+        return (
             <DefaultPage title="Environment Configuration" maxWidth={900}>
                 <Box mb={3}>
                     <Typography variant="h6" gutterBottom>
                         Environment File (.env)
                     </Typography>
                     <Typography variant="body2" color="textSecondary" gutterBottom>
-                        Configure environment variables for your application. The file is always named <code>.env</code> but supports both standard ENV format and TOML format content.
+                        Configure environment variables for your application. The file is always
+                        named <code>.env</code> but supports both standard ENV format and TOML
+                        format content.
                     </Typography>
                 </Box>
 
                 {hasEnvFile ? (
                     <Box mb={2}>
-                        <Box display="flex" alignItems="center" mb={2} flexWrap="wrap" style={{gap: '16px'}}>
+                        <Box
+                            display="flex"
+                            alignItems="center"
+                            mb={2}
+                            flexWrap="wrap"
+                            style={{gap: '16px'}}>
                             <Chip
                                 label={`Format: ${formatIndicator}`}
                                 style={{backgroundColor: formatColor, color: 'white'}}
@@ -349,7 +366,11 @@ app.cache.size = 1024`;
                                     lineHeight: '1.4',
                                 }}
                                 dangerouslySetInnerHTML={{
-                                    __html: highlightEnvSyntax(envFileContent, isTomlContent, isDarkMode)
+                                    __html: highlightEnvSyntax(
+                                        envFileContent,
+                                        isTomlContent,
+                                        isDarkMode
+                                    ),
                                 }}
                             />
                         </Box>
@@ -368,9 +389,9 @@ app.cache.size = 1024`;
                                     <Typography variant="body2" color="textSecondary" gutterBottom>
                                         Simple key=value pairs
                                     </Typography>
-                                    <Button 
+                                    <Button
                                         variant="outlined"
-                                        size="small" 
+                                        size="small"
                                         onClick={() => this.applyTemplate(envTemplate)}>
                                         Use ENV Template
                                     </Button>
@@ -428,9 +449,10 @@ app.cache.size = 1024`;
                             variant="outlined"
                             value={envFileContent}
                             onChange={this.handleEnvFileContentChange}
-                            placeholder={isTomlContent ? 
-                                "# TOML format content\n[section]\nkey = \"value\"" :
-                                "# Standard ENV format\nKEY=value\nANOTHER_KEY=another_value"
+                            placeholder={
+                                isTomlContent
+                                    ? '# TOML format content\n[section]\nkey = "value"'
+                                    : '# Standard ENV format\nKEY=value\nANOTHER_KEY=another_value'
                             }
                             InputProps={{
                                 style: {
@@ -453,23 +475,25 @@ app.cache.size = 1024`;
                         )}
                         <Box mt={2}>
                             <Typography variant="body2" color="textSecondary">
-                                <strong>Format detected:</strong> {formatIndicator} format content in .env file
+                                <strong>Format detected:</strong> {formatIndicator} format content
+                                in .env file
                             </Typography>
                             <Typography variant="body2" color="textSecondary">
-                                The file will always be saved as <code>.env</code> regardless of content format.
+                                The file will always be saved as <code>.env</code> regardless of
+                                content format.
                             </Typography>
                         </Box>
-            </DialogContent>
-            <DialogActions>
+                    </DialogContent>
+                    <DialogActions>
                         <Button onClick={this.closeEnvFileEditor}>Cancel</Button>
-                    <Button 
+                        <Button
                             onClick={this.validateAndSaveEnvFile}
-                    color="primary" 
+                            color="primary"
                             variant="contained">
                             Validate & Save
-                </Button>
-            </DialogActions>
-        </Dialog>
+                        </Button>
+                    </DialogActions>
+                </Dialog>
             </DefaultPage>
         );
     }
@@ -478,6 +502,6 @@ app.cache.size = 1024`;
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 const WrappedEnvFileDialog = inject('versionStore', 'snackManager')(EnvFileDialog);
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment  
-// @ts-ignore  
-export default withRouter(WrappedEnvFileDialog); 
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+export default withRouter(WrappedEnvFileDialog);

@@ -134,7 +134,9 @@ describe('plugin', () => {
                     const configSaveButton = await page.$('.config-save');
                     expect(configSaveButton).toBeTruthy();
                     if (configSaveButton) {
-                        expect(await (await configSaveButton.getProperty('disabled')).jsonValue()).toBe(true);
+                        expect(
+                            await (await configSaveButton.getProperty('disabled')).jsonValue()
+                        ).toBe(true);
                     }
                     await page.waitForSelector('.CodeMirror .CodeMirror-code');
                     await page.waitForFunction(
@@ -154,7 +156,9 @@ describe('plugin', () => {
                     const configSaveButton = await page.$('.config-save');
                     expect(configSaveButton).toBeTruthy();
                     if (configSaveButton) {
-                        expect(await (await configSaveButton.getProperty('disabled')).jsonValue()).toBe(true);
+                        expect(
+                            await (await configSaveButton.getProperty('disabled')).jsonValue()
+                        ).toBe(true);
                     }
                     await page.waitForSelector('.CodeMirror .CodeMirror-code > div');
                     await page.waitForFunction(
