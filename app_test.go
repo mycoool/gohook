@@ -18,7 +18,7 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/mycoool/gohook/internal/hook"
+	"github.com/mycoool/gohook/internal/webhook"
 )
 
 func TestStaticParams(t *testing.T) {
@@ -40,13 +40,13 @@ func TestStaticParams(t *testing.T) {
 	}
 	defer os.Remove("/tmp/with space")
 
-	spHook := &hook.Hook{
+	spHook := &webhook.Hook{
 		ID:                      "static-params-name-space",
 		ExecuteCommand:          "/tmp/with space",
 		CommandWorkingDirectory: "/tmp",
 		ResponseMessage:         "success",
 		CaptureCommandOutput:    true,
-		PassArgumentsToCommand: []hook.Argument{
+		PassArgumentsToCommand: []webhook.Argument{
 			{Source: "string", Name: "passed"},
 		},
 	}
@@ -54,11 +54,11 @@ func TestStaticParams(t *testing.T) {
 	b := &bytes.Buffer{}
 	log.SetOutput(b)
 
-	r := &hook.Request{
+	r := &webhook.Request{
 		ID:      "test",
 		Headers: spHeaders,
 	}
-	_, err = handleHook(spHook, r)
+	_, err = webhook.HandleHook(spHook, r)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v\n", err)
 	}
@@ -339,7 +339,7 @@ func killAndWait(cmd *exec.Cmd) {
 // namespace variables.
 func webhookEnv() (env []string) {
 	for _, v := range os.Environ() {
-		if strings.HasPrefix(v, hook.EnvNamespace) {
+		if strings.HasPrefix(v, webhook.EnvNamespace) {
 			continue
 		}
 		env = append(env, v)

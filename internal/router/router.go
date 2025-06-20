@@ -155,7 +155,7 @@ func InitRouter() *gin.Engine {
 
 	// add websocket
 	ws := g.Group("/stream")
-	ws.Use(middleware.WsAuthMiddleware()) // use WebSocket auth middleware, support query parameter token
+	ws.Use(middleware.WsAuthMiddleware(), middleware.DisableLogMiddleware()) // use WebSocket auth middleware, support query parameter token
 	{
 		// frontend access address: "/stream?token=jwt-token-here"
 		ws.GET("", stream.HandleWebSocket)
@@ -169,68 +169,68 @@ func InitRouter() *gin.Engine {
 	versionAPI.Use(middleware.AuthMiddleware(), middleware.DisableLogMiddleware()) // add auth middleware
 	{
 		// get all projects list
-		versionAPI.GET("", version.GetProjects)
+		versionAPI.GET("", version.HandleGetProjects)
 
 		// reload config file interface
-		versionAPI.POST("/reload-config", version.ReloadConfig)
+		versionAPI.POST("/reload-config", version.HandleReloadConfig)
 
 		// add project
-		versionAPI.POST("/add-project", version.AddProject)
+		versionAPI.POST("/add-project", version.HandleAddProject)
 
 		// delete project
-		versionAPI.DELETE("/:name", version.DeleteProject)
+		versionAPI.DELETE("/:name", version.HandleDeleteProject)
 
 		// get project branches list
-		versionAPI.GET("/:name/branches", version.GetBranches)
+		versionAPI.GET("/:name/branches", version.HandleGetBranches)
 
 		// get project tags list
-		versionAPI.GET("/:name/tags", version.GetTags)
+		versionAPI.GET("/:name/tags", version.HandleGetTags)
 
 		// sync branches
-		versionAPI.POST("/:name/sync-branches", version.SyncBranches)
+		versionAPI.POST("/:name/sync-branches", version.HandleSyncBranches)
 
 		// delete branch
-		versionAPI.DELETE("/:name/branches/:branchName", version.DeleteBranch)
+		versionAPI.DELETE("/:name/branches/:branchName", version.HandleDeleteBranch)
 
 		// switch branch
-		versionAPI.POST("/:name/switch-branch", version.SwitchBranch)
+		versionAPI.POST("/:name/switch-branch", version.HandleSwitchBranch)
 
 		// switch tag
-		versionAPI.POST("/:name/switch-tag", version.SwitchTag)
+		versionAPI.POST("/:name/switch-tag", version.HandleSwitchTag)
 
 		// sync tags
-		versionAPI.POST("/:name/sync-tags", version.SyncTags)
+		versionAPI.POST("/:name/sync-tags", version.HandleSyncTags)
 
 		// delete tag
-		versionAPI.DELETE("/:name/tags/:tagName", version.DeleteTag)
+		versionAPI.DELETE("/:name/tags/:tagName", version.HandleDeleteTag)
 
 		// delete local tag
-		versionAPI.DELETE("/:name/tags/:tagName/local", version.DeleteLocalTag)
+		versionAPI.DELETE("/:name/tags/:tagName/local", version.HandleDeleteLocalTag)
 
 		// init git repository
-		versionAPI.POST("/:name/init-git", version.InitGitRepository)
+		versionAPI.POST("/:name/init-git", version.HandleInitGitRepository)
 
 		// set remote repository
-		versionAPI.POST("/:name/set-remote", version.SetRemote)
+		versionAPI.POST("/:name/set-remote", version.HandleSetRemote)
 
 		// get remote repository
-		versionAPI.GET("/:name/remote", version.GetRemote)
+		versionAPI.GET("/:name/remote", version.HandleGetRemote)
 
 		// get project environment variable file (.env)
-		versionAPI.GET("/:name/env", version.GetEnv)
+		versionAPI.GET("/:name/env", version.HandleGetEnv)
 
 		// save project environment variable file (.env)
-		versionAPI.POST("/:name/env", version.SaveEnv)
+		versionAPI.POST("/:name/env", version.HandleSaveEnv)
 
 		// delete project environment variable file (.env)
-		versionAPI.DELETE("/:name/env", version.DeleteEnv)
+		versionAPI.DELETE("/:name/env", version.HandleDeleteEnv)
 
 		// save project GitHook configuration
-		versionAPI.POST("/:name/githook", version.SaveGitHook)
+		versionAPI.POST("/:name/githook", version.HandleSaveGitHook)
 	}
 
 	// GitHook webhook endpoint
-	g.POST("/githook/:name", version.GitHook)
+	g.POST("/githook/:name", version.HandleGitHook)
 
 	// plugin management API group (temporary empty interface)
 	pluginAPI := g.Group("/plugin")
@@ -279,16 +279,16 @@ func InitRouter() *gin.Engine {
 	}
 
 	// client list API (get all sessions for current user)
-	g.GET("/client", middleware.AuthMiddleware(), client.GetClientSessions)
+	g.GET("/client", middleware.AuthMiddleware(), client.HandleGetClientSessions)
 
 	// delete client API (logout specified session)
-	g.DELETE("/client/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), client.DeleteClientSession)
+	g.DELETE("/client/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), client.HandleDeleteClientSession)
 
 	// delete current user's session
-	g.DELETE("/client/current", middleware.AuthMiddleware(), client.DeleteCurrentClientSession)
+	g.DELETE("/client/current", middleware.AuthMiddleware(), client.HandleDeleteCurrentClientSession)
 
 	// modify current user password API (add to existing current route)
-	g.POST("/current/user/password", client.ModifyCurrentClientPassword)
+	g.POST("/current/user/password", client.HandleModifyCurrentClientPassword)
 
 	// save router instance
 	routerInstance = g

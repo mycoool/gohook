@@ -53,10 +53,11 @@ func handleGitHook(project *types.ProjectConfig, payload map[string]interface{})
 		if ref, ok := payload["ref"].(string); ok {
 			parts := strings.Split(ref, "/")
 			if len(parts) >= 3 {
-				if parts[1] == "heads" {
+				switch parts[1] {
+				case "heads":
 					targetRef = strings.Join(parts[2:], "/")
 					refType = "branch"
-				} else if parts[1] == "tags" {
+				case "tags":
 					targetRef = strings.Join(parts[2:], "/")
 					refType = "tag"
 				}
@@ -86,11 +87,12 @@ func handleGitHook(project *types.ProjectConfig, payload map[string]interface{})
 
 	// check if it is a deletion operation (after field is all zeros)
 	if afterCommit == "0000000000000000000000000000000000000000" {
-		if refType == "tag" {
+		switch refType {
+		case "tag":
 			// tag deletion: only delete local tag
 			log.Printf("detected tag deletion event: %s", targetRef)
 			return deleteTag(project.Path, targetRef)
-		} else if refType == "branch" {
+		case "branch":
 			// branch deletion: need to smart judgment
 			log.Printf("detected branch deletion event: %s", targetRef)
 			return branchDeletion(project, targetRef)
@@ -121,15 +123,16 @@ func executeGitHook(project *types.ProjectConfig, refType, targetRef string) err
 		log.Printf("warning: failed to fetch remote information: %s", string(output))
 	}
 
-	if refType == "branch" {
+	switch refType {
+	case "branch":
 		// branch mode: switch to specified branch and pull latest code
 		return switchAndPullBranch(projectPath, targetRef)
-	} else if refType == "tag" {
+	case "tag":
 		// tag mode: switch to specified tag
 		return switchToTag(projectPath, targetRef)
+	default:
+		return fmt.Errorf("unsupported reference type: %s", refType)
 	}
-
-	return fmt.Errorf("unsupported reference type: %s", refType)
 }
 
 // verify GitHub HMAC-SHA256 signature
@@ -138,7 +141,7 @@ func verifyGitHubSignature(payload []byte, secret, signature string) error {
 		return fmt.Errorf("GitHub signature format error, should start with sha256=")
 	}
 
-	expectedSig := "sha256=" + HmacSHA256Hex(payload, secret)
+	expectedSig := "sha256=" + hmacSHA256Hex(payload, secret)
 	if subtle.ConstantTimeCompare([]byte(signature), []byte(expectedSig)) != 1 {
 		return fmt.Errorf("GitHub signature verification failed")
 	}
@@ -153,7 +156,7 @@ func verifyGitHubLegacySignature(payload []byte, secret, signature string) error
 	}
 
 	// note: here should use SHA1, but for security, we suggest using SHA256
-	expectedSig := "sha1=" + HmacSHA1Hex(payload, secret)
+	expectedSig := "sha1=" + hmacSHA1Hex(payload, secret)
 	if subtle.ConstantTimeCompare([]byte(signature), []byte(expectedSig)) != 1 {
 		return fmt.Errorf("GitHub legacy signature verification failed")
 	}
@@ -171,7 +174,7 @@ func verifyGitLabToken(secret, token string) error {
 
 // verifyGiteaSignature verify Gitea HMAC-SHA256 signature
 func verifyGiteaSignature(payload []byte, secret, signature string) error {
-	expectedSig := HmacSHA256Hex(payload, secret)
+	expectedSig := hmacSHA256Hex(payload, secret)
 	if subtle.ConstantTimeCompare([]byte(signature), []byte(expectedSig)) != 1 {
 		return fmt.Errorf("gitea signature verification failed")
 	}
@@ -180,7 +183,7 @@ func verifyGiteaSignature(payload []byte, secret, signature string) error {
 
 // verifyGogsSignature verify Gogs HMAC-SHA256 signature
 func verifyGogsSignature(payload []byte, secret, signature string) error {
-	expectedSig := HmacSHA256Hex(payload, secret)
+	expectedSig := hmacSHA256Hex(payload, secret)
 	if subtle.ConstantTimeCompare([]byte(signature), []byte(expectedSig)) != 1 {
 		return fmt.Errorf("gogs signature verification failed")
 	}
@@ -188,17 +191,17 @@ func verifyGogsSignature(payload []byte, secret, signature string) error {
 }
 
 // hmacSHA256Hex calculate HMAC-SHA256 and return hexadecimal string
-func HmacSHA256Hex(data []byte, secret string) string {
+func hmacSHA256Hex(data []byte, secret string) string {
 	h := hmac.New(sha256.New, []byte(secret))
 	h.Write(data)
 	return hex.EncodeToString(h.Sum(nil))
 }
 
 // hmacSHA1Hex calculate HMAC-SHA1 and return hexadecimal string (for GitHub legacy support)
-func HmacSHA1Hex(data []byte, secret string) string {
+func hmacSHA1Hex(data []byte, secret string) string {
 	// note: here should import crypto/sha1, but for simplicity, we skip this implementation
 	// in production environment, SHA1 should be correctly implemented
-	return HmacSHA256Hex(data, secret) // temporarily use SHA256 instead
+	return hmacSHA256Hex(data, secret) // temporarily use SHA256 instead
 }
 
 // VerifyWebhookSignature verify webhook signature, support GitHub, GitLab, etc.
@@ -233,7 +236,7 @@ func verifyWebhookSignature(c *gin.Context, payloadBody []byte, secret string) e
 }
 
 // SaveGitHook save project GitHook configuration
-func SaveGitHook(c *gin.Context) {
+func HandleSaveGitHook(c *gin.Context) {
 	projectName := c.Param("name")
 
 	var req struct {
@@ -277,7 +280,7 @@ func SaveGitHook(c *gin.Context) {
 }
 
 // GitHook handle GitHook request
-func GitHook(c *gin.Context) {
+func HandleGitHook(c *gin.Context) {
 	projectName := c.Param("name")
 
 	// find project configuration

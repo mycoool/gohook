@@ -141,7 +141,7 @@ func ValidateToken(tokenString string) (*types.Claims, error) {
 	return claims, nil
 }
 
-func DeleteClientSession(c *gin.Context) {
+func HandleDeleteClientSession(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid client ID"})
@@ -167,7 +167,7 @@ func DeleteClientSession(c *gin.Context) {
 	}
 }
 
-func DeleteCurrentClientSession(c *gin.Context) {
+func HandleDeleteCurrentClientSession(c *gin.Context) {
 	token := c.GetHeader("X-GoHook-Key")
 	if token == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Token not provided"})
@@ -182,13 +182,13 @@ func DeleteCurrentClientSession(c *gin.Context) {
 	}
 }
 
-func ModifyCurrentClientPassword(c *gin.Context) {
+func HandleModifyCurrentClientPassword(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Password modification function not implemented",
 	})
 }
 
-func GetClientSessions(c *gin.Context) {
+func HandleGetClientSessions(c *gin.Context) {
 	username, _ := c.Get("username")
 	currentToken, _ := c.Get("token")
 

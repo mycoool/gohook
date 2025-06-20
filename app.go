@@ -26,7 +26,6 @@ import (
 var (
 	ip                 = flag.String("ip", "0.0.0.0", "ip the webhook should serve hooks on")
 	port               = flag.Int("port", 9000, "port the webhook should serve hooks on")
-	mode               = flag.String("mode", "test", "the gohook server for test or dev or production")
 	verbose            = flag.Bool("verbose", false, "show verbose output")
 	logPath            = flag.String("logfile", "", "send log output to a file; implicitly enables verbose logging")
 	debug              = flag.Bool("debug", false, "show debug output")

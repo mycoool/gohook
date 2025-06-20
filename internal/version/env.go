@@ -10,7 +10,7 @@ import (
 )
 
 // get project environment variable file (.env)
-func GetEnv(c *gin.Context) {
+func HandleGetEnv(c *gin.Context) {
 	projectName := c.Param("name")
 
 	// find project path
@@ -41,7 +41,7 @@ func GetEnv(c *gin.Context) {
 }
 
 // SaveEnv save project environment variable file (.env)
-func SaveEnv(c *gin.Context) {
+func HandleSaveEnv(c *gin.Context) {
 	projectName := c.Param("name")
 
 	var req struct {
@@ -88,7 +88,7 @@ func SaveEnv(c *gin.Context) {
 }
 
 // DeleteEnv delete project environment variable file (.env)
-func DeleteEnv(c *gin.Context) {
+func HandleDeleteEnv(c *gin.Context) {
 	projectName := c.Param("name")
 
 	// find project path

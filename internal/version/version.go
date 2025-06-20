@@ -595,7 +595,7 @@ func getGitStatus(projectPath string) (*types.VersionResponse, error) {
 }
 
 // AddProject add project
-func AddProject(c *gin.Context) {
+func HandleAddProject(c *gin.Context) {
 	var req struct {
 		Name        string `json:"name" binding:"required"`
 		Path        string `json:"path" binding:"required"`
@@ -671,7 +671,7 @@ func AddProject(c *gin.Context) {
 }
 
 // DeleteProject delete project
-func DeleteProject(c *gin.Context) {
+func HandleDeleteProject(c *gin.Context) {
 	projectName := c.Param("name")
 
 	// find project index
@@ -729,7 +729,7 @@ func DeleteProject(c *gin.Context) {
 }
 
 // GetBranches get branch list
-func GetBranches(c *gin.Context) {
+func HandleGetBranches(c *gin.Context) {
 	projectName := c.Param("name")
 
 	// find project path
@@ -756,7 +756,7 @@ func GetBranches(c *gin.Context) {
 }
 
 // GetTags get tag list
-func GetTags(c *gin.Context) {
+func HandleGetTags(c *gin.Context) {
 	projectName := c.Param("name")
 
 	// get filter parameter
@@ -845,7 +845,7 @@ func GetTags(c *gin.Context) {
 }
 
 // SyncBranches sync remote branches, clean up deleted remote branch references
-func SyncBranches(c *gin.Context) {
+func HandleSyncBranches(c *gin.Context) {
 	projectName := c.Param("name")
 
 	// find project path
@@ -871,7 +871,7 @@ func SyncBranches(c *gin.Context) {
 }
 
 // DeleteBranch delete local branch
-func DeleteBranch(c *gin.Context) {
+func HandleDeleteBranch(c *gin.Context) {
 	projectName := c.Param("name")
 	branchName := c.Param("branchName")
 
@@ -898,7 +898,7 @@ func DeleteBranch(c *gin.Context) {
 }
 
 // SwitchBranch switch branch
-func SwitchBranch(c *gin.Context) {
+func HandleSwitchBranch(c *gin.Context) {
 	projectName := c.Param("name")
 
 	var req struct {
@@ -959,7 +959,7 @@ func SwitchBranch(c *gin.Context) {
 }
 
 // SyncTags sync remote tags
-func SyncTags(c *gin.Context) {
+func HandleSyncTags(c *gin.Context) {
 	projectName := c.Param("name")
 
 	// find project path
@@ -985,7 +985,7 @@ func SyncTags(c *gin.Context) {
 }
 
 // SwitchTag switch tag
-func SwitchTag(c *gin.Context) {
+func HandleSwitchTag(c *gin.Context) {
 	projectName := c.Param("name")
 
 	var req struct {
@@ -1046,7 +1046,7 @@ func SwitchTag(c *gin.Context) {
 }
 
 // DeleteTag delete local and remote tag
-func DeleteTag(c *gin.Context) {
+func HandleDeleteTag(c *gin.Context) {
 	projectName := c.Param("name")
 	tagName := c.Param("tagName")
 
@@ -1100,7 +1100,7 @@ func DeleteTag(c *gin.Context) {
 }
 
 // DeleteLocalTag delete local tag
-func DeleteLocalTag(c *gin.Context) {
+func HandleDeleteLocalTag(c *gin.Context) {
 	projectName := c.Param("name")
 	tagName := c.Param("tagName")
 
@@ -1127,7 +1127,7 @@ func DeleteLocalTag(c *gin.Context) {
 }
 
 // InitGitRepository initialize git repository
-func InitGitRepository(c *gin.Context) {
+func HandleInitGitRepository(c *gin.Context) {
 	projectName := c.Param("name")
 	fmt.Printf("Received Git initialization request: project name=%s\n", projectName)
 
@@ -1158,7 +1158,7 @@ func InitGitRepository(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Git repository initialized successfully"})
 }
 
-func SetRemote(c *gin.Context) {
+func HandleSetRemote(c *gin.Context) {
 	projectName := c.Param("name")
 
 	var req struct {
@@ -1196,7 +1196,7 @@ func SetRemote(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Remote repository set successfully"})
 }
 
-func GetRemote(c *gin.Context) {
+func HandleGetRemote(c *gin.Context) {
 	projectName := c.Param("name")
 
 	// find project path
@@ -1222,7 +1222,7 @@ func GetRemote(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"url": remoteURL})
 }
 
-func GetProjects(c *gin.Context) {
+func HandleGetProjects(c *gin.Context) {
 	// load config file every time get projects list
 	if err := config.LoadVersionConfig(); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Load version config failed: " + err.Error()})
@@ -1266,7 +1266,7 @@ func GetProjects(c *gin.Context) {
 	c.JSON(http.StatusOK, projects)
 }
 
-func ReloadConfig(c *gin.Context) {
+func HandleReloadConfig(c *gin.Context) {
 	if err := config.LoadVersionConfig(); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Load version config failed: " + err.Error(),
