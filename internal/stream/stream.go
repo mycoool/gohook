@@ -51,7 +51,7 @@ type VersionSwitchMessage struct {
 
 // project manage message
 type ProjectManageMessage struct {
-	Action      string `json:"action"` // "add" | "delete"
+	Action      string `json:"action"` // "add" | "delete" | "edit"
 	ProjectName string `json:"projectName"`
 	ProjectPath string `json:"projectPath,omitempty"`
 	Success     bool   `json:"success"`

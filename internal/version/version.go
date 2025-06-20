@@ -594,6 +594,102 @@ func getGitStatus(projectPath string) (*types.VersionResponse, error) {
 	}, nil
 }
 
+// HandleEditProject edit project
+func HandleEditProject(c *gin.Context) {
+	projectName := c.Param("name")
+
+	var req struct {
+		Name        string `json:"name" binding:"required"`
+		Path        string `json:"path" binding:"required"`
+		Description string `json:"description"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request parameters: " + err.Error()})
+		return
+	}
+
+	// find project index
+	projectIndex := -1
+	for i, proj := range types.GoHookVersionData.Projects {
+		if proj.Name == projectName {
+			projectIndex = i
+			break
+		}
+	}
+
+	if projectIndex == -1 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
+		return
+	}
+
+	// check if new name conflicts with existing projects (except current one)
+	if req.Name != projectName {
+		for _, proj := range types.GoHookVersionData.Projects {
+			if proj.Name == req.Name {
+				c.JSON(http.StatusConflict, gin.H{"error": "Project name already exists"})
+				return
+			}
+		}
+	}
+
+	// check if path exists
+	if _, err := os.Stat(req.Path); os.IsNotExist(err) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Specified path does not exist"})
+		return
+	}
+
+	// preserve existing configuration that is not being updated
+	currentProject := types.GoHookVersionData.Projects[projectIndex]
+
+	// update project while preserving existing fields
+	types.GoHookVersionData.Projects[projectIndex] = types.ProjectConfig{
+		Name:        req.Name,
+		Path:        req.Path,
+		Description: req.Description,
+		Enabled:     currentProject.Enabled,    // preserve enabled status
+		Enhook:      currentProject.Enhook,     // preserve hook configuration
+		Hookmode:    currentProject.Hookmode,   // preserve hook mode
+		Hookbranch:  currentProject.Hookbranch, // preserve hook branch
+		Hooksecret:  currentProject.Hooksecret, // preserve hook secret
+	}
+
+	// save config file
+	if err := config.SaveVersionConfig(); err != nil {
+		// push failed message
+		wsMessage := stream.WsMessage{
+			Type:      "project_managed",
+			Timestamp: time.Now(),
+			Data: stream.ProjectManageMessage{
+				Action:      "edit",
+				ProjectName: req.Name,
+				ProjectPath: req.Path,
+				Success:     false,
+				Error:       "Save config failed: " + err.Error(),
+			},
+		}
+		stream.Global.Broadcast(wsMessage)
+
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Save config failed: " + err.Error()})
+		return
+	}
+
+	// push success message
+	wsMessage := stream.WsMessage{
+		Type:      "project_managed",
+		Timestamp: time.Now(),
+		Data: stream.ProjectManageMessage{
+			Action:      "edit",
+			ProjectName: req.Name,
+			ProjectPath: req.Path,
+			Success:     true,
+		},
+	}
+	stream.Global.Broadcast(wsMessage)
+
+	c.JSON(http.StatusOK, gin.H{"message": "Project updated successfully"})
+}
+
 // AddProject add project
 func HandleAddProject(c *gin.Context) {
 	var req struct {

@@ -174,13 +174,28 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
             case 'project_managed': {
                 const projectMsg = message.data as IProjectManageMessage;
                 if (projectMsg.success) {
-                    return `项目${projectMsg.action === 'add' ? '添加' : '删除'}成功${
-                        projectMsg.projectPath ? ' (' + projectMsg.projectPath + ')' : ''
-                    }`;
+                    //添加、删除、编辑
+                    switch (projectMsg.action) {
+                        case 'add':
+                            return `项目添加成功: ${projectMsg.projectPath}`;
+                        case 'delete':
+                            return `项目删除成功: ${projectMsg.projectPath}`;
+                        case 'edit':
+                            return `项目编辑成功: ${projectMsg.projectPath}`;
+                        default:
+                            return `项目${projectMsg.action}成功: ${projectMsg.projectPath}`;
+                    }
                 } else {
-                    return `项目${projectMsg.action === 'add' ? '添加' : '删除'}失败: ${
-                        projectMsg.error ?? '未知错误'
-                    }`;
+                    switch (projectMsg.action) {
+                        case 'add':
+                            return `项目添加失败: ${projectMsg.error ?? '未知错误'}`;
+                        case 'delete':
+                            return `项目删除失败: ${projectMsg.error ?? '未知错误'}`;
+                        case 'edit':
+                            return `项目编辑失败: ${projectMsg.error ?? '未知错误'}`;
+                        default:
+                            return `项目${projectMsg.action}失败: ${projectMsg.error ?? '未知错误'}`;
+                    }
                 }
             }
             default:

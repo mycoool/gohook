@@ -20,6 +20,7 @@ import Refresh from '@material-ui/icons/Refresh';
 import CloudDownload from '@material-ui/icons/CloudDownload';
 import Add from '@material-ui/icons/Add';
 import Delete from '@material-ui/icons/Delete';
+import Edit from '@material-ui/icons/Edit';
 import AccountTree from '@material-ui/icons/AccountTree';
 import LocalOffer from '@material-ui/icons/LocalOffer';
 import CloudQueue from '@material-ui/icons/CloudQueue';
@@ -30,6 +31,7 @@ import React, {Component} from 'react';
 import DefaultPage from '../common/DefaultPage';
 import ConfirmDialog from '../common/ConfirmDialog';
 import AddProjectDialog from './AddProjectDialog';
+import EditProjectDialog from './EditProjectDialog';
 import EnvFileDialog from './EnvFileDialogModal';
 import GitHookDialog, {GitHookConfig} from './GitHookDialog';
 import {observer} from 'mobx-react';
@@ -59,6 +61,8 @@ class Versions extends Component<RouteComponentProps & Stores<'versionStore'>> {
     private envDialogProjectName: string | null = null;
     @observable
     private gitHookDialogProject: IVersion | null = null;
+    @observable
+    private editProjectDialog: IVersion | null = null;
 
     public componentDidMount = () => this.props.versionStore.refreshProjects();
 
@@ -80,6 +84,7 @@ class Versions extends Component<RouteComponentProps & Stores<'versionStore'>> {
                     onShowAddDialog={() => (this.showAddDialog = true)}
                     onHideAddDialog={() => (this.showAddDialog = false)}
                     onAddProject={this.handleAddProject}
+                    onEditProject={(project) => (this.editProjectDialog = project)}
                     onRefreshProjects={this.refreshProjects}
                     onReloadConfig={this.reloadConfig}
                     onViewBranches={this.handleViewBranches}
@@ -116,6 +121,13 @@ class Versions extends Component<RouteComponentProps & Stores<'versionStore'>> {
                     project={this.gitHookDialogProject}
                     onClose={this.handleCloseGitHookDialog}
                     onSave={this.handleSaveGitHookConfig}
+                />
+
+                <EditProjectDialog
+                    open={this.editProjectDialog !== null}
+                    project={this.editProjectDialog}
+                    onClose={() => (this.editProjectDialog = null)}
+                    onSubmit={this.handleEditProject}
                 />
             </>
         );
@@ -213,6 +225,10 @@ class Versions extends Component<RouteComponentProps & Stores<'versionStore'>> {
     private handleSaveGitHookConfig = async (projectName: string, config: GitHookConfig) => {
         await this.props.versionStore.saveGitHookConfig(projectName, config);
     };
+
+    private handleEditProject = async (originalName: string, name: string, path: string, description: string) => {
+        await this.props.versionStore.editProject(originalName, name, path, description);
+    };
 }
 
 interface IRowProps {
@@ -221,6 +237,7 @@ interface IRowProps {
     onViewTags: (projectName: string) => void;
     onEditEnv: (projectName: string) => void;
     onConfigGitHook: (project: IVersion) => void;
+    onEditProject: (project: IVersion) => void;
     onDelete: (projectName: string) => void;
     onInitGit: (projectName: string) => void;
     onSetRemote: (projectName: string) => void;
@@ -233,6 +250,7 @@ const Row: React.FC<IRowProps> = observer(
         onViewTags,
         onEditEnv,
         onConfigGitHook,
+        onEditProject,
         onDelete,
         onInitGit,
         onSetRemote,
@@ -318,6 +336,12 @@ const Row: React.FC<IRowProps> = observer(
                             title={t('common.delete')}>
                             <Delete />
                         </IconButton>
+                        <IconButton
+                            size="small"
+                            onClick={() => onEditProject(project)}
+                            title={t('version.editProject')}>
+                            <Edit />
+                        </IconButton>
                     </div>
                 );
             } else {
@@ -362,6 +386,12 @@ const Row: React.FC<IRowProps> = observer(
                             onClick={() => onDelete(project.name)}
                             title={t('common.delete')}>
                             <Delete />
+                        </IconButton>
+                        <IconButton
+                            size="small"
+                            onClick={() => onEditProject(project)}
+                            title={t('version.editProject')}>
+                            <Edit />
                         </IconButton>
                     </div>
                 );
@@ -451,6 +481,7 @@ const VersionsContainer: React.FC<{
     onShowAddDialog: () => void;
     onHideAddDialog: () => void;
     onAddProject: (name: string, path: string, description: string) => Promise<void>;
+    onEditProject: (project: IVersion) => void;
     onRefreshProjects: () => void;
     onReloadConfig: () => void;
     onViewBranches: (projectName: string) => void;
@@ -479,6 +510,7 @@ const VersionsContainer: React.FC<{
     onShowAddDialog,
     onHideAddDialog,
     onAddProject,
+    onEditProject,
     onRefreshProjects,
     onReloadConfig,
     onViewBranches,
@@ -546,6 +578,7 @@ const VersionsContainer: React.FC<{
                                     onViewTags={() => onViewTags(project.name)}
                                     onEditEnv={() => onEditEnv(project.name)}
                                     onConfigGitHook={() => onConfigGitHook(project)}
+                                    onEditProject={() => onEditProject(project)}
                                     onDelete={() => onDelete(project.name)}
                                     onInitGit={() => onInitGit(project.name)}
                                     onSetRemote={() => onSetRemote(project.name)}

@@ -146,6 +146,33 @@ export class VersionStore {
     };
 
     @action
+    public editProject = async (originalName: string, name: string, path: string, description: string): Promise<void> => {
+        try {
+            const response = await axios.put(
+                `${config.get('url')}version/${originalName}`,
+                {
+                    name,
+                    path,
+                    description,
+                },
+                {
+                    headers: {'X-GoHook-Key': this.tokenProvider()},
+                }
+            );
+            this.snack(response.data.message || '项目编辑成功');
+            await this.refreshProjects(); // 编辑后刷新项目列表
+        } catch (error: unknown) {
+            const errorMessage =
+                error instanceof Error
+                    ? error.message
+                    : (error as {response?: {data?: {error?: string}}})?.response?.data?.error ??
+                      '未知错误';
+            this.snack('编辑项目失败: ' + errorMessage);
+            throw error; // 重新抛出错误，让UI组件知道操作失败
+        }
+    };
+
+    @action
     public deleteProject = async (name: string): Promise<void> => {
         try {
             const response = await axios.delete(`${config.get('url')}version/${name}`, {

@@ -42,6 +42,7 @@
   "version": {
     "title": "Version Management",
     "addProject": "Add Project",
+    "editProject": "Edit Project",
     "projectName": "Project Name",
     "projectPath": "Project Path",
     "projectDescription": "Project Description",
@@ -74,7 +75,9 @@
     "projectDescriptionPlaceholder": "Detailed description of the project (optional)",
     "remoteUrlPlaceholder": "Enter complete Git remote repository URL",
     "addingProject": "Adding...",
+    "editingProject": "Editing...",
     "projectAdded": "Project added successfully",
+    "projectEdited": "Project edited successfully",
     "projectDeleted": "Project deleted successfully",
     "branchSwitched": "Branch switched successfully",
     "tagSwitched": "Tag switched successfully",

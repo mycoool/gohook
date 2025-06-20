@@ -177,6 +177,9 @@ func InitRouter() *gin.Engine {
 		// add project
 		versionAPI.POST("/add-project", version.HandleAddProject)
 
+		// edit project
+		versionAPI.PUT("/:name", version.HandleEditProject)
+
 		// delete project
 		versionAPI.DELETE("/:name", version.HandleDeleteProject)
 

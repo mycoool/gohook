@@ -141,7 +141,7 @@ export interface IVersionSwitchMessage {
 
 // Project management message
 export interface IProjectManageMessage {
-    action: 'add' | 'delete';
+    action: 'add' | 'delete' | 'edit';
     projectName: string;
     projectPath?: string;
     success: boolean;

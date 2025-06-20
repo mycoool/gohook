@@ -165,16 +165,38 @@ export class WebSocketStore {
             case 'project_managed': {
                 const projectMsg = message.data as IProjectManageMessage;
                 if (projectMsg.success) {
-                    this.snack(
-                        `项目 "${projectMsg.projectName}" ${
-                            projectMsg.action === 'add' ? '添加' : '删除'
-                        }成功`
-                    );
+                    let actionText = '';
+                    switch (projectMsg.action) {
+                        case 'add':
+                            actionText = '添加';
+                            break;
+                        case 'delete':
+                            actionText = '删除';
+                            break;
+                        case 'edit':
+                            actionText = '编辑';
+                            break;
+                        default:
+                            actionText = projectMsg.action;
+                    }
+                    this.snack(`项目 "${projectMsg.projectName}" ${actionText}成功`);
                 } else {
+                    let actionText = '';
+                    switch (projectMsg.action) {
+                        case 'add':
+                            actionText = '添加';
+                            break;
+                        case 'delete':
+                            actionText = '删除';
+                            break;
+                        case 'edit':
+                            actionText = '编辑';
+                            break;
+                        default:
+                            actionText = projectMsg.action;
+                    }
                     this.snack(
-                        `项目 "${projectMsg.projectName}" ${
-                            projectMsg.action === 'add' ? '添加' : '删除'
-                        }失败: ${projectMsg.error ?? '未知错误'}`
+                        `项目 "${projectMsg.projectName}" ${actionText}失败: ${projectMsg.error ?? '未知错误'}`
                     );
                 }
                 break;
