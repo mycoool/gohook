@@ -29,6 +29,7 @@ import {
     IHookTriggeredMessage,
     IVersionSwitchMessage,
     IProjectManageMessage,
+    IGitHookTriggeredMessage,
 } from '../types';
 
 // 空接口用于扩展
@@ -108,6 +109,14 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
                     <ErrorIcon style={{color: '#f44336'}} />
                 );
             }
+            case 'githook_triggered': {
+                const githookMsg = message.data as IGitHookTriggeredMessage;
+                return githookMsg.success ? (
+                    <SuccessIcon style={{color: '#4caf50'}} />
+                ) : (
+                    <ErrorIcon style={{color: '#f44336'}} />
+                );
+            }
             default:
                 return <InfoIcon style={{color: '#2196f3'}} />;
         }
@@ -117,7 +126,7 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
         switch (message.type) {
             case 'hook_triggered': {
                 const hookMsg = message.data as IHookTriggeredMessage;
-                return `Hook: ${hookMsg.hookName}`;
+                return `WebHook: ${hookMsg.hookName}`;
             }
             case 'version_switched': {
                 const versionMsg = message.data as IVersionSwitchMessage;
@@ -126,6 +135,10 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
             case 'project_managed': {
                 const projectMsg = message.data as IProjectManageMessage;
                 return `项目管理: ${projectMsg.projectName}`;
+            }
+            case 'githook_triggered': {
+                const githookMsg = message.data as IGitHookTriggeredMessage;
+                return `GitHook: ${githookMsg.projectName}`;
             }
             default:
                 return message.type;
@@ -146,6 +159,29 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
                     }`;
                 } else {
                     return `执行失败: ${hookMsg.error ?? '未知错误'}`;
+                }
+            }
+            case 'githook_triggered': {
+                const githookMsg = message.data as IGitHookTriggeredMessage;
+                let actionText = '';
+                switch (githookMsg.action) {
+                    case 'switch-branch':
+                        actionText = '分支切换';
+                        break;
+                    case 'switch-tag':
+                        actionText = '标签切换';
+                        break;
+                    case 'delete-tag':
+                        actionText = '标签删除';
+                        break;
+                    default:
+                        actionText = githookMsg.action;
+                }
+
+                if (githookMsg.success) {
+                    return `${actionText}成功: ${githookMsg.target}`;
+                } else {
+                    return `${actionText}失败: ${githookMsg.error ?? '未知错误'}`;
                 }
             }
             case 'version_switched': {
@@ -232,6 +268,12 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
             case 'project_managed': {
                 const projectMsg = message.data as IProjectManageMessage;
                 success = projectMsg.success;
+                label = success ? '成功' : '失败';
+                break;
+            }
+            case 'githook_triggered': {
+                const githookMsg = message.data as IGitHookTriggeredMessage;
+                success = githookMsg.success;
                 label = success ? '成功' : '失败';
                 break;
             }

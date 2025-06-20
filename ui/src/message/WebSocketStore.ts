@@ -8,6 +8,7 @@ import {
     IHookTriggeredMessage,
     IVersionSwitchMessage,
     IProjectManageMessage,
+    IGitHookTriggeredMessage,
 } from '../types';
 
 export class WebSocketStore {
@@ -197,6 +198,16 @@ export class WebSocketStore {
                     }
                     this.snack(
                         `项目 "${projectMsg.projectName}" ${actionText}失败: ${projectMsg.error ?? '未知错误'}`
+                    );
+                }
+                break;
+            }
+            case 'githook_triggered': {
+                const githookMsg = message.data as IGitHookTriggeredMessage;
+                if (githookMsg.success) {
+                    this.snack(`GitHook "${githookMsg.projectName}" 执行成功`);
+                } else {
+                    this.snack(`GitHook "${githookMsg.projectName}" 执行失败: ${githookMsg.error ?? '未知错误'}`
                     );
                 }
                 break;

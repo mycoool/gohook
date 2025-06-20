@@ -195,6 +195,9 @@ func InitRouter() *gin.Engine {
 		// delete branch
 		versionAPI.DELETE("/:name/branches/:branchName", version.HandleDeleteBranch)
 
+		// delete local branch
+		versionAPI.DELETE("/:name/branches/:branchName/local", version.HandleDeleteLocalBranch)
+
 		// switch branch
 		versionAPI.POST("/:name/switch-branch", version.HandleSwitchBranch)
 

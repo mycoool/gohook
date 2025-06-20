@@ -130,6 +130,16 @@ export interface IHookTriggeredMessage {
     error?: string;
 }
 
+// GitHook triggered message
+export interface IGitHookTriggeredMessage {
+    projectName: string;
+    action: 'switch-branch' | 'switch-tag' | 'delete-tag' | 'delete-branch';
+    target: string;
+    success: boolean;
+    output?: string;
+    error?: string;
+}
+
 // Version switch message
 export interface IVersionSwitchMessage {
     projectName: string;

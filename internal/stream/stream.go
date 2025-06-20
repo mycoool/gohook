@@ -58,6 +58,15 @@ type ProjectManageMessage struct {
 	Error       string `json:"error,omitempty"`
 }
 
+// git hook triggered message
+type GitHookTriggeredMessage struct {
+	ProjectName string `json:"projectName"`
+	Action      string `json:"action"` // "switch-branch" | "switch-tag" | "delete-tag" | "delete-branch"
+	Target      string `json:"target"` // branch name or tag name
+	Success     bool   `json:"success"`
+	Error       string `json:"error,omitempty"`
+}
+
 // WebSocket upgrader
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {

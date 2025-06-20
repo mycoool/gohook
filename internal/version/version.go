@@ -125,7 +125,7 @@ func switchToTag(projectPath, tagName string) error {
 	return nil
 }
 
-// DeleteLocalTag delete local tag
+// deleteLocalTag delete local tag
 func deleteLocalTag(projectPath, tagName string) error {
 	// check if it is a Git repository
 	if _, err := os.Stat(filepath.Join(projectPath, ".git")); os.IsNotExist(err) {
@@ -149,7 +149,31 @@ func deleteLocalTag(projectPath, tagName string) error {
 	return nil
 }
 
-// DeleteLocalBranch delete local branch
+func HandleDeleteLocalBranch(c *gin.Context) {
+	projectName := c.Param("name")
+	branchName := c.Param("branchName")
+	// find project path
+	var projectPath string
+	for _, proj := range types.GoHookVersionData.Projects {
+		if proj.Name == projectName && proj.Enabled {
+			projectPath = proj.Path
+			break
+		}
+	}
+
+	if projectPath == "" {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
+		return
+	}
+
+	if err := deleteLocalBranch(projectPath, branchName); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Branch deleted successfully"})
+}
+
+// deleteLocalBranch delete local branch
 func deleteLocalBranch(projectPath, branchName string) error {
 	// check if it is a Git repository
 	if _, err := os.Stat(filepath.Join(projectPath, ".git")); os.IsNotExist(err) {
@@ -185,27 +209,6 @@ func deleteLocalBranch(projectPath, branchName string) error {
 
 	log.Printf("successfully deleted local branch: %s", branchName)
 	return nil
-}
-
-// BranchDeletion handle branch deletion operation
-func branchDeletion(project *types.ProjectConfig, branchName string) error {
-	log.Printf("handle branch deletion: project=%s, branch=%s, configured branch=%s", project.Name, branchName, project.Hookbranch)
-
-	// check if it is a configured branch
-	if project.Hookbranch != "*" && project.Hookbranch == branchName {
-		log.Printf("deleting configured branch %s, skip deletion to protect project running", branchName)
-		return nil
-	}
-
-	// check if it is a master branch
-	if branchName == "master" || branchName == "main" {
-		log.Printf("deleting master branch %s, skip deletion to protect project", branchName)
-		return nil
-	}
-
-	// if it is other branch, execute local deletion operation
-	log.Printf("deleting non-critical branch %s, execute local deletion operation", branchName)
-	return deleteLocalBranch(project.Path, branchName)
 }
 
 // DeleteBranch delete local branch

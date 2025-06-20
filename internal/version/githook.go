@@ -13,15 +13,25 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/mycoool/gohook/internal/config"
+	"github.com/mycoool/gohook/internal/stream"
 	"github.com/mycoool/gohook/internal/types"
 )
 
-// HandleGitHook handle GitHook webhook request
-func handleGitHook(project *types.ProjectConfig, payload map[string]interface{}) error {
+type GitHookResult struct {
+	Action  string
+	Target  string
+	Success bool
+	Error   string
+}
+
+// GitHook handle GitHook webhook request
+func tryGitHook(project *types.ProjectConfig, payload map[string]interface{}) (GitHookResult, error) {
 	log.Printf("handle GitHook: project=%s, mode=%s, branch=%s", project.Name, project.Hookmode, project.Hookbranch)
 
 	// parse webhook payload, extract branch or tag information
@@ -66,7 +76,12 @@ func handleGitHook(project *types.ProjectConfig, payload map[string]interface{})
 	}
 
 	if targetRef == "" {
-		return fmt.Errorf("cannot parse branch or tag information from webhook payload")
+		return GitHookResult{
+			Action:  "switch-branch",
+			Target:  "",
+			Success: false,
+			Error:   "cannot parse branch or tag information from webhook payload",
+		}, fmt.Errorf("cannot parse branch or tag information from webhook payload")
 	}
 
 	log.Printf("parsed webhook: type=%s, target=%s, after=%s", refType, targetRef, afterCommit)
@@ -74,14 +89,24 @@ func handleGitHook(project *types.ProjectConfig, payload map[string]interface{})
 	// check if it matches the project's hook mode
 	if project.Hookmode != refType {
 		log.Printf("webhook type(%s) does not match project hook mode(%s), skip", refType, project.Hookmode)
-		return nil
+		return GitHookResult{
+			Action:  "switch-branch",
+			Target:  "",
+			Success: false,
+			Error:   "webhook type does not match project hook mode",
+		}, fmt.Errorf("webhook type does not match project hook mode")
 	}
 
 	// if it is a branch mode, check if the branch matches
 	if project.Hookmode == "branch" {
 		if project.Hookbranch != "*" && project.Hookbranch != targetRef {
 			log.Printf("webhook branch(%s) does not match configured branch(%s), skip", targetRef, project.Hookbranch)
-			return nil
+			return GitHookResult{
+				Action:  "switch-branch",
+				Target:  "",
+				Success: false,
+				Error:   "webhook branch does not match configured branch",
+			}, fmt.Errorf("webhook branch does not match configured branch")
 		}
 	}
 
@@ -91,21 +116,38 @@ func handleGitHook(project *types.ProjectConfig, payload map[string]interface{})
 		case "tag":
 			// tag deletion: only delete local tag
 			log.Printf("detected tag deletion event: %s", targetRef)
-			return deleteTag(project.Path, targetRef)
+			return GitHookResult{
+				Action:  "delete-tag",
+				Target:  targetRef,
+				Success: true,
+			}, nil
 		case "branch":
 			// branch deletion: need to smart judgment
 			log.Printf("detected branch deletion event: %s", targetRef)
-			return branchDeletion(project, targetRef)
+			return GitHookResult{
+				Action:  "delete-branch",
+				Target:  targetRef,
+				Success: true,
+			}, nil
 		}
 	}
 
 	// execute Git operation
 	if err := executeGitHook(project, refType, targetRef); err != nil {
-		return fmt.Errorf("execute Git operation failed: %v", err)
+		return GitHookResult{
+			Action:  "switch-branch",
+			Target:  "",
+			Success: false,
+			Error:   "execute Git operation failed: " + err.Error(),
+		}, fmt.Errorf("execute Git operation failed: %v", err)
 	}
 
 	log.Printf("GitHook processing successfully: project=%s, type=%s, target=%s", project.Name, refType, targetRef)
-	return nil
+	return GitHookResult{
+		Action:  "switch-branch",
+		Target:  targetRef,
+		Success: true,
+	}, nil
 }
 
 // executeGitHook execute specific Git operation
@@ -275,6 +317,7 @@ func HandleSaveGitHook(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
+		"code":    0,
 		"message": "GitHook configuration saved successfully",
 	})
 }
@@ -327,11 +370,38 @@ func HandleGitHook(c *gin.Context) {
 	}
 
 	// handle GitHook logic
-	if err := handleGitHook(project, payload); err != nil {
+	result, err := tryGitHook(project, payload)
+	if err != nil {
+		// push failed message
+		wsMessage := stream.WsMessage{
+			Type:      "githook_triggered",
+			Timestamp: time.Now(),
+			Data: stream.GitHookTriggeredMessage{
+				Action:      result.Action,
+				ProjectName: projectName,
+				Target:      result.Target,
+				Success:     result.Success,
+				Error:       "GitHook processing failed: " + err.Error(),
+			},
+		}
+		stream.Global.Broadcast(wsMessage)
 		log.Printf("GitHook processing failed: project=%s, error=%v", project.Name, err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "GitHook processing failed: " + err.Error()})
+		c.String(http.StatusInternalServerError, "GitHook processing failed: "+result.Action+" "+result.Target+" "+strconv.FormatBool(result.Success)+" "+err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "GitHook processing successfully"})
+	// push success message
+	wsMessage := stream.WsMessage{
+		Type:      "githook_triggered",
+		Timestamp: time.Now(),
+		Data: stream.GitHookTriggeredMessage{
+			Action:      result.Action,
+			ProjectName: projectName,
+			Target:      result.Target,
+			Success:     result.Success,
+		},
+	}
+	stream.Global.Broadcast(wsMessage)
+
+	c.String(http.StatusOK, "GitHook processing successfully: "+result.Action+" "+result.Target+" "+strconv.FormatBool(result.Success))
 }
