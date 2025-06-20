@@ -555,14 +555,14 @@ class EnvFileDialogModal extends Component<IProps & Stores<'snackManager'>, ISta
                         )}
                     </Box>
                 </DialogContent>
-                <DialogActions>
+                <DialogActions style={{paddingLeft: 24, paddingRight: 24}}>
                     {hasEnvFile && (
                         <Button onClick={this.handleDelete} color="secondary">
                             删除文件
                         </Button>
                     )}
                     <Box flexGrow={1} />
-                    <Button onClick={this.handleClose}>取消</Button>
+                    <Button onClick={this.handleClose} color="secondary">取消</Button>
                     <Button onClick={this.handleSave} color="primary" variant="contained">
                         保存
                     </Button>

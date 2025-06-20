@@ -36,7 +36,7 @@ const {HashRouter, Route, Switch} = ReactRouter;
 
 const MainContent = styled('main')(({ theme }) => ({
     flexGrow: 1,
-    marginTop: 12,
+    marginTop: 64,
     padding: '32px', // 减少内边距从32px到16px
     marginLeft: 250, // 为固定导航栏留出空间
     [theme.breakpoints.down('sm')]: {
@@ -52,112 +52,319 @@ const themeMap: Record<ThemeKey, Theme> = {
     light: createTheme({
         palette: {
             mode: 'light',
+            primary: {
+                main: '#3f51b5', // 深紫蓝色，与按钮保持一致
+            },
+            background: {
+                default: '#fafafa',
+                paper: '#ffffff',
+            },
+            text: {
+                primary: '#212121',
+                secondary: '#757575',
+            },
+        },
+        components: {
+            MuiAppBar: {
+                styleOverrides: {
+                    root: {
+                        backgroundColor: '#3f51b5 !important', // 强制设置深蓝色背景，与按钮一致
+                        color: '#ffffff',
+                        borderBottom: '1px solid #e0e0e0',
+                        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+                        // 导航文字样式 - 英文全大写加粗
+                        '& .MuiButton-text': {
+                            textTransform: 'uppercase',
+                            fontWeight: 'bold',
+                            letterSpacing: '0.5px',
+                        },
+                    },
+                },
+            },
+            MuiDrawer: {
+                styleOverrides: {
+                    paper: {
+                        backgroundColor: '#ffffff',
+                        borderRight: '1px solid #e0e0e0',
+                    },
+                },
+            },
+            MuiButton: {
+                styleOverrides: {
+                    root: {
+                        borderRadius: '6px',
+                        textTransform: 'none',
+                        fontWeight: 500,
+                        '&.MuiButton-containedPrimary': {
+                            backgroundColor: '#3f51b5',
+                            color: '#ffffff',
+                            '&:hover': {
+                                backgroundColor: '#283593',
+                            },
+                        },
+                        '&.MuiButton-containedSecondary': {
+                            backgroundColor: '#757575',
+                            color: '#ffffff',
+                            '&:hover': {
+                                backgroundColor: '#616161',
+                            },
+                        },
+                        '&.MuiButton-outlined': {
+                            borderColor: '#e0e0e0',
+                            color: '#3f51b5',
+                            '&:hover': {
+                                borderColor: '#3f51b5',
+                                backgroundColor: 'rgba(48, 63, 159, 0.04)',
+                            },
+                        },
+                        // 次要按钮样式 - 用于对话框等
+                        '&.MuiButton-textSecondary': {
+                            backgroundColor: '#f5f5f5',
+                            color: '#666666',
+                            border: '1px solid #d0d0d0',
+                            '&:hover': {
+                                backgroundColor: '#eeeeee',
+                                borderColor: '#bdbdbd',
+                            },
+                        },
+                        // 导航按钮样式
+                        '&.MuiButton-text': {
+                            color: '#ffffff', // 确保导航栏文字为白色
+                            '&:hover': {
+                                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                            },
+                        },
+                    },
+                },
+            },
+            MuiIconButton: {
+                styleOverrides: {
+                    root: {
+                        borderRadius: '6px',
+                        color: '#616161',
+                        '&:hover': {
+                            backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                        },
+                        // AppBar中的图标按钮样式
+                        '.MuiAppBar-root &': {
+                            color: '#ffffff',
+                            '&:hover': {
+                                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                            },
+                        },
+                    },
+                },
+            },
+            // 优化代码块显示
+            MuiPaper: {
+                styleOverrides: {
+                    root: {
+                        backgroundColor: '#ffffff',
+                        '& code': {
+                            backgroundColor: '#f5f5f5',
+                            color: '#333333',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            fontSize: '0.875rem',
+                            fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+                            border: '1px solid #e0e0e0',
+                        },
+                    },
+                },
+            },
+            // 表格样式优化
+            MuiTable: {
+                styleOverrides: {
+                    root: {
+                        '& .MuiTableHead-root': {
+                            '& .MuiTableCell-root': {
+                                backgroundColor: '#787878',
+                                fontWeight: 600,
+                                color: '#ffffff',
+                                borderBottom: 'none',
+                                padding: '16px',
+                            },
+                        },
+                        '& .MuiTableBody-root': {
+                            '& .MuiTableCell-root': {
+                                borderBottom: '1px solid #e0e0e0',
+                                color: '#333333',
+                                padding: '16px',
+                            },
+                            '& .MuiTableRow-root': {
+                                backgroundColor: '#f5f5f5',
+                                '&:hover': {
+                                    backgroundColor: '#eeeeee',
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+            // 按钮组高度优化
+            MuiButtonGroup: {
+                styleOverrides: {
+                    root: {
+                        '& .MuiButton-root': {
+                            minHeight: '40px',
+                            padding: '10px 20px',
+                            fontSize: '0.875rem',
+                            fontWeight: 500,
+                        },
+                    },
+                },
+            },
         },
     }),
     dark: createTheme({
         palette: {
             mode: 'dark',
             primary: {
-                main: '#2196f3', // 蓝色主题
+                main: '#3f51b5', // 使用与AppBar一致的深蓝色
             },
             background: {
-                default: '#0d1117', // GitHub深色主题背景
-                paper: '#161b22',
+                default: '#303030', // 更温和的深灰色背景
+                paper: '#424242', // 卡片背景色
             },
             text: {
-                primary: '#f0f6fc',
-                secondary: '#8b949e',
+                primary: '#ffffff',
+                secondary: '#b0bec5',
             },
         },
         components: {
             MuiAppBar: {
                 styleOverrides: {
-                    root: ({ theme }) => ({
-                        backgroundColor: '#ffffff',
-                        borderBottom: '1px solid #e0e0e0',
-                        boxShadow: '0 1px 0 rgba(0, 0, 0, 0.1)',
-                        ...theme.applyStyles('dark', {
-                            backgroundColor: '#161b22',
-                            borderBottom: '1px solid #21262d',
-                            boxShadow: '0 1px 0 rgba(33, 38, 45, 1)',
-                        }),
-                    }),
+                    root: {
+                        backgroundColor: '#3f51b5 !important', // 强制设置，与深色主题按钮保持一致
+                        borderBottom: '1px solid #616161',
+                        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.3)',
+                        // 导航文字样式 - 英文全大写加粗
+                        '& .MuiButton-text': {
+                            textTransform: 'uppercase',
+                            fontWeight: 'bold',
+                            letterSpacing: '0.5px',
+                        },
+                    },
                 },
             },
             MuiDrawer: {
                 styleOverrides: {
-                    paper: ({ theme }) => ({
-                        backgroundColor: '#ffffff',
-                        borderRight: '1px solid #e0e0e0',
-                        ...theme.applyStyles('dark', {
-                            backgroundColor: '#0d1117',
-                            borderRight: '1px solid #21262d',
-                        }),
-                    }),
+                    paper: {
+                        backgroundColor: '#424242', // 左侧导航背景色
+                        borderRight: '1px solid #616161',
+                    },
                 },
             },
             MuiButton: {
                 styleOverrides: {
-                    root: ({ theme }) => ({
-                        borderRadius: '8px',
+                    root: {
+                        borderRadius: '6px',
                         textTransform: 'none',
                         fontWeight: 500,
-                        ...theme.applyStyles('dark', {
-                            '&.MuiButton-containedPrimary': {
-                                backgroundColor: '#238be6',
+                        '&.MuiButton-containedPrimary': {
+                            backgroundColor: '#3f51b5',
+                            color: '#ffffff',
+                            '&:hover': {
+                                backgroundColor: '#283593',
+                            },
+                        },
+                        '&.MuiButton-containedSecondary': {
+                            backgroundColor: '#757575',
+                            color: '#ffffff',
+                            '&:hover': {
+                                backgroundColor: '#616161',
+                            },
+                        },
+                        '&.MuiButton-outlined': {
+                            borderColor: '#616161',
+                            color: '#ffffff',
+                            '&:hover': {
+                                borderColor: '#3f51b5',
+                                backgroundColor: 'rgba(63, 81, 181, 0.1)',
+                            },
+                        },
+                        // 次要按钮样式 - 用于对话框等 (深色主题)
+                        '&.MuiButton-textSecondary': {
+                            backgroundColor: '#424242',
+                            color: '#b0bec5',
+                            border: '1px solid #616161',
+                            '&:hover': {
+                                backgroundColor: '#555555',
+                                borderColor: '#757575',
                                 color: '#ffffff',
-                                '&:hover': {
-                                    backgroundColor: '#1976d2',
-                                },
                             },
-                            '&.MuiButton-containedSecondary': {
-                                backgroundColor: '#6c757d',
-                                color: '#ffffff',
-                                '&:hover': {
-                                    backgroundColor: '#5a6268',
-                                },
-                            },
-                            '&.MuiButton-outlined': {
-                                borderColor: '#30363d',
-                                color: '#f0f6fc',
-                                '&:hover': {
-                                    borderColor: '#58a6ff',
-                                    backgroundColor: 'rgba(88, 166, 255, 0.1)',
-                                },
-                            },
-                        }),
-                    }),
+                        },
+                    },
                 },
             },
             MuiIconButton: {
                 styleOverrides: {
-                    root: ({ theme }) => ({
+                    root: {
                         borderRadius: '6px',
-                        ...theme.applyStyles('dark', {
-                            color: '#f0f6fc',
-                            '&:hover': {
-                                backgroundColor: 'rgba(240, 246, 252, 0.1)',
-                            },
-                        }),
-                    }),
+                        color: '#ffffff',
+                        '&:hover': {
+                            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                        },
+                    },
                 },
             },
             // 优化代码块显示
             MuiPaper: {
                 styleOverrides: {
-                    root: ({ theme }) => ({
-                        ...theme.applyStyles('dark', {
-                            backgroundColor: '#161b22',
-                            '& code': {
-                                backgroundColor: '#21262d',
-                                color: '#e6edf3',
-                                padding: '2px 6px',
-                                borderRadius: '4px',
-                                fontSize: '0.875rem',
-                                fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+                    root: {
+                        backgroundColor: '#424242', // 卡片背景色
+                        '& code': {
+                            backgroundColor: '#616161',
+                            color: '#ffffff',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            fontSize: '0.875rem',
+                            fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+                            border: '1px solid #757575',
+                        },
+                    },
+                },
+            },
+            // 表格样式优化 - 深色主题
+            MuiTable: {
+                styleOverrides: {
+                    root: {
+                        '& .MuiTableHead-root': {
+                            '& .MuiTableCell-root': {
+                                backgroundColor: '#383838',
+                                fontWeight: 600,
+                                color: '#ffffff',
+                                borderBottom: 'none',
+                                padding: '16px',
                             },
-                        }),
-                    }),
+                        },
+                        '& .MuiTableBody-root': {
+                            '& .MuiTableCell-root': {
+                                borderBottom: '1px solid #555555',
+                                color: '#ffffff',
+                                padding: '16px',
+                            },
+                            '& .MuiTableRow-root': {
+                                backgroundColor: '#424242',
+                                '&:hover': {
+                                    backgroundColor: '#484848',
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+            // 按钮组高度优化 - 深色主题
+            MuiButtonGroup: {
+                styleOverrides: {
+                    root: {
+                        '& .MuiButton-root': {
+                            minHeight: '40px',
+                            padding: '10px 20px',
+                            fontSize: '0.875rem',
+                            fontWeight: 500,
+                        },
+                    },
                 },
             },
         },

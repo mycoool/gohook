@@ -15,7 +15,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import ArrowBack from '@mui/icons-material/ArrowBack';
-import CloudDownload from '@mui/icons-material/CloudDownload';
+import CloudSync from '@mui/icons-material/CloudSync';
 import Cached from '@mui/icons-material/Cached';
 import Refresh from '@mui/icons-material/Refresh';
 import Delete from '@mui/icons-material/Delete';
@@ -121,18 +121,18 @@ class Tags extends Component<TagsProps> {
                             返回
                         </Button>
                         <Button
-                            id="sync-tags"
-                            startIcon={<CloudDownload />}
-                            color="primary"
-                            onClick={() => this.syncTags()}>
-                            同步
-                        </Button>
-                        <Button
                             id="refresh-tags"
                             startIcon={<Refresh />}
                             color="primary"
                             onClick={() => this.refreshTags()}>
                             刷新
+                        </Button>
+                        <Button
+                            id="sync-tags"
+                            startIcon={<CloudSync />}
+                            color="primary"
+                            onClick={() => this.syncTags()}>
+                            同步
                         </Button>
                     </ButtonGroup>
                 }

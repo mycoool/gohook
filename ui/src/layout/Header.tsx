@@ -1,7 +1,7 @@
 import AppBar from '@mui/material/AppBar';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
-import { Theme, Breakpoint, styled } from '@mui/material/styles';
+import { Theme, Breakpoint, styled, useTheme } from '@mui/material/styles';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import { PropTypes, useMediaQuery } from '@mui/material';
@@ -22,15 +22,35 @@ import useTranslation from '../i18n/useTranslation';
 import LanguageSwitcher from '../i18n/LanguageSwitcher';
 import EnvironmentIndicator from './EnvironmentIndicator';
 
-// FIXME checkout https://mui.com/components/use-media-query/#migrating-from-withwidth
+// 使用现代的 useMediaQuery 实现响应式宽度检测
 const withWidth = () => (WrappedComponent: React.ComponentType<any>) => {
-    const WrappedWithWidth: React.FC<any> = (props) => <WrappedComponent {...props} width="xs" />;
+    const WrappedWithWidth: React.FC<any> = (props) => {
+        const isXs = useMediaQuery((theme: Theme) => theme.breakpoints.only('xs'));
+        const isSm = useMediaQuery((theme: Theme) => theme.breakpoints.only('sm'));
+        const isMd = useMediaQuery((theme: Theme) => theme.breakpoints.only('md'));
+        const isLg = useMediaQuery((theme: Theme) => theme.breakpoints.only('lg'));
+        
+        let width: Breakpoint = 'xl';
+        if (isXs) width = 'xs';
+        else if (isSm) width = 'sm';
+        else if (isMd) width = 'md';
+        else if (isLg) width = 'lg';
+        
+        return <WrappedComponent {...props} width={width} />;
+    };
     WrappedWithWidth.displayName = `withWidth(${WrappedComponent.displayName || WrappedComponent.name})`;
     return WrappedWithWidth;
 };
 
 const StyledAppBar = styled(AppBar)(({ theme }) => ({
     zIndex: theme.zIndex.drawer + 1,
+    backgroundColor: '#3f51b5 !important',
+    '&.MuiAppBar-colorPrimary': {
+        backgroundColor: '#3f51b5 !important',
+    },
+    '&.MuiAppBar-root': {
+        backgroundColor: '#3f51b5 !important',
+    },
     [theme.breakpoints.down('md')]: {
         paddingBottom: 10,
     },
@@ -112,7 +132,21 @@ class Header extends Component<IProps> {
         const position = width === 'xs' ? 'sticky' : 'fixed';
 
         return (
-            <StyledAppBar position={position} style={style}>
+            <StyledAppBar 
+                position={position} 
+                style={{
+                    ...style,
+                    backgroundColor: '#3f51b5',
+                    // 强制覆盖所有可能的背景色样式
+                    backgroundImage: 'none',
+                }}
+                sx={{
+                    backgroundColor: '#3f51b5 !important',
+                    '&.MuiAppBar-colorPrimary': {
+                        backgroundColor: '#3f51b5 !important',
+                    }
+                }}
+            >
                 <StyledToolbar>
                     <Title>
                         <StyledLink to="/">
@@ -258,7 +292,9 @@ const ResponsiveButtonWithTranslation: React.FC<{
             startIcon={icon} 
             {...rest}
             sx={{
-                textTransform: 'none', // 保持文字原始大小写
+                textTransform: 'uppercase', // 英文全大写
+                fontWeight: 'bold', // 加粗
+                letterSpacing: '0.5px', // 字母间距
                 minWidth: 'auto',
                 padding: '6px 12px',
             }}

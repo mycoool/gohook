@@ -20,7 +20,7 @@ import Refresh from '@mui/icons-material/Refresh';
 import CloudDownload from '@mui/icons-material/CloudDownload';
 import Add from '@mui/icons-material/Add';
 import Delete from '@mui/icons-material/Delete';
-import Edit from '@mui/icons-material/Edit';
+import Edit from '@mui/icons-material/AppRegistration';
 import AccountTree from '@mui/icons-material/AccountTree';
 import LocalOffer from '@mui/icons-material/LocalOffer';
 import CloudQueue from '@mui/icons-material/CloudQueue';

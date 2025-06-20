@@ -11,7 +11,7 @@ import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
 import ArrowBack from '@mui/icons-material/ArrowBack';
 import CallSplit from '@mui/icons-material/CallSplit';
-import CloudDownload from '@mui/icons-material/CloudDownload';
+import CloudSync from '@mui/icons-material/CloudSync';
 import Refresh from '@mui/icons-material/Refresh';
 import Computer from '@mui/icons-material/Computer';
 import CloudQueue from '@mui/icons-material/CloudQueue';
@@ -77,17 +77,17 @@ class Branches extends Component<BranchesProps> {
                             返回
                         </Button>
                         <Button
-                            id="sync-branches"
-                            startIcon={<CloudDownload />}
-                            onClick={() => this.syncBranches()}>
-                            同步
-                        </Button>
-                        <Button
                             id="refresh-branches"
                             color="primary"
                             startIcon={<Refresh />}
                             onClick={() => this.refreshBranches()}>
                             刷新
+                        </Button>
+                        <Button
+                            id="sync-branches"
+                            startIcon={<CloudSync />}
+                            onClick={() => this.syncBranches()}>
+                            同步
                         </Button>
                     </ButtonGroup>
                 }
