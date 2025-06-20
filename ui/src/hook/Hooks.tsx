@@ -22,9 +22,9 @@ import {inject, Stores} from '../inject';
 import {IHook} from '../types';
 import {LastUsedCell} from '../common/LastUsedCell';
 import useTranslation from '../i18n/useTranslation';
-import { Theme } from '@mui/material/styles';
+import {Theme} from '@mui/material/styles';
 
-import { WithStyles } from '@mui/styles';
+import {WithStyles} from '@mui/styles';
 import withStyles from '@mui/styles/withStyles';
 import createStyles from '@mui/styles/createStyles';
 
@@ -38,7 +38,8 @@ const styles = () =>
             padding: '4px 8px',
             borderRadius: '6px',
             border: '1px solid #30363d',
-            fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+            fontFamily:
+                'ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
             fontWeight: 400,
         },
         workingDir: {

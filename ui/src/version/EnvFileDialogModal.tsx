@@ -15,7 +15,7 @@ import {
     Theme,
     SelectChangeEvent,
 } from '@mui/material';
-import { useTheme } from '@mui/material/styles';
+import {useTheme} from '@mui/material/styles';
 import {inject, Stores} from '../inject';
 import {observer} from 'mobx-react';
 import Editor from 'react-simple-code-editor';
@@ -562,7 +562,9 @@ class EnvFileDialogModal extends Component<IProps & Stores<'snackManager'>, ISta
                         </Button>
                     )}
                     <Box flexGrow={1} />
-                    <Button onClick={this.handleClose} color="secondary">取消</Button>
+                    <Button onClick={this.handleClose} color="secondary">
+                        取消
+                    </Button>
                     <Button onClick={this.handleSave} color="primary" variant="contained">
                         保存
                     </Button>

@@ -226,7 +226,12 @@ class Versions extends Component<RouteComponentProps & Stores<'versionStore'>> {
         await this.props.versionStore.saveGitHookConfig(projectName, config);
     };
 
-    private handleEditProject = async (originalName: string, name: string, path: string, description: string) => {
+    private handleEditProject = async (
+        originalName: string,
+        name: string,
+        path: string,
+        description: string
+    ) => {
         await this.props.versionStore.editProject(originalName, name, path, description);
     };
 }

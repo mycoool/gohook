@@ -21,36 +21,36 @@ import {
     Snackbar,
 } from '@mui/material';
 
-import { styled } from '@mui/material/styles';
+import {styled} from '@mui/material/styles';
 import {FileCopy, Refresh} from '@mui/icons-material';
 import {IVersion} from '../types';
 import {useTranslation} from '../i18n/useTranslation';
 
-const StyledDialogContent = styled(DialogContent)(({ theme }) => ({
+const StyledDialogContent = styled(DialogContent)(({theme}) => ({
     minWidth: '500px',
     paddingTop: '16px',
 }));
 
-const StyledSection = styled(Box)(({ theme }) => ({
+const StyledSection = styled(Box)(({theme}) => ({
     marginBottom: '24px',
 }));
 
-const StyledStatusChip = styled(Chip)(({ theme }) => ({
+const StyledStatusChip = styled(Chip)(({theme}) => ({
     marginLeft: '8px',
 }));
 
-const StyledBranchInput = styled(TextField)(({ theme }) => ({
+const StyledBranchInput = styled(TextField)(({theme}) => ({
     marginTop: '8px',
     width: '100%',
 }));
 
-const StyledDescription = styled(Typography)(({ theme }) => ({
+const StyledDescription = styled(Typography)(({theme}) => ({
     color: theme.palette.text.secondary,
     fontSize: '0.875rem',
     marginTop: '8px',
 }));
 
-const StyledWebhookUrl = styled(Box)(({ theme }) => ({
+const StyledWebhookUrl = styled(Box)(({theme}) => ({
     backgroundColor: theme.palette.grey[100],
     color: theme.palette.common.black,
     padding: '8px',
@@ -70,7 +70,7 @@ const StyledWebhookUrl = styled(Box)(({ theme }) => ({
     }),
 }));
 
-const StyledWebhookUrlText = styled(Box)(({ theme }) => ({
+const StyledWebhookUrlText = styled(Box)(({theme}) => ({
     flex: 1,
     marginRight: '8px',
 }));
@@ -194,9 +194,7 @@ const GitHookDialog: React.FC<GitHookDialogProps> = ({open, project, onClose, on
                         }
                         label={t('githook.enable')}
                     />
-                    <StyledDescription>
-                        {t('githook.enableDescription')}
-                    </StyledDescription>
+                    <StyledDescription>{t('githook.enableDescription')}</StyledDescription>
                 </StyledSection>
 
                 {enhook && (

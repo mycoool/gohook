@@ -197,7 +197,9 @@ export class WebSocketStore {
                             actionText = projectMsg.action;
                     }
                     this.snack(
-                        `项目 "${projectMsg.projectName}" ${actionText}失败: ${projectMsg.error ?? '未知错误'}`
+                        `项目 "${projectMsg.projectName}" ${actionText}失败: ${
+                            projectMsg.error ?? '未知错误'
+                        }`
                     );
                 }
                 break;
@@ -207,7 +209,10 @@ export class WebSocketStore {
                 if (githookMsg.success) {
                     this.snack(`GitHook "${githookMsg.projectName}" 执行成功`);
                 } else {
-                    this.snack(`GitHook "${githookMsg.projectName}" 执行失败: ${githookMsg.error ?? '未知错误'}`
+                    this.snack(
+                        `GitHook "${githookMsg.projectName}" 执行失败: ${
+                            githookMsg.error ?? '未知错误'
+                        }`
                     );
                 }
                 break;

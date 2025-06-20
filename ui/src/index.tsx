@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { createRoot } from 'react-dom/client';
+import {createRoot} from 'react-dom/client';
 import 'typeface-roboto';
 import {initAxios} from './apiAuth';
 import * as config from './config';

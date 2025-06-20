@@ -1,5 +1,11 @@
-import { createTheme, ThemeProvider, StyledEngineProvider, Theme, styled } from '@mui/material/styles';
-import { ThemeProvider as StylesThemeProvider } from '@mui/styles';
+import {
+    createTheme,
+    ThemeProvider,
+    StyledEngineProvider,
+    Theme,
+    styled,
+} from '@mui/material/styles';
+import {ThemeProvider as StylesThemeProvider} from '@mui/styles';
 import Box from '@mui/material/Box';
 import CssBaseline from '@mui/material/CssBaseline';
 import * as React from 'react';
@@ -28,13 +34,9 @@ import {observable} from 'mobx';
 import {inject, Stores} from '../inject';
 import {ConnectionErrorBanner} from '../common/ConnectionErrorBanner';
 
-
-
-
-
 const {HashRouter, Route, Switch} = ReactRouter;
 
-const MainContent = styled('main')(({ theme }) => ({
+const MainContent = styled('main')(({theme}) => ({
     flexGrow: 1,
     marginTop: 64,
     padding: '32px', // 减少内边距从32px到16px
@@ -166,7 +168,8 @@ const themeMap: Record<ThemeKey, Theme> = {
                             padding: '2px 6px',
                             borderRadius: '4px',
                             fontSize: '0.875rem',
-                            fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+                            fontFamily:
+                                'ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
                             border: '1px solid #e0e0e0',
                         },
                     },
@@ -319,7 +322,8 @@ const themeMap: Record<ThemeKey, Theme> = {
                             padding: '2px 6px',
                             borderRadius: '4px',
                             fontSize: '0.875rem',
-                            fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+                            fontFamily:
+                                'ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
                             border: '1px solid #757575',
                         },
                     },
@@ -383,9 +387,7 @@ const CustomRedirect: React.FC<{to: string}> = ({to}) => {
 };
 
 @observer
-class Layout extends React.Component<
-    Stores<'currentUser' | 'snackManager'>
-> {
+class Layout extends React.Component<Stores<'currentUser' | 'snackManager'>> {
     @observable
     private currentTheme: ThemeKey = 'dark';
     @observable
@@ -428,114 +430,118 @@ class Layout extends React.Component<
                         {React.createElement(
                             HashRouter as any,
                             null,
-                        <div>
-                            {!connectionErrorMessage ? null : (
-                                <ConnectionErrorBanner
-                                    height={64}
-                                    retry={() => tryReconnect()}
-                                    message={connectionErrorMessage}
-                                />
-                            )}
-                            <div style={{display: 'flex', flexDirection: 'column'}}>
-                                <CssBaseline />
-                                <Header
-                                    style={{top: !connectionErrorMessage ? 0 : 64}}
-                                    admin={admin}
-                                    name={name}
-                                    version={versionInfo.version}
-                                    loggedIn={loggedIn}
-                                    toggleTheme={this.toggleTheme.bind(this)}
-                                    showSettings={() => (this.showSettings = true)}
-                                    logout={logout}
-                                    setNavOpen={this.setNavOpen.bind(this)}
-                                />
-                                <div style={{display: 'flex'}}>
-                                    <Navigation
-                                        loggedIn={loggedIn}
-                                        navOpen={this.navOpen}
-                                        setNavOpen={this.setNavOpen.bind(this)}
-                                        user={{admin, role}}
+                            <div>
+                                {!connectionErrorMessage ? null : (
+                                    <ConnectionErrorBanner
+                                        height={64}
+                                        retry={() => tryReconnect()}
+                                        message={connectionErrorMessage}
                                     />
-                                    <MainContent>
-                                        {React.createElement(
-                                            Switch as any,
-                                            null,
-                                            authenticating
-                                                ? React.createElement(
-                                                      Route as any,
-                                                      {path: '/'},
-                                                      React.createElement(LoadingSpinner)
-                                                  )
-                                                : null,
-                                            React.createElement(Route as any, {
-                                                exact: true,
-                                                path: '/login',
-                                                render: loginRoute,
-                                            }),
-                                            loggedIn
-                                                ? null
-                                                : React.createElement(CustomRedirect, {to: '/login'}),
-                                            React.createElement(Route as any, {
-                                                exact: true,
-                                                path: '/',
-                                                component: Messages,
-                                            }),
-                                            React.createElement(Route as any, {
-                                                exact: true,
-                                                path: '/messages/:id',
-                                                component: Messages,
-                                            }),
-                                            React.createElement(Route as any, {
-                                                exact: true,
-                                                path: '/versions',
-                                                component: Versions,
-                                            }),
-                                            React.createElement(Route as any, {
-                                                exact: true,
-                                                path: '/versions/:projectName/branches',
-                                                component: Branches,
-                                            }),
-                                            React.createElement(Route as any, {
-                                                exact: true,
-                                                path: '/versions/:projectName/tags',
-                                                component: Tags,
-                                            }),
-                                            React.createElement(Route as any, {
-                                                exact: true,
-                                                path: '/versions/:projectName/env',
-                                                component: EnvFileDialog,
-                                            }),
-                                            React.createElement(Route as any, {
-                                                exact: true,
-                                                path: '/hooks',
-                                                component: Hooks,
-                                            }),
-                                            React.createElement(Route as any, {
-                                                exact: true,
-                                                path: '/users',
-                                                component: Users,
-                                            }),
-                                            React.createElement(Route as any, {
-                                                exact: true,
-                                                path: '/plugins',
-                                                component: Plugins,
-                                            }),
-                                            React.createElement(Route as any, {
-                                                exact: true,
-                                                path: '/plugins/:id',
-                                                component: PluginDetailView,
-                                            })
-                                        )}
-                                    </MainContent>
-                                </div>
-                                {showSettings && (
-                                    <SettingsDialog fClose={() => (this.showSettings = false)} />
                                 )}
-                                <ScrollUpButton />
-                                <SnackBarHandler />
-                                {loggedIn && <RealtimeMessages />}
+                                <div style={{display: 'flex', flexDirection: 'column'}}>
+                                    <CssBaseline />
+                                    <Header
+                                        style={{top: !connectionErrorMessage ? 0 : 64}}
+                                        admin={admin}
+                                        name={name}
+                                        version={versionInfo.version}
+                                        loggedIn={loggedIn}
+                                        toggleTheme={this.toggleTheme.bind(this)}
+                                        showSettings={() => (this.showSettings = true)}
+                                        logout={logout}
+                                        setNavOpen={this.setNavOpen.bind(this)}
+                                    />
+                                    <div style={{display: 'flex'}}>
+                                        <Navigation
+                                            loggedIn={loggedIn}
+                                            navOpen={this.navOpen}
+                                            setNavOpen={this.setNavOpen.bind(this)}
+                                            user={{admin, role}}
+                                        />
+                                        <MainContent>
+                                            {React.createElement(
+                                                Switch as any,
+                                                null,
+                                                authenticating
+                                                    ? React.createElement(
+                                                          Route as any,
+                                                          {path: '/'},
+                                                          React.createElement(LoadingSpinner)
+                                                      )
+                                                    : null,
+                                                React.createElement(Route as any, {
+                                                    exact: true,
+                                                    path: '/login',
+                                                    render: loginRoute,
+                                                }),
+                                                loggedIn
+                                                    ? null
+                                                    : React.createElement(CustomRedirect, {
+                                                          to: '/login',
+                                                      }),
+                                                React.createElement(Route as any, {
+                                                    exact: true,
+                                                    path: '/',
+                                                    component: Messages,
+                                                }),
+                                                React.createElement(Route as any, {
+                                                    exact: true,
+                                                    path: '/messages/:id',
+                                                    component: Messages,
+                                                }),
+                                                React.createElement(Route as any, {
+                                                    exact: true,
+                                                    path: '/versions',
+                                                    component: Versions,
+                                                }),
+                                                React.createElement(Route as any, {
+                                                    exact: true,
+                                                    path: '/versions/:projectName/branches',
+                                                    component: Branches,
+                                                }),
+                                                React.createElement(Route as any, {
+                                                    exact: true,
+                                                    path: '/versions/:projectName/tags',
+                                                    component: Tags,
+                                                }),
+                                                React.createElement(Route as any, {
+                                                    exact: true,
+                                                    path: '/versions/:projectName/env',
+                                                    component: EnvFileDialog,
+                                                }),
+                                                React.createElement(Route as any, {
+                                                    exact: true,
+                                                    path: '/hooks',
+                                                    component: Hooks,
+                                                }),
+                                                React.createElement(Route as any, {
+                                                    exact: true,
+                                                    path: '/users',
+                                                    component: Users,
+                                                }),
+                                                React.createElement(Route as any, {
+                                                    exact: true,
+                                                    path: '/plugins',
+                                                    component: Plugins,
+                                                }),
+                                                React.createElement(Route as any, {
+                                                    exact: true,
+                                                    path: '/plugins/:id',
+                                                    component: PluginDetailView,
+                                                })
+                                            )}
+                                        </MainContent>
+                                    </div>
+                                    {showSettings && (
+                                        <SettingsDialog
+                                            fClose={() => (this.showSettings = false)}
+                                        />
+                                    )}
+                                    <ScrollUpButton />
+                                    <SnackBarHandler />
+                                    {loggedIn && <RealtimeMessages />}
+                                </div>
                             </div>
-                        </div>
                         )}
                     </StylesThemeProvider>
                 </ThemeProvider>

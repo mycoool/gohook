@@ -18,7 +18,12 @@ interface IProps {
     open: boolean;
     project: IVersion | null;
     onClose: () => void;
-    onSubmit: (originalName: string, name: string, path: string, description: string) => Promise<void>;
+    onSubmit: (
+        originalName: string,
+        name: string,
+        path: string,
+        description: string
+    ) => Promise<void>;
 }
 
 @observer
@@ -117,7 +122,9 @@ const EditProjectDialogContent: React.FC<EditDialogContentProps> = ({
 
     return (
         <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-            <DialogTitle>{t('version.editProject')} - {project.name}</DialogTitle>
+            <DialogTitle>
+                {t('version.editProject')} - {project.name}
+            </DialogTitle>
             <DialogContent>
                 <Grid container spacing={2}>
                     <Grid size={12}>
@@ -183,4 +190,4 @@ const EditProjectDialogContent: React.FC<EditDialogContentProps> = ({
             </DialogActions>
         </Dialog>
     );
-}; 
+};

@@ -1,6 +1,6 @@
 import Grid from '@mui/material/Grid';
 import Typography from '@mui/material/Typography';
-import { useTheme } from '@mui/material/styles';
+import {useTheme} from '@mui/material/styles';
 import React, {FC} from 'react';
 
 interface IProps {
@@ -19,19 +19,26 @@ const DefaultPage: FC<IProps> = ({
     children,
 }) => {
     const theme = useTheme();
-    
+
     return (
         <main style={{margin: '0 auto', maxWidth}}>
             <Grid container spacing={2}>
-                <Grid size={12} style={{display: 'flex', flexWrap: 'wrap', alignItems: 'center', marginBottom: '16px'}}>
+                <Grid
+                    size={12}
+                    style={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        alignItems: 'center',
+                        marginBottom: '16px',
+                    }}>
                     <Typography
                         variant="h4"
                         style={{
-                            flex: 1, 
+                            flex: 1,
                             textAlign: centerTitle ? 'center' : 'left',
                             fontWeight: 'normal',
                             color: theme.palette.text.primary,
-                            margin: 0
+                            margin: 0,
                         }}>
                         {title}
                     </Typography>

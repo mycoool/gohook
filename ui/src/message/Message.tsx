@@ -1,5 +1,5 @@
 import IconButton from '@mui/material/IconButton';
-import { styled } from '@mui/material/styles';
+import {styled} from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import Delete from '@mui/icons-material/Delete';
 import React from 'react';
@@ -10,7 +10,7 @@ import {Markdown} from '../common/Markdown';
 import {RenderMode, contentType} from './extras';
 import {IMessageExtras} from '../types';
 
-const MessageWrapper = styled('div')(({ theme }) => ({
+const MessageWrapper = styled('div')(({theme}) => ({
     padding: 12,
 }));
 
@@ -34,7 +34,7 @@ const MessageContentWrapper = styled('div')({
     maxWidth: 585,
 });
 
-const Image = styled('img')(({ theme }) => ({
+const Image = styled('img')(({theme}) => ({
     marginRight: 15,
     [theme.breakpoints.down('lg')]: {
         width: 32,
@@ -42,7 +42,7 @@ const Image = styled('img')(({ theme }) => ({
     },
 }));
 
-const Date = styled(Typography)(({ theme }) => ({
+const Date = styled(Typography)(({theme}) => ({
     [theme.breakpoints.down('lg')]: {
         order: 1,
         flexBasis: '100%',
@@ -116,7 +116,11 @@ class Message extends React.PureComponent<IProps> {
         const {fDelete, title, date, image, priority} = this.props;
 
         return (
-            <MessageWrapper className="message" ref={(ref) => { this.node = ref; }}>
+            <MessageWrapper
+                className="message"
+                ref={(ref) => {
+                    this.node = ref;
+                }}>
                 <Container
                     style={{
                         display: 'flex',
@@ -146,9 +150,7 @@ class Message extends React.PureComponent<IProps> {
                                 <Delete />
                             </TrashButton>
                         </Header>
-                        <Content className="content">
-                            {this.renderContent()}
-                        </Content>
+                        <Content className="content">{this.renderContent()}</Content>
                     </MessageContentWrapper>
                 </Container>
             </MessageWrapper>

@@ -146,7 +146,12 @@ export class VersionStore {
     };
 
     @action
-    public editProject = async (originalName: string, name: string, path: string, description: string): Promise<void> => {
+    public editProject = async (
+        originalName: string,
+        name: string,
+        path: string,
+        description: string
+    ): Promise<void> => {
         try {
             const response = await axios.put(
                 `${config.get('url')}version/${originalName}`,

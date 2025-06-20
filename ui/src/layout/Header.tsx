@@ -1,10 +1,10 @@
 import AppBar from '@mui/material/AppBar';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
-import { Theme, Breakpoint, styled, useTheme } from '@mui/material/styles';
+import {Theme, Breakpoint, styled, useTheme} from '@mui/material/styles';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
-import { PropTypes, useMediaQuery } from '@mui/material';
+import {PropTypes, useMediaQuery} from '@mui/material';
 import AccountCircle from '@mui/icons-material/AccountCircle';
 import ExitToApp from '@mui/icons-material/ExitToApp';
 import Highlight from '@mui/icons-material/Highlight';
@@ -29,20 +29,22 @@ const withWidth = () => (WrappedComponent: React.ComponentType<any>) => {
         const isSm = useMediaQuery((theme: Theme) => theme.breakpoints.only('sm'));
         const isMd = useMediaQuery((theme: Theme) => theme.breakpoints.only('md'));
         const isLg = useMediaQuery((theme: Theme) => theme.breakpoints.only('lg'));
-        
+
         let width: Breakpoint = 'xl';
         if (isXs) width = 'xs';
         else if (isSm) width = 'sm';
         else if (isMd) width = 'md';
         else if (isLg) width = 'lg';
-        
+
         return <WrappedComponent {...props} width={width} />;
     };
-    WrappedWithWidth.displayName = `withWidth(${WrappedComponent.displayName || WrappedComponent.name})`;
+    WrappedWithWidth.displayName = `withWidth(${
+        WrappedComponent.displayName || WrappedComponent.name
+    })`;
     return WrappedWithWidth;
 };
 
-const StyledAppBar = styled(AppBar)(({ theme }) => ({
+const StyledAppBar = styled(AppBar)(({theme}) => ({
     zIndex: theme.zIndex.drawer + 1,
     backgroundColor: '#3f51b5 !important',
     '&.MuiAppBar-colorPrimary': {
@@ -56,16 +58,16 @@ const StyledAppBar = styled(AppBar)(({ theme }) => ({
     },
 }));
 
-const StyledToolbar = styled(Toolbar)(({ theme }) => ({
+const StyledToolbar = styled(Toolbar)(({theme}) => ({
     justifyContent: 'space-between',
     [theme.breakpoints.down('md')]: {
         flexWrap: 'wrap',
     },
 }));
 
-const MenuButtons = styled('div')(({ theme }) => ({
+const MenuButtons = styled('div')(({theme}) => ({
     display: 'flex',
-                gap: '4px', // 按钮之间的间距
+    gap: '4px', // 按钮之间的间距
     [theme.breakpoints.down('lg')]: {
         flex: 1,
     },
@@ -75,11 +77,11 @@ const MenuButtons = styled('div')(({ theme }) => ({
         marginTop: 5,
         order: 1,
         justifyContent: 'space-between',
-                    gap: '2px',
+        gap: '2px',
     },
 }));
 
-const Title = styled('div')(({ theme }) => ({
+const Title = styled('div')(({theme}) => ({
     [theme.breakpoints.up('md')]: {
         flex: 1,
     },
@@ -117,23 +119,14 @@ interface IProps {
 @observer
 class Header extends Component<IProps> {
     public render() {
-        const {
-            version,
-            name,
-            loggedIn,
-            admin,
-            toggleTheme,
-            logout,
-            style,
-            setNavOpen,
-            width,
-        } = this.props;
+        const {version, name, loggedIn, admin, toggleTheme, logout, style, setNavOpen, width} =
+            this.props;
 
         const position = width === 'xs' ? 'sticky' : 'fixed';
 
         return (
-            <StyledAppBar 
-                position={position} 
+            <StyledAppBar
+                position={position}
                 style={{
                     ...style,
                     backgroundColor: '#3f51b5',
@@ -144,9 +137,8 @@ class Header extends Component<IProps> {
                     backgroundColor: '#3f51b5 !important',
                     '&.MuiAppBar-colorPrimary': {
                         backgroundColor: '#3f51b5 !important',
-                    }
-                }}
-            >
+                    },
+                }}>
                 <StyledToolbar>
                     <Title>
                         <StyledLink to="/">
@@ -270,7 +262,7 @@ class Header extends Component<IProps> {
 // 支持翻译的响应式按钮组件
 const ResponsiveButtonWithTranslation: React.FC<{
     width: Breakpoint;
-    color: "inherit" | "primary" | "secondary" | "error" | "info" | "success" | "warning";
+    color: 'inherit' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning';
     translationKey: string;
     fallbackLabel: string;
     customLabel?: string;
@@ -285,11 +277,15 @@ const ResponsiveButtonWithTranslation: React.FC<{
 
     // 只在超小屏幕时显示纯图标，其他情况都显示图标+文字
     if (width === 'xs') {
-        return <IconButton {...rest} size="large">{icon}</IconButton>;
+        return (
+            <IconButton {...rest} size="large">
+                {icon}
+            </IconButton>
+        );
     }
     return (
-        <Button 
-            startIcon={icon} 
+        <Button
+            startIcon={icon}
             {...rest}
             sx={{
                 textTransform: 'uppercase', // 英文全大写
@@ -297,8 +293,7 @@ const ResponsiveButtonWithTranslation: React.FC<{
                 letterSpacing: '0.5px', // 字母间距
                 minWidth: 'auto',
                 padding: '6px 12px',
-            }}
-        >
+            }}>
             {label}
         </Button>
     );

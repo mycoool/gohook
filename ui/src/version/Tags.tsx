@@ -42,7 +42,8 @@ const styles = (theme: Theme) =>
             padding: '4px 8px',
             borderRadius: '6px',
             border: '1px solid #30363d',
-            fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+            fontFamily:
+                'ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
             fontWeight: 400,
         },
         filterContainer: {

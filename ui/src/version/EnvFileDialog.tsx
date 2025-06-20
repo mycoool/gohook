@@ -11,7 +11,7 @@ import {
     Box,
     Grid,
 } from '@mui/material';
-import { useTheme } from '@mui/material/styles';
+import {useTheme} from '@mui/material/styles';
 
 import DefaultPage from '../common/DefaultPage';
 import {inject, Stores} from '../inject';
@@ -398,10 +398,10 @@ app.cache.size = 1024`;
                         </Typography>
                         <Grid container spacing={2}>
                             <Grid size={{xs: 12, sm: 6}}>
-                                <Box 
-                                    p={2} 
-                                    border={1} 
-                                    borderColor={isDarkMode ? '#30363d' : '#d0d7de'} 
+                                <Box
+                                    p={2}
+                                    border={1}
+                                    borderColor={isDarkMode ? '#30363d' : '#d0d7de'}
                                     borderRadius="6px"
                                     bgcolor={isDarkMode ? '#161b22' : '#ffffff'}>
                                     <Typography variant="h6" gutterBottom>
@@ -419,10 +419,10 @@ app.cache.size = 1024`;
                                 </Box>
                             </Grid>
                             <Grid size={{xs: 12, sm: 6}}>
-                                <Box 
-                                    p={2} 
-                                    border={1} 
-                                    borderColor={isDarkMode ? '#30363d' : '#d0d7de'} 
+                                <Box
+                                    p={2}
+                                    border={1}
+                                    borderColor={isDarkMode ? '#30363d' : '#d0d7de'}
                                     borderRadius="6px"
                                     bgcolor={isDarkMode ? '#161b22' : '#ffffff'}>
                                     <Typography variant="h6" gutterBottom>
@@ -459,7 +459,7 @@ app.cache.size = 1024`;
                         sx: {
                             backgroundColor: isDarkMode ? '#161b22' : '#ffffff',
                             color: isDarkMode ? '#e6edf3' : '#000000',
-                        }
+                        },
                     }}>
                     <DialogTitle>
                         <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -487,7 +487,8 @@ app.cache.size = 1024`;
                             }
                             InputProps={{
                                 style: {
-                                    fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+                                    fontFamily:
+                                        'ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
                                     fontSize: '13px',
                                     backgroundColor: isDarkMode ? '#0d1117' : '#ffffff',
                                     color: isDarkMode ? '#e6edf3' : '#000000',

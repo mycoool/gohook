@@ -20,7 +20,7 @@ import {DrawerProps} from '@mui/material/Drawer';
 import CloseIcon from '@mui/icons-material/Close';
 import PeopleIcon from '@mui/icons-material/People';
 
-const StyledDrawer = styled(Drawer)(({ theme }) => ({
+const StyledDrawer = styled(Drawer)(({theme}) => ({
     height: '100%',
     '& .MuiDrawer-paper': {
         position: 'fixed',
@@ -32,7 +32,7 @@ const StyledDrawer = styled(Drawer)(({ theme }) => ({
     },
 }));
 
-const Toolbar = styled('div')(({ theme }) => theme.mixins.toolbar);
+const Toolbar = styled('div')(({theme}) => theme.mixins.toolbar);
 
 const StyledLink = styled(Link)({
     color: 'inherit',
@@ -57,10 +57,7 @@ class Navigation extends Component<IProps, {showRequestNotification: boolean}> {
         const isAdmin = user?.admin ?? user?.role === 'admin';
 
         return (
-            <ResponsiveDrawer
-                navOpen={navOpen}
-                setNavOpen={setNavOpen}
-                id="message-navigation">
+            <ResponsiveDrawer navOpen={navOpen} setNavOpen={setNavOpen} id="message-navigation">
                 <Toolbar />
                 {React.createElement(
                     StyledLink as any,
@@ -98,9 +95,9 @@ const ResponsiveDrawer: React.FC<
     return (
         <>
             {!isSmUp && (
-                <Drawer 
-                    variant="temporary" 
-                    open={navOpen} 
+                <Drawer
+                    variant="temporary"
+                    open={navOpen}
                     onClose={() => setNavOpen(false)}
                     ModalProps={{
                         keepMounted: true, // 提高移动端性能
@@ -112,9 +109,8 @@ const ResponsiveDrawer: React.FC<
                             top: 0,
                             height: '100vh',
                             width: 250,
-                        }
-                    }}
-                >
+                        },
+                    }}>
                     <IconButton onClick={() => setNavOpen(false)} size="large">
                         <CloseIcon />
                     </IconButton>

@@ -230,7 +230,9 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
                         case 'edit':
                             return `项目编辑失败: ${projectMsg.error ?? '未知错误'}`;
                         default:
-                            return `项目${projectMsg.action}失败: ${projectMsg.error ?? '未知错误'}`;
+                            return `项目${projectMsg.action}失败: ${
+                                projectMsg.error ?? '未知错误'
+                            }`;
                     }
                 }
             }

@@ -135,7 +135,7 @@ const LoginContainer: React.FC<{
 
     return (
         <DefaultPage title={t('auth.login')} maxWidth={340} centerTitle={true}>
-            <Grid size={12} style={{textAlign: "center"}}>
+            <Grid size={12} style={{textAlign: 'center'}}>
                 <Container>
                     <Paper style={{padding: '30px 20px', marginTop: 30}}>
                         <LoginForm

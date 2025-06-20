@@ -1,4 +1,4 @@
-import { styled } from '@mui/material/styles';
+import {styled} from '@mui/material/styles';
 import Paper from '@mui/material/Paper';
 import * as React from 'react';
 
@@ -11,7 +11,7 @@ interface IProps {
     children?: React.ReactNode;
 }
 
-const Container: React.FC<IProps> = ({ children, style }) => (
+const Container: React.FC<IProps> = ({children, style}) => (
     <StyledPaper elevation={6} style={style}>
         {children}
     </StyledPaper>

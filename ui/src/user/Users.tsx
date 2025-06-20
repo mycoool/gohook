@@ -35,7 +35,11 @@ const UserRow: React.FC<IRowProps> = ({name, admin, fDelete, fEdit}) => {
             <TableCell>{name}</TableCell>
             <TableCell>{admin ? t('user.admin') : t('user.normalUser')}</TableCell>
             <TableCell align="right" padding="none">
-                <IconButton onClick={fEdit} className="edit" title={t('user.editUser')} size="large">
+                <IconButton
+                    onClick={fEdit}
+                    className="edit"
+                    title={t('user.editUser')}
+                    size="large">
                     <Edit />
                 </IconButton>
                 <IconButton
