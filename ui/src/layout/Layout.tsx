@@ -261,7 +261,7 @@ const themeMap: Record<ThemeKey, Theme> = {
             MuiButton: {
                 styleOverrides: {
                     root: {
-                        borderRadius: '6px',
+                        borderRadius: '4px',
                         textTransform: 'none',
                         fontWeight: 500,
                         '&.MuiButton-containedPrimary': {

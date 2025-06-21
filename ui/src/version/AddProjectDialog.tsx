@@ -94,7 +94,7 @@ export default class AddProjectDialog extends Component<IProps> {
                     </Grid>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={onClose} disabled={submitting}>
+                    <Button variant="contained" color="secondary" onClick={onClose} disabled={submitting}>
                         取消
                     </Button>
                     <Button

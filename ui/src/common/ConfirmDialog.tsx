@@ -29,7 +29,7 @@ export default function ConfirmDialog({title, text, fClose, fOnSubmit}: IProps) 
                 <DialogContentText>{text}</DialogContentText>
             </DialogContent>
             <DialogActions>
-                <Button onClick={fClose} className="cancel">
+                <Button onClick={fClose} color="secondary" variant="contained" className="cancel">
                     No
                 </Button>
                 <Button
