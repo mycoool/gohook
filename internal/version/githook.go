@@ -11,7 +11,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -227,7 +226,7 @@ func verifyGiteeToken(secret, token string) error {
 
 // verifyGiteeSignature verify Gitee HMAC-SHA256 signature
 // Gitee signature mode: stringToSign = timestamp + "\n" + secret
-// Sign with HMAC-SHA256, then Base64 encode and URL encode
+// Sign with HMAC-SHA256, then Base64 encode (no URL encoding needed)
 func verifyGiteeSignature(secret, token, timestamp string) error {
 	// timestamp + "\n" + secret
 	stringToSign := timestamp + "\n" + secret
@@ -237,9 +236,8 @@ func verifyGiteeSignature(secret, token, timestamp string) error {
 	h.Write([]byte(stringToSign))
 	signData := h.Sum(nil)
 
-	// Base64 encode and URL encode
-	base64Sig := base64.StdEncoding.EncodeToString(signData)
-	expectedSig := url.QueryEscape(base64Sig)
+	// Base64 encode (gitee sends Base64 directly, no URL encoding)
+	expectedSig := base64.StdEncoding.EncodeToString(signData)
 
 	if subtle.ConstantTimeCompare([]byte(token), []byte(expectedSig)) != 1 {
 		return fmt.Errorf("gitee signature verification failed")
