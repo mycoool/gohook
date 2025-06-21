@@ -5,11 +5,13 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"crypto/subtle"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -214,6 +216,37 @@ func verifyGitLabToken(secret, token string) error {
 	return nil
 }
 
+// verifyGiteeToken verify Gitee token (password mode, directly compare)
+// Gitee supports password mode where X-Gitee-Token contains the plain text password
+func verifyGiteeToken(secret, token string) error {
+	if subtle.ConstantTimeCompare([]byte(secret), []byte(token)) != 1 {
+		return fmt.Errorf("gitee token verification failed")
+	}
+	return nil
+}
+
+// verifyGiteeSignature verify Gitee HMAC-SHA256 signature
+// Gitee signature mode: stringToSign = timestamp + "\n" + secret
+// Sign with HMAC-SHA256, then Base64 encode and URL encode
+func verifyGiteeSignature(secret, token, timestamp string) error {
+	// timestamp + "\n" + secret
+	stringToSign := timestamp + "\n" + secret
+
+	// HMAC-SHA256
+	h := hmac.New(sha256.New, []byte(secret))
+	h.Write([]byte(stringToSign))
+	signData := h.Sum(nil)
+
+	// Base64 encode and URL encode
+	base64Sig := base64.StdEncoding.EncodeToString(signData)
+	expectedSig := url.QueryEscape(base64Sig)
+
+	if subtle.ConstantTimeCompare([]byte(token), []byte(expectedSig)) != 1 {
+		return fmt.Errorf("gitee signature verification failed")
+	}
+	return nil
+}
+
 // verifyGiteaSignature verify Gitea HMAC-SHA256 signature
 func verifyGiteaSignature(payload []byte, secret, signature string) error {
 	expectedSig := hmacSHA256Hex(payload, secret)
@@ -246,7 +279,7 @@ func hmacSHA1Hex(data []byte, secret string) string {
 	return hmacSHA256Hex(data, secret) // temporarily use SHA256 instead
 }
 
-// VerifyWebhookSignature verify webhook signature, support GitHub, GitLab, etc.
+// VerifyWebhookSignature verify webhook signature, support GitHub, GitLab, Gitee, etc.
 func verifyWebhookSignature(c *gin.Context, payloadBody []byte, secret string) error {
 	// GitHub use X-Hub-Signature-256 header with HMAC-SHA256
 	if githubSig := c.GetHeader("X-Hub-Signature-256"); githubSig != "" {
@@ -261,6 +294,23 @@ func verifyWebhookSignature(c *gin.Context, payloadBody []byte, secret string) e
 	// GitLab use X-Gitlab-Token header, directly compare password
 	if gitlabToken := c.GetHeader("X-Gitlab-Token"); gitlabToken != "" {
 		return verifyGitLabToken(secret, gitlabToken)
+	}
+
+	// Gitee use X-Gitee-Token header, support both password and signature mode
+	// Headers: X-Gitee-Token, X-Gitee-Timestamp, User-Agent: git-oschina-hook
+	// Note: Both modes have timestamp, so we need to try both verification methods
+	if giteeToken := c.GetHeader("X-Gitee-Token"); giteeToken != "" {
+		giteeTimestamp := c.GetHeader("X-Gitee-Timestamp")
+
+		// Try signature mode first (if timestamp exists)
+		if giteeTimestamp != "" {
+			if err := verifyGiteeSignature(secret, giteeToken, giteeTimestamp); err == nil {
+				return nil // signature verification successful
+			}
+		}
+
+		// If signature verification failed or no timestamp, try password mode
+		return verifyGiteeToken(secret, giteeToken)
 	}
 
 	// Gitea use X-Gitea-Signature header with HMAC-SHA256
@@ -362,7 +412,7 @@ func HandleGitHook(c *gin.Context) {
 		}
 	}
 
-	// parse webhook payload (support GitHub, GitLab, etc.)
+	// parse webhook payload (support GitHub, GitLab, Gitee, etc.)
 	var payload map[string]interface{}
 	if err := c.ShouldBindJSON(&payload); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid webhook payload"})
