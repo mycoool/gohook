@@ -13,6 +13,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/mycoool/gohook/internal/config"
+	"github.com/mycoool/gohook/internal/database"
 	"github.com/mycoool/gohook/internal/stream"
 	"github.com/mycoool/gohook/internal/types"
 )
@@ -1008,6 +1009,12 @@ func HandleSwitchBranch(c *gin.Context) {
 		return
 	}
 
+	currentUser, _ := c.Get("username")
+	currentUserStr := "unknown"
+	if currentUser != nil {
+		currentUserStr = currentUser.(string)
+	}
+
 	// find project path
 	var projectPath string
 	for _, proj := range types.GoHookVersionData.Projects {
@@ -1018,11 +1025,44 @@ func HandleSwitchBranch(c *gin.Context) {
 	}
 
 	if projectPath == "" {
+		// 记录失败的分支切换尝试
+		database.LogProjectAction(
+			projectName,                        // projectName
+			database.ProjectActionBranchSwitch, // action
+			"",                                 // oldValue
+			req.Branch,                         // newValue
+			currentUserStr,                     // username
+			false,                              // success
+			"Project not found",                // error
+			"",                                 // commitHash
+			fmt.Sprintf("Switch branch failed: Project %s not found", projectName), // description
+			c.ClientIP(), // ipAddress
+		)
 		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
 		return
 	}
 
+	// 获取当前分支用于记录
+	currentBranch := ""
+	if gitStatus, err := getGitStatus(projectPath); err == nil {
+		currentBranch = gitStatus.CurrentBranch
+	}
+
 	if err := switchBranch(projectPath, req.Branch); err != nil {
+		// 记录失败的分支切换
+		database.LogProjectAction(
+			projectName,                        // projectName
+			database.ProjectActionBranchSwitch, // action
+			currentBranch,                      // oldValue
+			req.Branch,                         // newValue
+			currentUserStr,                     // username
+			false,                              // success
+			err.Error(),                        // error
+			"",                                 // commitHash
+			fmt.Sprintf("Switch branch failed: %s", err.Error()), // description
+			c.ClientIP(), // ipAddress
+		)
+
 		// push failed message
 		wsMessage := stream.WsMessage{
 			Type:      "version_switched",
@@ -1040,6 +1080,20 @@ func HandleSwitchBranch(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	// 记录成功的分支切换
+	database.LogProjectAction(
+		projectName,                        // projectName
+		database.ProjectActionBranchSwitch, // action
+		currentBranch,                      // oldValue
+		req.Branch,                         // newValue
+		currentUserStr,                     // username
+		true,                               // success
+		"",                                 // error
+		"",                                 // commitHash
+		fmt.Sprintf("Branch switched from %s to %s successfully", currentBranch, req.Branch), // description
+		c.ClientIP(), // ipAddress
+	)
 
 	// push success message
 	wsMessage := stream.WsMessage{

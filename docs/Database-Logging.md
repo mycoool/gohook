@@ -49,6 +49,7 @@ type HookLog struct {
     CreatedAt   time.Time `json:"created_at"`
     HookID      string    `json:"hook_id"`      // Hook ID
     HookName    string    `json:"hook_name"`    // Hook名称
+    HookType    string    `json:"hook_type"`    // Hook类型: "webhook" 或 "githook"
     Method      string    `json:"method"`       // HTTP方法
     RemoteAddr  string    `json:"remote_addr"`  // 客户端IP
     Success     bool      `json:"success"`      // 是否成功
@@ -58,6 +59,10 @@ type HookLog struct {
     // ... 更多字段
 }
 ```
+
+**Hook类型说明:**
+- `webhook`: 用户手动建立规则和脚本的webhook
+- `githook`: 简易版本的githook
 
 ### SystemLog - 系统日志
 ```go
@@ -104,13 +109,13 @@ type ProjectActivity struct {
 
 ## API 接口
 
-所有日志 API 都需要身份验证，基础路径为 `/api/v1/logs`。
+所有日志 API 都需要身份验证。根据不同模块分别提供日志接口。
 
-### Hook日志
+### Webhook日志（用户手动建立规则和脚本的webhook）
 
-#### 获取Hook日志列表
+#### 获取Webhook日志列表
 ```
-GET /api/v1/logs/hooks
+GET /logs/webhooks
 ```
 
 查询参数：
@@ -125,37 +130,54 @@ GET /api/v1/logs/hooks
 示例：
 ```bash
 curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  "http://localhost:9000/api/v1/logs/hooks?page=1&page_size=20&success=true"
+  "http://localhost:9000/logs/webhooks?page=1&page_size=20&success=true"
 ```
 
-#### 获取Hook日志统计
+#### 获取Webhook日志统计
 ```
-GET /api/v1/logs/hooks/stats
+GET /logs/webhooks/stats
 ```
 
 查询参数：
 - `start_time`: 开始时间
 - `end_time`: 结束时间
 
-### 系统日志
+### GitHook日志（简易版本的githook）
 
-#### 获取系统日志列表
+#### 获取GitHook日志列表
 ```
-GET /api/v1/logs/system
+GET /logs/githook
 ```
 
 查询参数：
-- `page`, `page_size`: 分页参数
-- `level`: 日志级别过滤（DEBUG, INFO, WARN, ERROR）
-- `category`: 日志分类过滤
-- `user_id`: 用户ID过滤
-- `start_time`, `end_time`: 时间范围
+- `page`: 页码（默认1）
+- `page_size`: 每页数量（默认20，最大100）
+- `hook_id`: Hook ID过滤
+- `hook_name`: Hook名称过滤（支持模糊匹配）
+- `success`: 成功状态过滤（true/false）
+- `start_time`: 开始时间（ISO 8601格式）
+- `end_time`: 结束时间（ISO 8601格式）
 
-### 用户活动
+示例：
+```bash
+curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  "http://localhost:9000/logs/githook?page=1&page_size=20"
+```
+
+#### 获取GitHook日志统计
+```
+GET /logs/githook/stats
+```
+
+查询参数：
+- `start_time`: 开始时间
+- `end_time`: 结束时间
+
+### 用户活动日志
 
 #### 获取用户活动记录
 ```
-GET /api/v1/logs/users
+GET /logs/users
 ```
 
 查询参数：
@@ -165,11 +187,47 @@ GET /api/v1/logs/users
 - `success`: 成功状态过滤
 - `start_time`, `end_time`: 时间范围
 
-### 项目活动
+示例：
+```bash
+curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  "http://localhost:9000/logs/users?username=admin&action=LOGIN"
+```
+
+#### 获取用户活动统计
+```
+GET /logs/users/stats
+```
+
+查询参数：
+- `username`: 用户名过滤
+- `start_time`: 开始时间
+- `end_time`: 结束时间
+
+### 系统日志
+
+#### 获取系统日志列表
+```
+GET /logs/system
+```
+
+查询参数：
+- `page`, `page_size`: 分页参数
+- `level`: 日志级别过滤（DEBUG, INFO, WARN, ERROR）
+- `category`: 日志分类过滤
+- `user_id`: 用户ID过滤
+- `start_time`, `end_time`: 时间范围
+
+示例：
+```bash
+curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  "http://localhost:9000/logs/system?level=ERROR"
+```
+
+### 项目活动日志
 
 #### 获取项目活动记录
 ```
-GET /api/v1/logs/projects
+GET /logs/projects
 ```
 
 查询参数：
@@ -180,15 +238,27 @@ GET /api/v1/logs/projects
 - `success`: 成功状态过滤
 - `start_time`, `end_time`: 时间范围
 
-### 日志清理
+示例：
+```bash
+curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  "http://localhost:9000/logs/projects?project_name=my-project"
+```
+
+### 日志管理
 
 #### 手动清理旧日志
 ```
-DELETE /api/v1/logs/cleanup?days=30
+DELETE /logs/cleanup?days=30
 ```
 
 查询参数：
 - `days`: 保留天数（默认30天）
+
+示例：
+```bash
+curl -X DELETE -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  "http://localhost:9000/logs/cleanup?days=30"
+```
 
 ## 自动日志记录
 

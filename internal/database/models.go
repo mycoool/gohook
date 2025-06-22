@@ -17,18 +17,19 @@ type BaseModel struct {
 // HookLog Hook执行日志
 type HookLog struct {
 	BaseModel
-	HookID      string `json:"hook_id" gorm:"size:100;index"` // Hook ID
-	HookName    string `json:"hook_name" gorm:"size:200"`     // Hook名称
-	Method      string `json:"method" gorm:"size:10"`         // HTTP方法
-	RemoteAddr  string `json:"remote_addr" gorm:"size:45"`    // 客户端IP
-	Headers     string `json:"headers" gorm:"type:text"`      // 请求头JSON
-	Body        string `json:"body" gorm:"type:text"`         // 请求体
-	Success     bool   `json:"success" gorm:"index"`          // 是否成功
-	Output      string `json:"output" gorm:"type:text"`       // 执行输出
-	Error       string `json:"error" gorm:"type:text"`        // 错误信息
-	Duration    int64  `json:"duration"`                      // 执行时长（毫秒）
-	UserAgent   string `json:"user_agent" gorm:"size:500"`    // User Agent
-	QueryParams string `json:"query_params" gorm:"type:text"` // 查询参数JSON
+	HookID      string `json:"hook_id" gorm:"size:100;index"`  // Hook ID
+	HookName    string `json:"hook_name" gorm:"size:200"`      // Hook名称
+	HookType    string `json:"hook_type" gorm:"size:50;index"` // Hook类型：webhook, githook
+	Method      string `json:"method" gorm:"size:10"`          // HTTP方法
+	RemoteAddr  string `json:"remote_addr" gorm:"size:45"`     // 客户端IP
+	Headers     string `json:"headers" gorm:"type:text"`       // 请求头JSON
+	Body        string `json:"body" gorm:"type:text"`          // 请求体
+	Success     bool   `json:"success" gorm:"index"`           // 是否成功
+	Output      string `json:"output" gorm:"type:text"`        // 执行输出
+	Error       string `json:"error" gorm:"type:text"`         // 错误信息
+	Duration    int64  `json:"duration"`                       // 执行时长（毫秒）
+	UserAgent   string `json:"user_agent" gorm:"size:500"`     // User Agent
+	QueryParams string `json:"query_params" gorm:"type:text"`  // 查询参数JSON
 }
 
 // SystemLog 系统日志
@@ -108,4 +109,10 @@ const (
 	ProjectActionAdd          = "ADD"
 	ProjectActionDelete       = "DELETE"
 	ProjectActionUpdate       = "UPDATE"
+)
+
+// HookType Hook类型常量
+const (
+	HookTypeWebhook = "webhook" // 用户手动建立规则和脚本的webhook
+	HookTypeGitHook = "githook" // 简易版本的githook
 )

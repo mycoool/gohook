@@ -355,8 +355,7 @@ func main() {
 
 		// Register log routes
 		logRouter := router.NewLogRouter()
-		apiGroup := r.Group("/api/v1")
-		logRouter.RegisterLogRoutes(apiGroup)
+		logRouter.RegisterLogRoutes(r.Group(""))
 
 		log.Println("Database initialized and log routes registered")
 	}

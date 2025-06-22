@@ -23,28 +23,48 @@ func NewLogRouter() *LogRouter {
 
 // RegisterLogRoutes 注册日志相关路由
 func (lr *LogRouter) RegisterLogRoutes(rg *gin.RouterGroup) {
-	logGroup := rg.Group("/logs")
+	// Webhook日志路由 - 用户手动建立规则和脚本的webhook
+	webhookLogsGroup := rg.Group("/logs/webhooks")
 	{
-		// Hook日志相关
-		logGroup.GET("/hooks", lr.GetHookLogs)
-		logGroup.GET("/hooks/stats", lr.GetHookLogStats)
+		webhookLogsGroup.GET("", lr.GetWebhookLogs)
+		webhookLogsGroup.GET("/stats", lr.GetWebhookLogStats)
+	}
 
-		// 系统日志相关
-		logGroup.GET("/system", lr.GetSystemLogs)
+	// GitHook日志路由 - 简易版本的githook
+	githookLogsGroup := rg.Group("/logs/githook")
+	{
+		githookLogsGroup.GET("", lr.GetGitHookLogs)
+		githookLogsGroup.GET("/stats", lr.GetGitHookLogStats)
+	}
 
-		// 用户活动相关
-		logGroup.GET("/users", lr.GetUserActivities)
+	// 用户活动日志路由
+	userLogsGroup := rg.Group("/logs/users")
+	{
+		userLogsGroup.GET("", lr.GetUserActivities)
+		userLogsGroup.GET("/stats", lr.GetUserActivityStats)
+	}
 
-		// 项目活动相关
-		logGroup.GET("/projects", lr.GetProjectActivities)
+	// 系统日志路由
+	systemLogsGroup := rg.Group("/logs/system")
+	{
+		systemLogsGroup.GET("", lr.GetSystemLogs)
+	}
 
-		// 日志清理
-		logGroup.DELETE("/cleanup", lr.CleanupLogs)
+	// 项目活动日志路由
+	projectLogsGroup := rg.Group("/logs/projects")
+	{
+		projectLogsGroup.GET("", lr.GetProjectActivities)
+	}
+
+	// 日志管理路由
+	logManagementGroup := rg.Group("/logs")
+	{
+		logManagementGroup.DELETE("/cleanup", lr.CleanupLogs)
 	}
 }
 
-// GetHookLogs 获取Hook执行日志
-func (lr *LogRouter) GetHookLogs(c *gin.Context) {
+// GetWebhookLogs 获取Webhook执行日志
+func (lr *LogRouter) GetWebhookLogs(c *gin.Context) {
 	// 解析分页参数
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
@@ -76,8 +96,8 @@ func (lr *LogRouter) GetHookLogs(c *gin.Context) {
 		}
 	}
 
-	// 查询数据
-	logs, total, err := lr.logService.GetHookLogs(page, pageSize, hookID, hookName, success, startTime, endTime)
+	// 查询数据 (Webhook类型)
+	logs, total, err := lr.logService.GetHookLogs(page, pageSize, hookID, hookName, "webhook", success, startTime, endTime)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -92,8 +112,8 @@ func (lr *LogRouter) GetHookLogs(c *gin.Context) {
 	})
 }
 
-// GetHookLogStats 获取Hook日志统计
-func (lr *LogRouter) GetHookLogStats(c *gin.Context) {
+// GetWebhookLogStats 获取Webhook日志统计
+func (lr *LogRouter) GetWebhookLogStats(c *gin.Context) {
 	// 解析时间参数
 	var startTime, endTime *time.Time
 	if startStr := c.Query("start_time"); startStr != "" {
@@ -107,7 +127,7 @@ func (lr *LogRouter) GetHookLogStats(c *gin.Context) {
 		}
 	}
 
-	stats, err := lr.logService.GetHookLogStats(startTime, endTime)
+	stats, err := lr.logService.GetHookLogStats("webhook", startTime, endTime)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -274,4 +294,104 @@ func (lr *LogRouter) CleanupLogs(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Old logs cleaned successfully"})
+}
+
+// GetGitHookLogs 获取GitHook执行日志
+func (lr *LogRouter) GetGitHookLogs(c *gin.Context) {
+	// 解析分页参数
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	if pageSize > 100 {
+		pageSize = 100
+	}
+
+	// 解析过滤参数
+	hookID := c.Query("hook_id")
+	hookName := c.Query("hook_name")
+
+	var success *bool
+	if successStr := c.Query("success"); successStr != "" {
+		if successBool, err := strconv.ParseBool(successStr); err == nil {
+			success = &successBool
+		}
+	}
+
+	// 解析时间参数
+	var startTime, endTime *time.Time
+	if startStr := c.Query("start_time"); startStr != "" {
+		if t, err := time.Parse("2006-01-02T15:04:05Z", startStr); err == nil {
+			startTime = &t
+		}
+	}
+	if endStr := c.Query("end_time"); endStr != "" {
+		if t, err := time.Parse("2006-01-02T15:04:05Z", endStr); err == nil {
+			endTime = &t
+		}
+	}
+
+	// 查询数据 (GitHook类型)
+	logs, total, err := lr.logService.GetHookLogs(page, pageSize, hookID, hookName, "githook", success, startTime, endTime)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"logs":        logs,
+		"total":       total,
+		"page":        page,
+		"page_size":   pageSize,
+		"total_pages": (total + int64(pageSize) - 1) / int64(pageSize),
+	})
+}
+
+// GetGitHookLogStats 获取GitHook日志统计
+func (lr *LogRouter) GetGitHookLogStats(c *gin.Context) {
+	// 解析时间参数
+	var startTime, endTime *time.Time
+	if startStr := c.Query("start_time"); startStr != "" {
+		if t, err := time.Parse("2006-01-02T15:04:05Z", startStr); err == nil {
+			startTime = &t
+		}
+	}
+	if endStr := c.Query("end_time"); endStr != "" {
+		if t, err := time.Parse("2006-01-02T15:04:05Z", endStr); err == nil {
+			endTime = &t
+		}
+	}
+
+	stats, err := lr.logService.GetHookLogStats("githook", startTime, endTime)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, stats)
+}
+
+// GetUserActivityStats 获取用户活动统计
+func (lr *LogRouter) GetUserActivityStats(c *gin.Context) {
+	// 解析过滤参数
+	username := c.Query("username")
+
+	// 解析时间参数
+	var startTime, endTime *time.Time
+	if startStr := c.Query("start_time"); startStr != "" {
+		if t, err := time.Parse("2006-01-02T15:04:05Z", startStr); err == nil {
+			startTime = &t
+		}
+	}
+	if endStr := c.Query("end_time"); endStr != "" {
+		if t, err := time.Parse("2006-01-02T15:04:05Z", endStr); err == nil {
+			endTime = &t
+		}
+	}
+
+	stats, err := lr.logService.GetUserActivityStats(username, startTime, endTime)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, stats)
 }

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/mycoool/gohook/internal/database"
 	"github.com/mycoool/gohook/internal/types"
 	"gopkg.in/yaml.v2"
 )
@@ -86,12 +87,34 @@ func Login(c *gin.Context) {
 	// get Basic authentication info from Authorization header
 	authHeader := c.GetHeader("Authorization")
 	if authHeader == "" {
+		// 记录失败的登录尝试
+		database.LogUserAction(
+			"unknown",
+			database.UserActionLogin,
+			"/client",
+			"Login failed: Missing authorization header",
+			c.ClientIP(),
+			c.Request.UserAgent(),
+			false,
+			map[string]interface{}{"error": "missing_auth_header"},
+		)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Missing authorization header"})
 		return
 	}
 
 	// check if it is Basic authentication
 	if !strings.HasPrefix(authHeader, "Basic ") {
+		// 记录失败的登录尝试
+		database.LogUserAction(
+			"unknown",
+			database.UserActionLogin,
+			"/client",
+			"Login failed: Invalid authorization type",
+			c.ClientIP(),
+			c.Request.UserAgent(),
+			false,
+			map[string]interface{}{"error": "invalid_auth_type"},
+		)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid authorization type"})
 		return
 	}
@@ -100,6 +123,17 @@ func Login(c *gin.Context) {
 	encoded := strings.TrimPrefix(authHeader, "Basic ")
 	decoded, err := base64.StdEncoding.DecodeString(encoded)
 	if err != nil {
+		// 记录失败的登录尝试
+		database.LogUserAction(
+			"unknown",
+			database.UserActionLogin,
+			"/client",
+			"Login failed: Invalid authorization encoding",
+			c.ClientIP(),
+			c.Request.UserAgent(),
+			false,
+			map[string]interface{}{"error": "invalid_encoding"},
+		)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid authorization encoding"})
 		return
 	}
@@ -107,6 +141,17 @@ func Login(c *gin.Context) {
 	// split username and password
 	credentials := strings.SplitN(string(decoded), ":", 2)
 	if len(credentials) != 2 {
+		// 记录失败的登录尝试
+		database.LogUserAction(
+			"unknown",
+			database.UserActionLogin,
+			"/client",
+			"Login failed: Invalid credentials format",
+			c.ClientIP(),
+			c.Request.UserAgent(),
+			false,
+			map[string]interface{}{"error": "invalid_credentials_format"},
+		)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials format"})
 		return
 	}
@@ -117,12 +162,34 @@ func Login(c *gin.Context) {
 	// find user
 	user := FindUser(username)
 	if user == nil {
+		// 记录失败的登录尝试
+		database.LogUserAction(
+			username,
+			database.UserActionLogin,
+			"/client",
+			"Login failed: User not found",
+			c.ClientIP(),
+			c.Request.UserAgent(),
+			false,
+			map[string]interface{}{"error": "user_not_found"},
+		)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid username or password"})
 		return
 	}
 
 	// verify password
 	if !VerifyPassword(password, user.Password) {
+		// 记录失败的登录尝试
+		database.LogUserAction(
+			username,
+			database.UserActionLogin,
+			"/client",
+			"Login failed: Invalid password",
+			c.ClientIP(),
+			c.Request.UserAgent(),
+			false,
+			map[string]interface{}{"error": "invalid_password"},
+		)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid username or password"})
 		return
 	}
@@ -130,6 +197,17 @@ func Login(c *gin.Context) {
 	// generate JWT token
 	token, err := GenerateToken(user.Username, user.Role)
 	if err != nil {
+		// 记录失败的登录尝试
+		database.LogUserAction(
+			username,
+			database.UserActionLogin,
+			"/client",
+			"Login failed: Token generation failed",
+			c.ClientIP(),
+			c.Request.UserAgent(),
+			false,
+			map[string]interface{}{"error": "token_generation_failed"},
+		)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 		return
 	}
@@ -149,6 +227,22 @@ func Login(c *gin.Context) {
 
 	// create client session record
 	session := AddClientSession(token, clientName, user.Username)
+
+	// 记录成功的登录
+	database.LogUserAction(
+		username,
+		database.UserActionLogin,
+		"/client",
+		"User logged in successfully",
+		c.ClientIP(),
+		c.Request.UserAgent(),
+		true,
+		map[string]interface{}{
+			"client_name": clientName,
+			"role":        user.Role,
+			"session_id":  session.ID,
+		},
+	)
 
 	c.JSON(http.StatusOK, types.ClientResponse{
 		Token: token,
@@ -182,14 +276,50 @@ func CreateUser(c *gin.Context) {
 		return
 	}
 
+	currentUser, _ := c.Get("username")
+	currentUserStr := "unknown"
+	if currentUser != nil {
+		currentUserStr = currentUser.(string)
+	}
+
 	// check if user already exists
 	if FindUser(req.Username) != nil {
+		// 记录失败的用户创建尝试
+		database.LogUserAction(
+			currentUserStr,
+			database.UserActionCreateUser,
+			"/user",
+			fmt.Sprintf("Create user failed: User %s already exists", req.Username),
+			c.ClientIP(),
+			c.Request.UserAgent(),
+			false,
+			map[string]interface{}{
+				"target_username": req.Username,
+				"target_role":     req.Role,
+				"error":           "user_already_exists",
+			},
+		)
 		c.JSON(http.StatusConflict, gin.H{"error": "User already exists"})
 		return
 	}
 
 	// validate role
 	if req.Role != "admin" && req.Role != "user" {
+		// 记录失败的用户创建尝试
+		database.LogUserAction(
+			currentUserStr,
+			database.UserActionCreateUser,
+			"/user",
+			fmt.Sprintf("Create user failed: Invalid role %s", req.Role),
+			c.ClientIP(),
+			c.Request.UserAgent(),
+			false,
+			map[string]interface{}{
+				"target_username": req.Username,
+				"target_role":     req.Role,
+				"error":           "invalid_role",
+			},
+		)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid role. Must be 'admin' or 'user'"})
 		return
 	}
@@ -205,9 +335,39 @@ func CreateUser(c *gin.Context) {
 
 	// save config file
 	if err := SaveUsersConfig(); err != nil {
+		// 记录失败的用户创建尝试
+		database.LogUserAction(
+			currentUserStr,
+			database.UserActionCreateUser,
+			"/user",
+			fmt.Sprintf("Create user failed: Save config failed - %s", err.Error()),
+			c.ClientIP(),
+			c.Request.UserAgent(),
+			false,
+			map[string]interface{}{
+				"target_username": req.Username,
+				"target_role":     req.Role,
+				"error":           "save_config_failed",
+			},
+		)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save config: " + err.Error()})
 		return
 	}
+
+	// 记录成功的用户创建
+	database.LogUserAction(
+		currentUserStr,
+		database.UserActionCreateUser,
+		"/user",
+		fmt.Sprintf("User %s created successfully with role %s", req.Username, req.Role),
+		c.ClientIP(),
+		c.Request.UserAgent(),
+		true,
+		map[string]interface{}{
+			"target_username": req.Username,
+			"target_role":     req.Role,
+		},
+	)
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "User created successfully",
@@ -222,23 +382,57 @@ func CreateUser(c *gin.Context) {
 func DeleteUser(c *gin.Context) {
 	username := c.Param("username")
 	currentUser, _ := c.Get("username")
+	currentUserStr := "unknown"
+	if currentUser != nil {
+		currentUserStr = currentUser.(string)
+	}
 
 	// cannot delete yourself
 	if username == currentUser {
+		// 记录失败的用户删除尝试
+		database.LogUserAction(
+			currentUserStr,
+			database.UserActionDeleteUser,
+			"/user/"+username,
+			"Delete user failed: Cannot delete yourself",
+			c.ClientIP(),
+			c.Request.UserAgent(),
+			false,
+			map[string]interface{}{
+				"target_username": username,
+				"error":           "cannot_delete_self",
+			},
+		)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot delete yourself"})
 		return
 	}
 
 	// find user index
 	userIndex := -1
+	var targetUser *types.UserConfig
 	for i, user := range types.GoHookUsersConfig.Users {
 		if user.Username == username {
 			userIndex = i
+			targetUser = &user
 			break
 		}
 	}
 
 	if userIndex == -1 {
+		// 记录失败的用户删除尝试
+		database.LogUserAction(
+			currentUserStr,
+			database.UserActionDeleteUser,
+			"/user/"+username,
+			fmt.Sprintf("Delete user failed: User %s not found", username),
+			c.ClientIP(),
+			c.Request.UserAgent(),
+			false,
+			map[string]interface{}{
+				"target_username": username,
+				"error":           "user_not_found",
+			},
+		)
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}
@@ -248,9 +442,39 @@ func DeleteUser(c *gin.Context) {
 
 	// save config file
 	if err := SaveUsersConfig(); err != nil {
+		// 记录失败的用户删除尝试
+		database.LogUserAction(
+			currentUserStr,
+			database.UserActionDeleteUser,
+			"/user/"+username,
+			fmt.Sprintf("Delete user failed: Save config failed - %s", err.Error()),
+			c.ClientIP(),
+			c.Request.UserAgent(),
+			false,
+			map[string]interface{}{
+				"target_username": username,
+				"target_role":     targetUser.Role,
+				"error":           "save_config_failed",
+			},
+		)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save config: " + err.Error()})
 		return
 	}
+
+	// 记录成功的用户删除
+	database.LogUserAction(
+		currentUserStr,
+		database.UserActionDeleteUser,
+		"/user/"+username,
+		fmt.Sprintf("User %s deleted successfully", username),
+		c.ClientIP(),
+		c.Request.UserAgent(),
+		true,
+		map[string]interface{}{
+			"target_username": username,
+			"target_role":     targetUser.Role,
+		},
+	)
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "User deleted successfully",

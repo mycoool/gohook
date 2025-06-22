@@ -13,7 +13,7 @@ func InitLogService() {
 }
 
 // LogHookExecution 记录Hook执行日志（全局函数）
-func LogHookExecution(hookID, hookName, method, remoteAddr string,
+func LogHookExecution(hookID, hookName, hookType, method, remoteAddr string,
 	headers map[string][]string, body string, success bool, output, error string,
 	duration int64, userAgent string, queryParams map[string][]string) {
 
@@ -22,7 +22,7 @@ func LogHookExecution(hookID, hookName, method, remoteAddr string,
 	}
 
 	if globalLogService != nil {
-		err := globalLogService.CreateHookLog(hookID, hookName, method, remoteAddr,
+		err := globalLogService.CreateHookLog(hookID, hookName, hookType, method, remoteAddr,
 			headers, body, success, output, error, duration, userAgent, queryParams)
 		if err != nil {
 			log.Printf("Failed to log hook execution: %v", err)
@@ -91,16 +91,13 @@ func ScheduleLogCleanup(retentionDays int) {
 		ticker := time.NewTicker(24 * time.Hour) // 每天检查一次
 		defer ticker.Stop()
 
-		for {
-			select {
-			case <-ticker.C:
-				if globalLogService != nil {
-					err := globalLogService.CleanOldLogs(retentionDays)
-					if err != nil {
-						log.Printf("Failed to clean old logs: %v", err)
-					} else {
-						log.Printf("Successfully cleaned logs older than %d days", retentionDays)
-					}
+		for range ticker.C {
+			if globalLogService != nil {
+				err := globalLogService.CleanOldLogs(retentionDays)
+				if err != nil {
+					log.Printf("Failed to clean old logs: %v", err)
+				} else {
+					log.Printf("Successfully cleaned logs older than %d days", retentionDays)
 				}
 			}
 		}

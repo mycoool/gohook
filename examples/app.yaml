@@ -1,0 +1,8 @@
+port: 9000
+jwt_secret: gohook-secret-key-change-in-production
+jwt_expiry_duration: 24
+mode: test
+database:
+  type: sqlite
+  database: gohook.db
+  log_retention_days: 30

@@ -20,6 +20,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/mycoool/gohook/internal/config"
+	"github.com/mycoool/gohook/internal/database"
 	"github.com/mycoool/gohook/internal/stream"
 	"github.com/mycoool/gohook/internal/types"
 )
@@ -419,6 +420,27 @@ func HandleGitHook(c *gin.Context) {
 
 	// handle GitHook logic
 	result, err := tryGitHook(project, payload)
+
+	// 记录GitHook执行日志到数据库
+	database.LogHookExecution(
+		project.Name,            // hookID (使用项目名作为ID)
+		"GitHook-"+project.Name, // hookName
+		"githook",               // hookType
+		c.Request.Method,        // method
+		c.ClientIP(),            // remoteAddr
+		c.Request.Header,        // headers
+		string(payloadBody),     // body
+		result.Success,          // success
+		fmt.Sprintf("Action: %s, Target: %s", result.Action, result.Target), // output
+		result.Error,          // error
+		0,                     // duration (无精确执行时间)
+		c.Request.UserAgent(), // userAgent
+		map[string][]string{ // queryParams
+			"project": {project.Name},
+			"mode":    {project.Hookmode},
+		},
+	)
+
 	if err != nil {
 		// push failed message
 		wsMessage := stream.WsMessage{

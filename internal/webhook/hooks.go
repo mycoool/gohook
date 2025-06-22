@@ -12,6 +12,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/gin-gonic/gin"
+	"github.com/mycoool/gohook/internal/database"
 	"github.com/mycoool/gohook/internal/stream"
 	"github.com/mycoool/gohook/internal/types"
 )
@@ -496,27 +497,58 @@ func HandleHook(h *Hook, r *Request) (string, error) {
 
 	log.Printf("[%s] finished handling %s\n", r.ID, h.ID)
 
+	// 记录Webhook执行日志到数据库
+	method := ""
+	remoteAddr := ""
+	headers := make(map[string][]string)
+	queryParams := make(map[string][]string)
+	userAgent := ""
+
+	if r.RawRequest != nil {
+		method = r.RawRequest.Method
+		remoteAddr = r.RawRequest.RemoteAddr
+		headers = r.RawRequest.Header
+		userAgent = r.RawRequest.UserAgent()
+
+		// 获取查询参数
+		for k, v := range r.RawRequest.URL.Query() {
+			queryParams[k] = v
+		}
+	}
+
+	// 使用database包记录Hook执行日志
+	database.LogHookExecution(
+		h.ID,           // hookID
+		h.ID,           // hookName
+		"webhook",      // hookType
+		method,         // method
+		remoteAddr,     // remoteAddr
+		headers,        // headers
+		string(r.Body), // body
+		err == nil,     // success
+		string(out),    // output
+		func() string { // error
+			if err != nil {
+				return err.Error()
+			}
+			return ""
+		}(),
+		cmd.ProcessState.UserTime().Nanoseconds()/1000000, // duration (毫秒)
+		userAgent,   // userAgent
+		queryParams, // queryParams
+	)
+
 	// push WebSocket message to notify hook execution completed
 	wsMessage := stream.WsMessage{
 		Type:      "hook_triggered",
 		Timestamp: time.Now(),
 		Data: stream.HookTriggeredMessage{
-			HookID:   h.ID,
-			HookName: h.ID,
-			Method: func() string {
-				if r.RawRequest != nil {
-					return r.RawRequest.Method
-				}
-				return ""
-			}(),
-			RemoteAddr: func() string {
-				if r.RawRequest != nil {
-					return r.RawRequest.RemoteAddr
-				}
-				return ""
-			}(),
-			Success: err == nil,
-			Output:  string(out),
+			HookID:     h.ID,
+			HookName:   h.ID,
+			Method:     method,
+			RemoteAddr: remoteAddr,
+			Success:    err == nil,
+			Output:     string(out),
 			Error: func() string {
 				if err != nil {
 					return err.Error()
@@ -565,6 +597,25 @@ func HandleTriggerHook(c *gin.Context) {
 		success = true
 		output = "Hook triggered successfully (no execute command)"
 	}
+
+	// 记录手动触发的Webhook执行日志到数据库
+	database.LogHookExecution(
+		hookID,                // hookID
+		hookResponse.Name,     // hookName
+		"webhook",             // hookType
+		c.Request.Method,      // method
+		c.ClientIP(),          // remoteAddr
+		c.Request.Header,      // headers
+		"",                    // body (手动触发无请求体)
+		success,               // success
+		output,                // output
+		errorMsg,              // error
+		0,                     // duration (手动触发无精确执行时间)
+		c.Request.UserAgent(), // userAgent
+		map[string][]string{ // queryParams
+			"trigger": {"manual"},
+		},
+	)
 
 	// push WebSocket message
 	wsMessage := stream.WsMessage{

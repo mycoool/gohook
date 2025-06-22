@@ -19,7 +19,7 @@ func NewLogService() *LogService {
 }
 
 // CreateHookLog 创建Hook执行日志
-func (s *LogService) CreateHookLog(hookID, hookName, method, remoteAddr string,
+func (s *LogService) CreateHookLog(hookID, hookName, hookType, method, remoteAddr string,
 	headers map[string][]string, body string, success bool, output, error string,
 	duration int64, userAgent string, queryParams map[string][]string) error {
 
@@ -29,6 +29,7 @@ func (s *LogService) CreateHookLog(hookID, hookName, method, remoteAddr string,
 	log := &HookLog{
 		HookID:      hookID,
 		HookName:    hookName,
+		HookType:    hookType,
 		Method:      method,
 		RemoteAddr:  remoteAddr,
 		Headers:     string(headersJSON),
@@ -112,7 +113,7 @@ func (s *LogService) CreateProjectActivity(projectName, action, oldValue, newVal
 }
 
 // GetHookLogs 获取Hook日志列表（支持分页和过滤）
-func (s *LogService) GetHookLogs(page, pageSize int, hookID, hookName string, success *bool,
+func (s *LogService) GetHookLogs(page, pageSize int, hookID, hookName, hookType string, success *bool,
 	startTime, endTime *time.Time) ([]HookLog, int64, error) {
 
 	query := s.db.Model(&HookLog{})
@@ -123,6 +124,9 @@ func (s *LogService) GetHookLogs(page, pageSize int, hookID, hookName string, su
 	}
 	if hookName != "" {
 		query = query.Where("hook_name LIKE ?", "%"+hookName+"%")
+	}
+	if hookType != "" {
+		query = query.Where("hook_type = ?", hookType)
 	}
 	if success != nil {
 		query = query.Where("success = ?", *success)
@@ -263,9 +267,12 @@ func (s *LogService) GetProjectActivities(page, pageSize int, projectName, actio
 }
 
 // GetHookLogStats 获取Hook日志统计信息
-func (s *LogService) GetHookLogStats(startTime, endTime *time.Time) (map[string]interface{}, error) {
+func (s *LogService) GetHookLogStats(hookType string, startTime, endTime *time.Time) (map[string]interface{}, error) {
 	query := s.db.Model(&HookLog{})
 
+	if hookType != "" {
+		query = query.Where("hook_type = ?", hookType)
+	}
 	if startTime != nil {
 		query = query.Where("created_at >= ?", *startTime)
 	}
@@ -282,9 +289,26 @@ func (s *LogService) GetHookLogStats(startTime, endTime *time.Time) (map[string]
 	}
 	stats["total"] = total
 
+	if total == 0 {
+		stats["success"] = 0
+		stats["success_rate"] = 0
+		stats["avg_duration"] = 0
+		return stats, nil
+	}
+
 	// 成功次数
 	var success int64
-	if err := query.Where("success = ?", true).Count(&success).Error; err != nil {
+	successQuery := s.db.Model(&HookLog{}).Where("success = ?", true)
+	if hookType != "" {
+		successQuery = successQuery.Where("hook_type = ?", hookType)
+	}
+	if startTime != nil {
+		successQuery = successQuery.Where("created_at >= ?", *startTime)
+	}
+	if endTime != nil {
+		successQuery = successQuery.Where("created_at <= ?", *endTime)
+	}
+	if err := successQuery.Count(&success).Error; err != nil {
 		return nil, err
 	}
 	stats["success"] = success
@@ -292,10 +316,70 @@ func (s *LogService) GetHookLogStats(startTime, endTime *time.Time) (map[string]
 
 	// 平均执行时长
 	var avgDuration float64
-	if err := s.db.Model(&HookLog{}).Select("AVG(duration)").Row().Scan(&avgDuration); err != nil {
+	avgQuery := s.db.Model(&HookLog{}).Select("AVG(duration)")
+	if hookType != "" {
+		avgQuery = avgQuery.Where("hook_type = ?", hookType)
+	}
+	if startTime != nil {
+		avgQuery = avgQuery.Where("created_at >= ?", *startTime)
+	}
+	if endTime != nil {
+		avgQuery = avgQuery.Where("created_at <= ?", *endTime)
+	}
+	if err := avgQuery.Row().Scan(&avgDuration); err != nil {
 		return nil, err
 	}
 	stats["avg_duration"] = avgDuration
+
+	return stats, nil
+}
+
+// GetUserActivityStats 获取用户活动统计信息
+func (s *LogService) GetUserActivityStats(username string, startTime, endTime *time.Time) (map[string]interface{}, error) {
+	query := s.db.Model(&UserActivity{})
+
+	if username != "" {
+		query = query.Where("username = ?", username)
+	}
+	if startTime != nil {
+		query = query.Where("created_at >= ?", *startTime)
+	}
+	if endTime != nil {
+		query = query.Where("created_at <= ?", *endTime)
+	}
+
+	stats := make(map[string]interface{})
+
+	// 总活动次数
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, err
+	}
+	stats["total"] = total
+
+	if total == 0 {
+		stats["success"] = 0
+		stats["success_rate"] = 0
+		return stats, nil
+	}
+
+	// 成功次数
+	var success int64
+	successQuery := s.db.Model(&UserActivity{}).Where("success = ?", true)
+	if username != "" {
+		successQuery = successQuery.Where("username = ?", username)
+	}
+	if startTime != nil {
+		successQuery = successQuery.Where("created_at >= ?", *startTime)
+	}
+	if endTime != nil {
+		successQuery = successQuery.Where("created_at <= ?", *endTime)
+	}
+	if err := successQuery.Count(&success).Error; err != nil {
+		return nil, err
+	}
+	stats["success"] = success
+	stats["success_rate"] = float64(success) / float64(total) * 100
 
 	return stats, nil
 }
