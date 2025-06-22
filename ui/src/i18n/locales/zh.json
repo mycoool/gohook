@@ -18,7 +18,8 @@
     "no": "否",
     "retry": "重试",
     "status": "状态",
-    "actions": "操作"
+    "actions": "操作",
+    "close": "关闭"
   },
   "nav": {
     "versions": "版本管理",

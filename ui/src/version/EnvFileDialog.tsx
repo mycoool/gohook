@@ -362,7 +362,7 @@ app.cache.size = 1024`;
                                     width: '8px',
                                 },
                                 '&::-webkit-scrollbar-track': {
-                                    backgroundColor: isDarkMode ? '#161b22' : '#f1f3f4',
+                                    backgroundColor: isDarkMode ? '#2d2d2d' : '#f1f3f4',
                                 },
                                 '&::-webkit-scrollbar-thumb': {
                                     backgroundColor: isDarkMode ? '#30363d' : '#c1c8cd',
@@ -403,7 +403,7 @@ app.cache.size = 1024`;
                                     border={1}
                                     borderColor={isDarkMode ? '#30363d' : '#d0d7de'}
                                     borderRadius="6px"
-                                    bgcolor={isDarkMode ? '#161b22' : '#ffffff'}>
+                                    bgcolor={isDarkMode ? '#2d2d2d' : '#ffffff'}>
                                     <Typography variant="h6" gutterBottom>
                                         Standard ENV Format
                                     </Typography>
@@ -424,7 +424,7 @@ app.cache.size = 1024`;
                                     border={1}
                                     borderColor={isDarkMode ? '#30363d' : '#d0d7de'}
                                     borderRadius="6px"
-                                    bgcolor={isDarkMode ? '#161b22' : '#ffffff'}>
+                                    bgcolor={isDarkMode ? '#2d2d2d' : '#ffffff'}>
                                     <Typography variant="h6" gutterBottom>
                                         TOML Format
                                     </Typography>
@@ -457,7 +457,7 @@ app.cache.size = 1024`;
                     fullWidth
                     PaperProps={{
                         sx: {
-                            backgroundColor: isDarkMode ? '#161b22' : '#ffffff',
+                            // 移除深色灰色背景，使用默认主题背景以提高文字可读性
                             color: isDarkMode ? '#e6edf3' : '#000000',
                         },
                     }}>

@@ -451,7 +451,7 @@ class EnvFileDialogModal extends Component<IProps & Stores<'snackManager'>, ISta
                     style: {
                         maxHeight: '85vh', // 限制对话框最大高度
                         height: 'auto',
-                        backgroundColor: isDarkTheme ? '#161b22' : '#ffffff',
+                        // 移除深色灰色背景，使用默认主题背景以提高文字可读性
                         color: isDarkTheme ? '#ffffff' : '#000000',
                     },
                 }}>

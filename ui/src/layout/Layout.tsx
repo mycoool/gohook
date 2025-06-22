@@ -158,11 +158,34 @@ const themeMap: Record<ThemeKey, Theme> = {
                     },
                 },
             },
+            // Dialog 对话框样式优化 - 浅色主题
+            MuiDialog: {
+                styleOverrides: {
+                    root: {
+                        '& .MuiBackdrop-root': {
+                            backgroundColor: 'rgba(0, 0, 0, 0.5) !important',
+                            backdropFilter: 'none !important',
+                            filter: 'none !important',
+                        },
+                    },
+                    paper: {
+                        backgroundColor: '#ffffff !important', // 强制白色背景
+                        color: '#000000 !important', // 强制黑色文字
+                        opacity: '1 !important',
+                        filter: 'none !important',
+                        backdropFilter: 'none !important',
+                        backgroundImage: 'none !important', // 移除背景图片overlay
+                        '--Paper-overlay': 'none !important', // 禁用Paper-overlay CSS变量
+                    },
+                },
+            },
             // 优化代码块显示
             MuiPaper: {
                 styleOverrides: {
                     root: {
                         backgroundColor: '#ffffff',
+                        backgroundImage: 'none !important', // 移除overlay背景图片
+                        '--Paper-overlay': 'none !important', // 禁用Paper-overlay CSS变量
                         '& code': {
                             backgroundColor: '#f5f5f5',
                             color: '#333333',
@@ -228,7 +251,7 @@ const themeMap: Record<ThemeKey, Theme> = {
             },
             background: {
                 default: '#303030', // 更温和的深灰色背景
-                paper: '#424242', // 卡片背景色
+                paper: '#424242', // 恢复深色背景
             },
             text: {
                 primary: '#ffffff',
@@ -254,7 +277,7 @@ const themeMap: Record<ThemeKey, Theme> = {
             MuiDrawer: {
                 styleOverrides: {
                     paper: {
-                        backgroundColor: '#424242', // 左侧导航背景色
+                        backgroundColor: '#424242', // 恢复深色背景
                         borderRight: '1px solid #616161',
                     },
                 },
@@ -312,11 +335,83 @@ const themeMap: Record<ThemeKey, Theme> = {
                     },
                 },
             },
+            // Dialog 对话框样式优化 - 强制移除透明度，使用深色背景+亮色文字
+            MuiDialog: {
+                styleOverrides: {
+                    root: {
+                        // 移除所有可能的透明度和滤镜效果
+                        '& .MuiBackdrop-root': {
+                            backgroundColor: 'rgba(0, 0, 0, 0.5) !important',
+                            backdropFilter: 'none !important',
+                            filter: 'none !important',
+                        },
+                        // 确保对话框容器不透明
+                        '& .MuiDialog-container': {
+                            backgroundColor: 'transparent !important',
+                        },
+                    },
+                    paper: {
+                        backgroundColor: '#424242 !important', // 强制深色背景
+                        color: '#e0e0e0 !important', // 使用温和的浅灰色文字
+                        opacity: '1 !important', // 强制不透明
+                        filter: 'none !important', // 移除任何滤镜
+                        backdropFilter: 'none !important', // 移除背景滤镜
+                        backgroundImage: 'none !important', // 移除背景图片overlay
+                        '--Paper-overlay': 'none !important', // 禁用Paper-overlay CSS变量
+                        boxShadow: '0px 11px 15px -7px rgba(0,0,0,0.2), 0px 24px 38px 3px rgba(0,0,0,0.14), 0px 9px 46px 8px rgba(0,0,0,0.12) !important',
+                        // 强制所有文字元素为温和的灰色
+                        '& *': {
+                            color: '#e0e0e0 !important',
+                        },
+                        '& .MuiTypography-root': {
+                            color: '#e0e0e0 !important',
+                        },
+                        '& .MuiDialogTitle-root': {
+                            color: '#f5f5f5 !important', // 标题稍微亮一点
+                            backgroundColor: 'transparent !important',
+                        },
+                        '& .MuiDialogContent-root': {
+                            color: '#e0e0e0 !important',
+                            backgroundColor: 'transparent !important',
+                        },
+                        '& .MuiDialogActions-root': {
+                            backgroundColor: 'transparent !important',
+                        },
+                        '& .MuiInputLabel-root': {
+                            color: '#b0bec5 !important', // 输入标签保持原有颜色
+                        },
+                        '& .MuiOutlinedInput-input': {
+                            color: '#e0e0e0 !important', // 输入框文字也使用温和灰色
+                            backgroundColor: '#616161 !important',
+                        },
+                        '& .MuiTextField-root': {
+                            '& .MuiOutlinedInput-root': {
+                                backgroundColor: '#616161 !important',
+                                '& fieldset': {
+                                    borderColor: '#757575 !important',
+                                },
+                            },
+                        },
+                        // 优化按钮文字颜色
+                        '& .MuiButton-root': {
+                            '&.MuiButton-contained': {
+                                color: '#ffffff !important', // 主要按钮保持白色文字
+                            },
+                            '&:not(.MuiButton-contained)': {
+                                color: '#e0e0e0 !important', // 次要按钮使用温和灰色
+                            },
+                        },
+                    },
+                },
+            },
             // 优化代码块显示
             MuiPaper: {
                 styleOverrides: {
                     root: {
-                        backgroundColor: '#424242', // 卡片背景色
+                        backgroundColor: '#424242', // 恢复深色背景
+                        color: '#ffffff',
+                        backgroundImage: 'none !important', // 移除overlay背景图片
+                        '--Paper-overlay': 'none !important', // 禁用Paper-overlay CSS变量
                         '& code': {
                             backgroundColor: '#616161',
                             color: '#ffffff',
@@ -441,6 +536,34 @@ class Layout extends React.Component<Stores<'currentUser' | 'snackManager'>> {
                                 )}
                                 <div style={{display: 'flex', flexDirection: 'column'}}>
                                     <CssBaseline />
+                                    <style>{`
+                                        .MuiDialog-paper {
+                                            background-color: ${currentTheme === 'dark' ? '#424242' : '#ffffff'} !important;
+                                            color: ${currentTheme === 'dark' ? '#e0e0e0' : '#000000'} !important;
+                                            opacity: 1 !important;
+                                            filter: none !important;
+                                            backdrop-filter: none !important;
+                                            --Paper-overlay: none !important;
+                                            background-image: none !important;
+                                        }
+                                        .MuiDialog-paper * {
+                                            color: ${currentTheme === 'dark' ? '#e0e0e0' : '#000000'} !important;
+                                        }
+                                        .MuiDialog-paper .MuiDialogTitle-root {
+                                            color: ${currentTheme === 'dark' ? '#f5f5f5' : '#000000'} !important;
+                                        }
+                                        .MuiBackdrop-root {
+                                            backdrop-filter: none !important;
+                                            filter: none !important;
+                                        }
+                                        /* 全局禁用 Paper overlay 效果 */
+                                        .MuiPaper-root {
+                                            --Paper-overlay: none !important;
+                                        }
+                                        .MuiDialog-paper {
+                                            --Paper-overlay: none !important;
+                                        }
+                                    `}</style>
                                     <Header
                                         style={{top: !connectionErrorMessage ? 0 : 64}}
                                         admin={admin}

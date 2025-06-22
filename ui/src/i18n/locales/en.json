@@ -18,7 +18,8 @@
     "no": "No",
     "retry": "Retry",
     "status": "Status",
-    "actions": "Actions"
+    "actions": "Actions",
+    "close": "Close"
   },
   "nav": {
     "versions": "Versions",

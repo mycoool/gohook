@@ -301,7 +301,8 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
                     color="primary"
                     size="small"
                     onClick={this.toggleVisibility}
-                    style={{marginBottom: 8}}>
+                    style={{marginBottom: 8}}
+                    data-realtime-messages="button">
                     {this.isVisible ? <VisibilityOffIcon /> : <VisibilityIcon />}
                 </Fab>
 
@@ -314,7 +315,8 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
                             overflow: 'hidden',
                             display: 'flex',
                             flexDirection: 'column',
-                        }}>
+                        }}
+                        data-realtime-messages="expanded">
                         {/* 头部 */}
                         <Box
                             p={2}
