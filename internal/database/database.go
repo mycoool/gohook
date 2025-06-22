@@ -52,7 +52,11 @@ func InitDatabase(config *DatabaseConfig) error {
 		}
 
 		dsn = config.Database
+
+		// 尝试使用SQLite驱动，它会自动选择可用的驱动
+		// 如果CGO可用，使用标准驱动；否则使用纯Go驱动
 		dialector = sqlite.Open(dsn)
+
 	default:
 		return fmt.Errorf("unsupported database type: %s", config.Type)
 	}
