@@ -134,8 +134,65 @@ func tryGitHook(project *types.ProjectConfig, payload map[string]interface{}) (G
 		}
 	}
 
+	// 获取当前分支/标签信息用于记录
+	var currentPosition string
+	var commitHash string
+
+	if refType == "branch" {
+		if gitStatus, err := getGitStatus(project.Path); err == nil {
+			currentPosition = fmt.Sprintf("分支:%s", gitStatus.CurrentBranch)
+		} else {
+			currentPosition = "未知位置"
+		}
+	} else if refType == "tag" {
+		// 获取当前标签
+		if cmd := exec.Command("git", "-C", project.Path, "describe", "--tags", "--exact-match", "HEAD"); cmd != nil {
+			if output, err := cmd.Output(); err == nil {
+				currentPosition = fmt.Sprintf("标签:%s", strings.TrimSpace(string(output)))
+			} else {
+				// 不在标签上，获取分支信息
+				if gitStatus, err := getGitStatus(project.Path); err == nil {
+					currentPosition = fmt.Sprintf("分支:%s", gitStatus.CurrentBranch)
+					if gitStatus.LastCommit != "" {
+						currentPosition += fmt.Sprintf("@%s", gitStatus.LastCommit)
+					}
+				} else {
+					currentPosition = "未知位置"
+				}
+			}
+		}
+	}
+
 	// execute Git operation
 	if err := executeGitHook(project, refType, targetRef); err != nil {
+		// 记录GitHook触发的失败项目活动日志
+		var actionType string
+		var newValue string
+		var description string
+
+		if refType == "branch" {
+			actionType = database.ProjectActionBranchSwitch
+			newValue = targetRef
+			description = fmt.Sprintf("GitHook分支切换失败：从 %s 切换到分支 %s 时出错: %s", currentPosition, targetRef, err.Error())
+		} else {
+			actionType = "switch-tag"
+			newValue = fmt.Sprintf("标签:%s", targetRef)
+			description = fmt.Sprintf("GitHook标签切换失败：从 %s 切换到标签 %s 时出错: %s", currentPosition, targetRef, err.Error())
+		}
+
+		database.LogProjectAction(
+			project.Name,    // projectName
+			actionType,      // action
+			currentPosition, // oldValue
+			newValue,        // newValue
+			"GitHook",       // username - 标识为GitHook触发
+			false,           // success
+			err.Error(),     // error
+			"",              // commitHash
+			description,     // description
+			"",              // ipAddress - GitHook触发无IP
+		)
+
 		return GitHookResult{
 			Action:  "switch-branch",
 			Target:  "",
@@ -143,6 +200,44 @@ func tryGitHook(project *types.ProjectConfig, payload map[string]interface{}) (G
 			Error:   "execute Git operation failed: " + err.Error(),
 		}, fmt.Errorf("execute Git operation failed: %v", err)
 	}
+
+	// 获取执行后的提交哈希
+	if cmd := exec.Command("git", "-C", project.Path, "rev-parse", "HEAD"); cmd != nil {
+		if output, err := cmd.Output(); err == nil {
+			commitHash = strings.TrimSpace(string(output))
+			if len(commitHash) > 7 {
+				commitHash = commitHash[:7]
+			}
+		}
+	}
+
+	// 记录GitHook触发的成功项目活动日志
+	var actionType string
+	var newValue string
+	var description string
+
+	if refType == "branch" {
+		actionType = database.ProjectActionBranchSwitch
+		newValue = targetRef
+		description = fmt.Sprintf("GitHook分支切换成功：从 %s 切换到分支 %s (提交: %s)", currentPosition, targetRef, commitHash)
+	} else {
+		actionType = "switch-tag"
+		newValue = fmt.Sprintf("标签:%s", targetRef)
+		description = fmt.Sprintf("GitHook标签切换成功：从 %s 切换到标签 %s (提交: %s)", currentPosition, targetRef, commitHash)
+	}
+
+	database.LogProjectAction(
+		project.Name,    // projectName
+		actionType,      // action
+		currentPosition, // oldValue
+		newValue,        // newValue
+		"GitHook",       // username - 标识为GitHook触发
+		true,            // success
+		"",              // error
+		commitHash,      // commitHash
+		description,     // description
+		"",              // ipAddress - GitHook触发无IP
+	)
 
 	log.Printf("GitHook processing successfully: project=%s, type=%s, target=%s", project.Name, refType, targetRef)
 	return GitHookResult{

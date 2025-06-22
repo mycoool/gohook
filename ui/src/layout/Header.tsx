@@ -15,6 +15,7 @@ import SupervisorAccount from '@mui/icons-material/SupervisorAccount';
 import Link from '@mui/icons-material/Link';
 
 import AccountTree from '@mui/icons-material/AccountTree';
+import History from '@mui/icons-material/History';
 import React, {Component, CSSProperties} from 'react';
 import {Link as RouterLink} from 'react-router-dom';
 import {observer} from 'mobx-react';
@@ -220,6 +221,16 @@ class Header extends Component<IProps> {
                         icon={<Apps />}
                         translationKey="nav.plugins"
                         fallbackLabel="plugins"
+                        width={width}
+                        color="inherit"
+                    />
+                </StyledLink>
+                
+                <StyledLink to="/logs" id="navigate-logs">
+                    <ResponsiveButtonWithTranslation
+                        icon={<History />}
+                        translationKey="nav.logs"
+                        fallbackLabel="logs"
                         width={width}
                         color="inherit"
                     />

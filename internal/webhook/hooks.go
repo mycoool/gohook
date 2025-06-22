@@ -579,19 +579,31 @@ func HandleTriggerHook(c *gin.Context) {
 	if hookResponse.ExecuteCommand != "" {
 		// execute command
 		var cmd *exec.Cmd
+
+		// 检查工作目录是否存在
 		if hookResponse.WorkingDirectory != "" {
-			cmd = exec.Command("bash", "-c", hookResponse.ExecuteCommand)
-			cmd.Dir = hookResponse.WorkingDirectory
+			if _, err := os.Stat(hookResponse.WorkingDirectory); os.IsNotExist(err) {
+				errorMsg = fmt.Sprintf("工作目录不存在: %s", hookResponse.WorkingDirectory)
+				output = fmt.Sprintf("错误：工作目录 '%s' 不存在，请检查Hook配置", hookResponse.WorkingDirectory)
+			} else {
+				cmd = exec.Command("bash", "-c", hookResponse.ExecuteCommand)
+				cmd.Dir = hookResponse.WorkingDirectory
+			}
 		} else {
 			cmd = exec.Command("bash", "-c", hookResponse.ExecuteCommand)
 		}
 
-		result, err := cmd.CombinedOutput()
-		output = string(result)
-		if err != nil {
-			errorMsg = err.Error()
-		} else {
-			success = true
+		if cmd != nil {
+			result, err := cmd.CombinedOutput()
+			output = string(result)
+			if err != nil {
+				errorMsg = fmt.Sprintf("命令执行失败: %v", err)
+				if output == "" {
+					output = fmt.Sprintf("命令执行出错: %v", err)
+				}
+			} else {
+				success = true
+			}
 		}
 	} else {
 		success = true

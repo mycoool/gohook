@@ -395,3 +395,132 @@ func (lr *LogRouter) GetUserActivityStats(c *gin.Context) {
 
 	c.JSON(http.StatusOK, stats)
 }
+
+// HandleGetLogs 统一日志查询接口
+func HandleGetLogs(c *gin.Context) {
+	// 解析分页参数
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "20"))
+	if pageSize > 100 {
+		pageSize = 100
+	}
+
+	// 解析过滤参数
+	logType := c.Query("type")
+	level := c.Query("level")
+	category := c.Query("category")
+	search := c.Query("search")
+	user := c.Query("user")
+	project := c.Query("project")
+
+	var success *bool
+	if successStr := c.Query("success"); successStr != "" {
+		if successBool, err := strconv.ParseBool(successStr); err == nil {
+			success = &successBool
+		}
+	}
+
+	// 解析时间参数
+	var startTime, endTime *time.Time
+	if startDate := c.Query("startDate"); startDate != "" {
+		if t, err := time.Parse(time.RFC3339, startDate); err == nil {
+			startTime = &t
+		}
+	}
+	if endDate := c.Query("endDate"); endDate != "" {
+		if t, err := time.Parse(time.RFC3339, endDate); err == nil {
+			endTime = &t
+		}
+	}
+
+	logService := database.NewLogService()
+
+	// 根据类型调用不同的查询方法
+	var logs interface{}
+	var total int64
+	var err error
+
+	switch logType {
+	case "hook":
+		logs, total, err = logService.GetHookLogs(page, pageSize, "", "", "", success, startTime, endTime)
+	case "system":
+		logs, total, err = logService.GetSystemLogs(page, pageSize, level, category, user, startTime, endTime)
+	case "user":
+		logs, total, err = logService.GetUserActivities(page, pageSize, user, "", success, startTime, endTime)
+	case "project":
+		logs, total, err = logService.GetProjectActivities(page, pageSize, project, "", user, success, startTime, endTime)
+	default:
+		// 查询所有类型的日志（这里需要新的方法）
+		logs, total, err = logService.GetAllLogs(page, pageSize, level, search, startTime, endTime)
+	}
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	hasMore := int64(page*pageSize) < total
+
+	c.JSON(http.StatusOK, gin.H{
+		"logs":     logs,
+		"total":    total,
+		"page":     page,
+		"pageSize": pageSize,
+		"hasMore":  hasMore,
+	})
+}
+
+// HandleExportLogs 导出日志接口
+func HandleExportLogs(c *gin.Context) {
+	// 解析过滤参数
+	logType := c.Query("type")
+	level := c.Query("level")
+	search := c.Query("search")
+
+	// 解析时间参数
+	var startTime, endTime *time.Time
+	if startDate := c.Query("startDate"); startDate != "" {
+		if t, err := time.Parse(time.RFC3339, startDate); err == nil {
+			startTime = &t
+		}
+	}
+	if endDate := c.Query("endDate"); endDate != "" {
+		if t, err := time.Parse(time.RFC3339, endDate); err == nil {
+			endTime = &t
+		}
+	}
+
+	logService := database.NewLogService()
+
+	// 导出CSV格式的日志
+	csvData, err := logService.ExportLogsToCSV(logType, level, search, startTime, endTime)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 设置响应头
+	c.Header("Content-Type", "text/csv")
+	c.Header("Content-Disposition", "attachment; filename=logs.csv")
+
+	c.String(http.StatusOK, csvData)
+}
+
+// HandleCleanupLogs 清理日志接口
+func HandleCleanupLogs(c *gin.Context) {
+	// 从查询参数获取保留天数，默认30天
+	days, _ := strconv.Atoi(c.DefaultQuery("days", "30"))
+	if days <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid days parameter"})
+		return
+	}
+
+	logService := database.NewLogService()
+	err := logService.CleanOldLogs(days)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Old logs cleaned successfully"})
+}

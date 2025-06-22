@@ -284,6 +284,20 @@ func InitRouter() *gin.Engine {
 		})
 	}
 
+	// 日志管理API组
+	logAPI := g.Group("/api/logs")
+	logAPI.Use(middleware.AuthMiddleware(), middleware.DisableLogMiddleware()) // 添加认证中间件
+	{
+		// 获取日志列表
+		logAPI.GET("", HandleGetLogs)
+
+		// 导出日志
+		logAPI.GET("/export", HandleExportLogs)
+
+		// 清理日志
+		logAPI.DELETE("/cleanup", HandleCleanupLogs)
+	}
+
 	// client list API (get all sessions for current user)
 	g.GET("/client", middleware.AuthMiddleware(), client.HandleGetClientSessions)
 

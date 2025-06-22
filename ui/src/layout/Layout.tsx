@@ -29,6 +29,7 @@ import Login from '../user/Login';
 import Messages from '../message/Messages';
 import RealtimeMessages from '../message/RealtimeMessages';
 import Users from '../user/Users';
+import Logs from '../logs/Logs';
 import {observer} from 'mobx-react';
 import {observable} from 'mobx';
 import {inject, Stores} from '../inject';
@@ -528,6 +529,11 @@ class Layout extends React.Component<Stores<'currentUser' | 'snackManager'>> {
                                                     exact: true,
                                                     path: '/plugins/:id',
                                                     component: PluginDetailView,
+                                                }),
+                                                React.createElement(Route as any, {
+                                                    exact: true,
+                                                    path: '/logs',
+                                                    component: Logs,
                                                 })
                                             )}
                                         </MainContent>

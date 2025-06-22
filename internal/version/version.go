@@ -1149,6 +1149,13 @@ func HandleSwitchTag(c *gin.Context) {
 		return
 	}
 
+	// 获取当前用户信息
+	currentUser, _ := c.Get("username")
+	currentUserStr := "unknown"
+	if currentUser != nil {
+		currentUserStr = currentUser.(string)
+	}
+
 	// find project path
 	var projectPath string
 	for _, proj := range types.GoHookVersionData.Projects {
@@ -1159,11 +1166,71 @@ func HandleSwitchTag(c *gin.Context) {
 	}
 
 	if projectPath == "" {
+		// 记录失败的标签切换尝试
+		database.LogProjectAction(
+			projectName,                   // projectName
+			"switch-tag",                  // action
+			"",                            // oldValue
+			fmt.Sprintf("标签:%s", req.Tag), // newValue
+			currentUserStr,                // username
+			false,                         // success
+			"Project not found",           // error
+			"",                            // commitHash
+			fmt.Sprintf("标签切换失败：项目 %s 未找到", projectName), // description
+			c.ClientIP(), // ipAddress
+		)
 		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
 		return
 	}
 
+	// 获取当前标签/分支信息用于记录
+	currentTag := ""
+	currentBranch := ""
+	currentCommit := ""
+
+	// 尝试获取当前标签
+	if cmd := exec.Command("git", "-C", projectPath, "describe", "--tags", "--exact-match", "HEAD"); cmd != nil {
+		if output, err := cmd.Output(); err == nil {
+			currentTag = strings.TrimSpace(string(output))
+		}
+	}
+
+	// 如果不在标签上，获取当前分支
+	if currentTag == "" {
+		if gitStatus, err := getGitStatus(projectPath); err == nil {
+			currentBranch = gitStatus.CurrentBranch
+			currentCommit = gitStatus.LastCommit
+		}
+	}
+
+	// 构建当前位置描述
+	currentPosition := ""
+	if currentTag != "" {
+		currentPosition = fmt.Sprintf("标签:%s", currentTag)
+	} else if currentBranch != "" {
+		currentPosition = fmt.Sprintf("分支:%s", currentBranch)
+		if currentCommit != "" && len(currentCommit) > 7 {
+			currentPosition += fmt.Sprintf("@%s", currentCommit[:7])
+		}
+	} else {
+		currentPosition = "未知位置"
+	}
+
 	if err := switchTag(projectPath, req.Tag); err != nil {
+		// 记录失败的项目活动日志
+		database.LogProjectAction(
+			projectName,
+			"switch-tag",
+			currentPosition,               // oldValue - 当前位置
+			fmt.Sprintf("标签:%s", req.Tag), // newValue - 目标标签
+			currentUserStr,                // username - 使用获取到的用户信息
+			false,                         // success
+			err.Error(),                   // error
+			"",                            // commitHash
+			fmt.Sprintf("标签切换失败：从 %s 切换到标签 %s 时出错: %s", currentPosition, req.Tag, err.Error()), // description
+			c.ClientIP(), // ipAddress
+		)
+
 		// push failed message
 		wsMessage := stream.WsMessage{
 			Type:      "version_switched",
@@ -1181,6 +1248,31 @@ func HandleSwitchTag(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	// 获取切换后的提交哈希
+	newCommit := ""
+	if cmd := exec.Command("git", "-C", projectPath, "rev-parse", "HEAD"); cmd != nil {
+		if output, err := cmd.Output(); err == nil {
+			newCommit = strings.TrimSpace(string(output))
+			if len(newCommit) > 7 {
+				newCommit = newCommit[:7]
+			}
+		}
+	}
+
+	// 记录成功的项目活动日志
+	database.LogProjectAction(
+		projectName,
+		"switch-tag",
+		currentPosition,               // oldValue - 之前的位置
+		fmt.Sprintf("标签:%s", req.Tag), // newValue - 目标标签
+		currentUserStr,                // username - 使用获取到的用户信息
+		true,                          // success
+		"",                            // error
+		newCommit,                     // commitHash - 切换后的提交哈希
+		fmt.Sprintf("标签切换成功：从 %s 切换到标签 %s (提交: %s)", currentPosition, req.Tag, newCommit), // description
+		c.ClientIP(), // ipAddress
+	)
 
 	// push success message
 	wsMessage := stream.WsMessage{
@@ -1203,6 +1295,13 @@ func HandleDeleteTag(c *gin.Context) {
 	projectName := c.Param("name")
 	tagName := c.Param("tagName")
 
+	// 获取当前用户信息
+	currentUser, _ := c.Get("username")
+	currentUserStr := "unknown"
+	if currentUser != nil {
+		currentUserStr = currentUser.(string)
+	}
+
 	// find project path
 	var projectPath string
 	for _, proj := range types.GoHookVersionData.Projects {
@@ -1213,11 +1312,61 @@ func HandleDeleteTag(c *gin.Context) {
 	}
 
 	if projectPath == "" {
+		// 记录失败的标签删除尝试
+		database.LogProjectAction(
+			projectName,                   // projectName
+			"delete-tag",                  // action
+			fmt.Sprintf("标签:%s", tagName), // oldValue
+			"",                            // newValue
+			currentUserStr,                // username
+			false,                         // success
+			"Project not found",           // error
+			"",                            // commitHash
+			fmt.Sprintf("标签删除失败：项目 %s 未找到", projectName), // description
+			c.ClientIP(), // ipAddress
+		)
 		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
 		return
 	}
 
+	// 获取标签信息用于详细记录
+	tagCommit := ""
+	tagDate := ""
+
+	// 获取标签对应的提交哈希
+	if cmd := exec.Command("git", "-C", projectPath, "rev-list", "-n", "1", tagName); cmd != nil {
+		if output, err := cmd.Output(); err == nil {
+			tagCommit = strings.TrimSpace(string(output))
+			if len(tagCommit) > 7 {
+				tagCommit = tagCommit[:7]
+			}
+		}
+	}
+
+	// 获取标签创建日期
+	if cmd := exec.Command("git", "-C", projectPath, "log", "-1", "--format=%ci", tagName); cmd != nil {
+		if output, err := cmd.Output(); err == nil {
+			if t, err := time.Parse("2006-01-02 15:04:05 -0700", strings.TrimSpace(string(output))); err == nil {
+				tagDate = t.Format("2006-01-02 15:04")
+			}
+		}
+	}
+
 	if err := deleteTag(projectPath, tagName); err != nil {
+		// 记录失败的项目活动日志
+		database.LogProjectAction(
+			projectName,
+			"delete-tag",
+			fmt.Sprintf("标签:%s", tagName), // oldValue
+			"",                            // newValue
+			currentUserStr,                // username - 使用获取到的用户信息
+			false,                         // success
+			err.Error(),                   // error
+			tagCommit,                     // commitHash
+			fmt.Sprintf("标签删除失败：删除标签 %s 时出错 (提交: %s, 创建时间: %s): %s", tagName, tagCommit, tagDate, err.Error()), // description
+			c.ClientIP(), // ipAddress
+		)
+
 		// push failed message
 		wsMessage := stream.WsMessage{
 			Type:      "version_switched",
@@ -1235,6 +1384,20 @@ func HandleDeleteTag(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	// 记录成功的项目活动日志
+	database.LogProjectAction(
+		projectName,
+		"delete-tag",
+		fmt.Sprintf("标签:%s", tagName), // oldValue
+		"",                            // newValue
+		currentUserStr,                // username - 使用获取到的用户信息
+		true,                          // success
+		"",                            // error
+		tagCommit,                     // commitHash
+		fmt.Sprintf("标签删除成功：已删除标签 %s (提交: %s, 创建时间: %s)", tagName, tagCommit, tagDate), // description
+		c.ClientIP(), // ipAddress
+	)
 
 	// push success message
 	wsMessage := stream.WsMessage{

@@ -62,14 +62,53 @@ export class HookStore {
 
     @action
     public triggerHook = async (id: string): Promise<void> => {
-        await axios.post(
-            `${config.get('url')}hook/${id}/trigger`,
-            {},
-            {
-                headers: {'X-GoHook-Key': this.tokenProvider()},
+        try {
+            const response = await axios.post(
+                `${config.get('url')}hook/${id}/trigger`,
+                {},
+                {
+                    headers: {'X-GoHook-Key': this.tokenProvider()},
+                }
+            );
+            this.snack(response.data.message || 'Hook triggered successfully');
+        } catch (error: unknown) {
+            // 处理错误情况
+            if (error && typeof error === 'object' && 'response' in error) {
+                const axiosError = error as {
+                    response?: {
+                        status?: number;
+                        data?: {
+                            error?: string;
+                            message?: string;
+                            output?: string;
+                            hook?: string;
+                        };
+                    };
+                };
+                
+                const responseData = axiosError.response?.data;
+                if (responseData) {
+                    // 构建详细的错误消息
+                    let errorMessage = responseData.message || 'Hook execution failed';
+                    if (responseData.hook) {
+                        errorMessage += ` (${responseData.hook})`;
+                    }
+                    if (responseData.error) {
+                        errorMessage += `\n错误详情: ${responseData.error}`;
+                    }
+                    if (responseData.output) {
+                        errorMessage += `\n输出: ${responseData.output}`;
+                    }
+                    
+                    this.snack(errorMessage);
+                    return; // 不重新抛出错误，避免未捕获的异常
+                }
             }
-        );
-        this.snack('Hook triggered successfully');
+            
+            // 兜底错误处理
+            const errorMessage = error instanceof Error ? error.message : 'Hook执行失败：未知错误';
+            this.snack(errorMessage);
+        }
     };
 
     @action
