@@ -340,7 +340,7 @@ const GitHookDialog: React.FC<GitHookDialogProps> = ({open, project, onClose, on
                 )}
             </StyledDialogContent>
             <DialogActions>
-                <Button onClick={onClose} disabled={saving}>
+                <Button onClick={onClose} disabled={saving} variant="contained" color="secondary">
                     {t('common.cancel')}
                 </Button>
                 <Button onClick={handleSave} color="primary" variant="contained" disabled={saving}>

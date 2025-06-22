@@ -97,7 +97,7 @@ class ChangePasswordDialog extends Component<IPropsWithTranslation, IState> {
                     />
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={fClose}>{t('common.cancel')}</Button>
+                    <Button onClick={fClose} variant="contained" color="secondary">{t('common.cancel')}</Button>
                     <Button
                         className="save-password"
                         disabled={!canSubmit}

@@ -94,7 +94,7 @@ class AddEditDialog extends Component<IPropsWithTranslation, IState> {
                     />
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={fClose}>{t('common.cancel')}</Button>
+                    <Button onClick={fClose} variant="contained" color="secondary">{t('common.cancel')}</Button>
                     <Tooltip
                         placement={'bottom-start'}
                         title={
