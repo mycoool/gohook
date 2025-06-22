@@ -20,10 +20,22 @@ type UsersConfig struct {
 
 // AppConfig application config structure
 type AppConfig struct {
-	Port              int    `yaml:"port"`
-	JWTSecret         string `yaml:"jwt_secret"`
-	JWTExpiryDuration int    `yaml:"jwt_expiry_duration"`
-	Mode              string `yaml:"mode"` // "dev" | "prod" | "test"
+	Port              int            `yaml:"port"`
+	JWTSecret         string         `yaml:"jwt_secret"`
+	JWTExpiryDuration int            `yaml:"jwt_expiry_duration"`
+	Mode              string         `yaml:"mode"` // "dev" | "prod" | "test"
+	Database          DatabaseConfig `yaml:"database"`
+}
+
+// DatabaseConfig 数据库配置
+type DatabaseConfig struct {
+	Type             string `yaml:"type"`     // sqlite, mysql, postgres
+	Database         string `yaml:"database"` // 数据库名称或文件路径
+	Host             string `yaml:"host,omitempty"`
+	Port             int    `yaml:"port,omitempty"`
+	Username         string `yaml:"username,omitempty"`
+	Password         string `yaml:"password,omitempty"`
+	LogRetentionDays int    `yaml:"log_retention_days"` // 日志保留天数
 }
 
 // Claims JWT claim structure

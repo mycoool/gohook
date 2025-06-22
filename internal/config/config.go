@@ -21,6 +21,11 @@ func LoadAppConfig() error {
 			JWTSecret:         "gohook-secret-key-change-in-production",
 			JWTExpiryDuration: 24,
 			Mode:              "test",
+			Database: types.DatabaseConfig{
+				Type:             "sqlite",
+				Database:         "gohook.db",
+				LogRetentionDays: 30,
+			},
 		}
 		// auto save default config to file
 		if saveErr := SaveAppConfig(); saveErr != nil {

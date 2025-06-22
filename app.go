@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/mycoool/gohook/internal/config"
+	"github.com/mycoool/gohook/internal/database"
 	"github.com/mycoool/gohook/internal/pidfile"
 	"github.com/mycoool/gohook/internal/webhook"
 
@@ -313,6 +314,52 @@ func main() {
 	}
 
 	r.Use(gin.Recovery())
+
+	// Initialize database
+	if appConfig := config.GetAppConfig(); appConfig != nil {
+		// Convert types.DatabaseConfig to database.DatabaseConfig
+		dbConfig := &database.DatabaseConfig{
+			Type:     appConfig.Database.Type,
+			Database: appConfig.Database.Database,
+			Host:     appConfig.Database.Host,
+			Port:     appConfig.Database.Port,
+			Username: appConfig.Database.Username,
+			Password: appConfig.Database.Password,
+		}
+
+		// Initialize database connection
+		err := database.InitDatabase(dbConfig)
+		if err != nil {
+			log.Printf("Failed to initialize database: %v", err)
+			// Use default SQLite configuration as fallback
+			defaultConfig := database.DefaultDatabaseConfig()
+			if initErr := database.InitDatabase(defaultConfig); initErr != nil {
+				log.Fatalf("Failed to initialize database with default config: %v", initErr)
+			}
+		}
+
+		// Perform database migration
+		if err := database.AutoMigrate(); err != nil {
+			log.Printf("Failed to migrate database: %v", err)
+		}
+
+		// Initialize global log service
+		database.InitLogService()
+
+		// Start automatic log cleanup task
+		retentionDays := appConfig.Database.LogRetentionDays
+		if retentionDays <= 0 {
+			retentionDays = 30 // default retention period
+		}
+		database.ScheduleLogCleanup(retentionDays)
+
+		// Register log routes
+		logRouter := router.NewLogRouter()
+		apiGroup := r.Group("/api/v1")
+		logRouter.RegisterLogRoutes(apiGroup)
+
+		log.Println("Database initialized and log routes registered")
+	}
 
 	// Clean up input
 	*httpMethods = strings.ToUpper(strings.ReplaceAll(*httpMethods, " ", ""))
