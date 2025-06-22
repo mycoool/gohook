@@ -470,6 +470,10 @@ func (ha *Argument) Get(r *Request) (string, error) {
 
 		switch strings.ToLower(ha.Name) {
 		case "remote-addr":
+			// Use ClientIP if available, fallback to RawRequest.RemoteAddr
+			if r.ClientIP != "" {
+				return r.ClientIP, nil
+			}
 			return r.RawRequest.RemoteAddr, nil
 		case "method":
 			return r.RawRequest.Method, nil
@@ -915,7 +919,12 @@ const (
 // Evaluate MatchRule will return based on the type
 func (r MatchRule) Evaluate(req *Request) (bool, error) {
 	if r.Type == IPWhitelist {
-		return CheckIPWhitelist(req.RawRequest.RemoteAddr, r.IPRange)
+		// Use ClientIP if available, fallback to RawRequest.RemoteAddr
+		clientIP := req.ClientIP
+		if clientIP == "" {
+			clientIP = req.RawRequest.RemoteAddr
+		}
+		return CheckIPWhitelist(clientIP, r.IPRange)
 	}
 	if r.Type == ScalrSignature {
 		return CheckScalrSignature(req, r.Secret, true)

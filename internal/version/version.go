@@ -14,6 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/mycoool/gohook/internal/config"
 	"github.com/mycoool/gohook/internal/database"
+	"github.com/mycoool/gohook/internal/middleware"
 	"github.com/mycoool/gohook/internal/stream"
 	"github.com/mycoool/gohook/internal/types"
 )
@@ -1036,7 +1037,7 @@ func HandleSwitchBranch(c *gin.Context) {
 			"Project not found",                // error
 			"",                                 // commitHash
 			fmt.Sprintf("Switch branch failed: Project %s not found", projectName), // description
-			c.ClientIP(), // ipAddress
+			middleware.GetClientIP(c), // ipAddress
 		)
 		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
 		return
@@ -1060,7 +1061,7 @@ func HandleSwitchBranch(c *gin.Context) {
 			err.Error(),                        // error
 			"",                                 // commitHash
 			fmt.Sprintf("Switch branch failed: %s", err.Error()), // description
-			c.ClientIP(), // ipAddress
+			middleware.GetClientIP(c),                            // ipAddress
 		)
 
 		// push failed message
@@ -1092,7 +1093,7 @@ func HandleSwitchBranch(c *gin.Context) {
 		"",                                 // error
 		"",                                 // commitHash
 		fmt.Sprintf("Branch switched from %s to %s successfully", currentBranch, req.Branch), // description
-		c.ClientIP(), // ipAddress
+		middleware.GetClientIP(c), // ipAddress
 	)
 
 	// push success message
@@ -1177,7 +1178,7 @@ func HandleSwitchTag(c *gin.Context) {
 			"Project not found",           // error
 			"",                            // commitHash
 			fmt.Sprintf("标签切换失败：项目 %s 未找到", projectName), // description
-			c.ClientIP(), // ipAddress
+			middleware.GetClientIP(c), // ipAddress
 		)
 		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
 		return
@@ -1228,7 +1229,7 @@ func HandleSwitchTag(c *gin.Context) {
 			err.Error(),                   // error
 			"",                            // commitHash
 			fmt.Sprintf("标签切换失败：从 %s 切换到标签 %s 时出错: %s", currentPosition, req.Tag, err.Error()), // description
-			c.ClientIP(), // ipAddress
+			middleware.GetClientIP(c), // ipAddress
 		)
 
 		// push failed message
@@ -1271,7 +1272,7 @@ func HandleSwitchTag(c *gin.Context) {
 		"",                            // error
 		newCommit,                     // commitHash - 切换后的提交哈希
 		fmt.Sprintf("标签切换成功：从 %s 切换到标签 %s (提交: %s)", currentPosition, req.Tag, newCommit), // description
-		c.ClientIP(), // ipAddress
+		middleware.GetClientIP(c), // ipAddress
 	)
 
 	// push success message
@@ -1323,7 +1324,7 @@ func HandleDeleteTag(c *gin.Context) {
 			"Project not found",           // error
 			"",                            // commitHash
 			fmt.Sprintf("标签删除失败：项目 %s 未找到", projectName), // description
-			c.ClientIP(), // ipAddress
+			middleware.GetClientIP(c), // ipAddress
 		)
 		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
 		return
@@ -1364,7 +1365,7 @@ func HandleDeleteTag(c *gin.Context) {
 			err.Error(),                   // error
 			tagCommit,                     // commitHash
 			fmt.Sprintf("标签删除失败：删除标签 %s 时出错 (提交: %s, 创建时间: %s): %s", tagName, tagCommit, tagDate, err.Error()), // description
-			c.ClientIP(), // ipAddress
+			middleware.GetClientIP(c), // ipAddress
 		)
 
 		// push failed message
@@ -1396,7 +1397,7 @@ func HandleDeleteTag(c *gin.Context) {
 		"",                            // error
 		tagCommit,                     // commitHash
 		fmt.Sprintf("标签删除成功：已删除标签 %s (提交: %s, 创建时间: %s)", tagName, tagCommit, tagDate), // description
-		c.ClientIP(), // ipAddress
+		middleware.GetClientIP(c), // ipAddress
 	)
 
 	// push success message

@@ -216,15 +216,18 @@ class Header extends Component<IProps> {
                     />
                 </StyledLink>
 
-                <StyledLink to="/plugins" id="navigate-plugins">
-                    <ResponsiveButtonWithTranslation
-                        icon={<Apps />}
-                        translationKey="nav.plugins"
-                        fallbackLabel="plugins"
-                        width={width}
-                        color="inherit"
-                    />
-                </StyledLink>
+                {/* 临时隐藏插件导航 - 待后续插件功能完善后再启用 */}
+                {false && (
+                    <StyledLink to="/plugins" id="navigate-plugins">
+                        <ResponsiveButtonWithTranslation
+                            icon={<Apps />}
+                            translationKey="nav.plugins"
+                            fallbackLabel="plugins"
+                            width={width}
+                            color="inherit"
+                        />
+                    </StyledLink>
+                )}
                 
                 <StyledLink to="/logs" id="navigate-logs">
                     <ResponsiveButtonWithTranslation

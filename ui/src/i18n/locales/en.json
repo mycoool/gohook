@@ -126,7 +126,10 @@
     "copyFailed": "Copy failed",
     "saving": "Saving...",
     "notEnabled": "Not Enabled",
-    "anyBranchShort": "Any"
+    "anyBranchShort": "Any",
+    "branchMismatch": "Branch mismatch, no switch needed",
+    "modeMismatch": "Mode mismatch, no action needed",
+    "skipMessage": "Operation skipped"
   },
   "hook": {
     "title": "Hook Management",

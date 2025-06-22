@@ -13,6 +13,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/gin-gonic/gin"
 	"github.com/mycoool/gohook/internal/database"
+	"github.com/mycoool/gohook/internal/middleware"
 	"github.com/mycoool/gohook/internal/stream"
 	"github.com/mycoool/gohook/internal/types"
 )
@@ -612,18 +613,18 @@ func HandleTriggerHook(c *gin.Context) {
 
 	// 记录手动触发的Webhook执行日志到数据库
 	database.LogHookExecution(
-		hookID,                // hookID
-		hookResponse.Name,     // hookName
-		"webhook",             // hookType
-		c.Request.Method,      // method
-		c.ClientIP(),          // remoteAddr
-		c.Request.Header,      // headers
-		"",                    // body (手动触发无请求体)
-		success,               // success
-		output,                // output
-		errorMsg,              // error
-		0,                     // duration (手动触发无精确执行时间)
-		c.Request.UserAgent(), // userAgent
+		hookID,                    // hookID
+		hookResponse.Name,         // hookName
+		"webhook",                 // hookType
+		c.Request.Method,          // method
+		middleware.GetClientIP(c), // remoteAddr
+		c.Request.Header,          // headers
+		"",                        // body (手动触发无请求体)
+		success,                   // success
+		output,                    // output
+		errorMsg,                  // error
+		0,                         // duration (手动触发无精确执行时间)
+		c.Request.UserAgent(),     // userAgent
 		map[string][]string{ // queryParams
 			"trigger": {"manual"},
 		},
@@ -637,7 +638,7 @@ func HandleTriggerHook(c *gin.Context) {
 			HookID:     hookID,
 			HookName:   hookResponse.Name,
 			Method:     c.Request.Method,
-			RemoteAddr: c.ClientIP(),
+			RemoteAddr: middleware.GetClientIP(c),
 			Success:    success,
 			Output:     output,
 			Error:      errorMsg,

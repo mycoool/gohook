@@ -42,6 +42,9 @@ func InitRouter() *gin.Engine {
 	// 添加Recovery中间件
 	g.Use(gin.Recovery())
 
+	// 添加IP中间件，支持代理环境下的真实IP获取
+	g.Use(middleware.IPMiddleware())
+
 	// load version config file
 	if err := config.LoadVersionConfig(); err != nil {
 		// if version config file load failed, use default value

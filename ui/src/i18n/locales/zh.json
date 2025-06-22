@@ -126,7 +126,10 @@
     "copyFailed": "复制失败",
     "saving": "保存中...",
     "notEnabled": "未启用",
-    "anyBranchShort": "任意"
+    "anyBranchShort": "任意",
+    "branchMismatch": "分支不匹配，无需切换",
+    "modeMismatch": "模式不匹配，无需处理",
+    "skipMessage": "跳过操作"
   },
   "hook": {
     "title": "WebHook管理",

@@ -21,6 +21,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/mycoool/gohook/internal/config"
 	"github.com/mycoool/gohook/internal/database"
+	"github.com/mycoool/gohook/internal/middleware"
 	"github.com/mycoool/gohook/internal/stream"
 	"github.com/mycoool/gohook/internal/types"
 )
@@ -30,6 +31,8 @@ type GitHookResult struct {
 	Target  string
 	Success bool
 	Error   string
+	Skipped bool   // 标识是否跳过操作（比如分支不匹配时无需切换）
+	Message string // 详细消息，比如"无需切换"的原因
 }
 
 // GitHook handle GitHook webhook request
@@ -83,6 +86,8 @@ func tryGitHook(project *types.ProjectConfig, payload map[string]interface{}) (G
 			Target:  "",
 			Success: false,
 			Error:   "cannot parse branch or tag information from webhook payload",
+			Skipped: false,
+			Message: "",
 		}, fmt.Errorf("cannot parse branch or tag information from webhook payload")
 	}
 
@@ -90,25 +95,66 @@ func tryGitHook(project *types.ProjectConfig, payload map[string]interface{}) (G
 
 	// check if it matches the project's hook mode
 	if project.Hookmode != refType {
-		log.Printf("webhook type(%s) does not match project hook mode(%s), skip", refType, project.Hookmode)
+		log.Printf("webhook type(%s) does not match project hook mode(%s), skip but return success", refType, project.Hookmode)
+
+		// 记录跳过的项目活动日志
+		var actionType string
+		if refType == "branch" {
+			actionType = database.ProjectActionBranchSwitch
+		} else {
+			actionType = "switch-tag"
+		}
+
+		database.LogProjectAction(
+			project.Name, // projectName
+			actionType,   // action
+			fmt.Sprintf("模式:%s", project.Hookmode), // oldValue - 配置的模式
+			fmt.Sprintf("模式:%s", refType),          // newValue - 推送的类型
+			"GitHook",                              // username
+			true,                                   // success - 改为true表示处理成功
+			"",                                     // error - 无错误
+			"",                                     // commitHash
+			fmt.Sprintf("GitHook模式匹配检查：推送类型 %s 与配置模式 %s 不匹配，无需处理", refType, project.Hookmode), // description
+			"", // ipAddress
+		)
+
 		return GitHookResult{
-			Action:  "switch-branch",
-			Target:  "",
-			Success: false,
-			Error:   "webhook type does not match project hook mode",
-		}, fmt.Errorf("webhook type does not match project hook mode")
+			Action:  "skip-mode-mismatch",
+			Target:  targetRef,
+			Success: true,
+			Error:   "",
+			Skipped: true,
+			Message: fmt.Sprintf("推送类型 %s 与配置模式 %s 不匹配，无需处理", refType, project.Hookmode),
+		}, nil
 	}
 
 	// if it is a branch mode, check if the branch matches
 	if project.Hookmode == "branch" {
 		if project.Hookbranch != "*" && project.Hookbranch != targetRef {
-			log.Printf("webhook branch(%s) does not match configured branch(%s), skip", targetRef, project.Hookbranch)
+			log.Printf("webhook branch(%s) does not match configured branch(%s), skip but return success", targetRef, project.Hookbranch)
+
+			// 记录跳过的项目活动日志
+			database.LogProjectAction(
+				project.Name,                             // projectName
+				database.ProjectActionBranchSwitch,       // action
+				fmt.Sprintf("分支:%s", project.Hookbranch), // oldValue - 配置的分支
+				fmt.Sprintf("分支:%s", targetRef),          // newValue - 推送的分支
+				"GitHook",                                // username
+				true,                                     // success - 改为true表示处理成功
+				"",                                       // error - 无错误
+				"",                                       // commitHash
+				fmt.Sprintf("GitHook分支匹配检查：推送分支 %s 与配置分支 %s 不匹配，无需切换", targetRef, project.Hookbranch), // description
+				"", // ipAddress
+			)
+
 			return GitHookResult{
-				Action:  "switch-branch",
-				Target:  "",
-				Success: false,
-				Error:   "webhook branch does not match configured branch",
-			}, fmt.Errorf("webhook branch does not match configured branch")
+				Action:  "skip-branch-switch",
+				Target:  targetRef,
+				Success: true,
+				Error:   "",
+				Skipped: true,
+				Message: fmt.Sprintf("推送分支 %s 与配置分支 %s 不匹配，无需切换", targetRef, project.Hookbranch),
+			}, nil
 		}
 	}
 
@@ -122,6 +168,9 @@ func tryGitHook(project *types.ProjectConfig, payload map[string]interface{}) (G
 				Action:  "delete-tag",
 				Target:  targetRef,
 				Success: true,
+				Error:   "",
+				Skipped: false,
+				Message: fmt.Sprintf("检测到标签 %s 删除事件", targetRef),
 			}, nil
 		case "branch":
 			// branch deletion: need to smart judgment
@@ -130,6 +179,9 @@ func tryGitHook(project *types.ProjectConfig, payload map[string]interface{}) (G
 				Action:  "delete-branch",
 				Target:  targetRef,
 				Success: true,
+				Error:   "",
+				Skipped: false,
+				Message: fmt.Sprintf("检测到分支 %s 删除事件", targetRef),
 			}, nil
 		}
 	}
@@ -198,6 +250,8 @@ func tryGitHook(project *types.ProjectConfig, payload map[string]interface{}) (G
 			Target:  "",
 			Success: false,
 			Error:   "execute Git operation failed: " + err.Error(),
+			Skipped: false,
+			Message: "",
 		}, fmt.Errorf("execute Git operation failed: %v", err)
 	}
 
@@ -240,10 +294,24 @@ func tryGitHook(project *types.ProjectConfig, payload map[string]interface{}) (G
 	)
 
 	log.Printf("GitHook processing successfully: project=%s, type=%s, target=%s", project.Name, refType, targetRef)
+
+	var actionName string
+	var message string
+	if refType == "branch" {
+		actionName = "switch-branch"
+		message = fmt.Sprintf("成功切换到分支 %s", targetRef)
+	} else {
+		actionName = "switch-tag"
+		message = fmt.Sprintf("成功切换到标签 %s", targetRef)
+	}
+
 	return GitHookResult{
-		Action:  "switch-branch",
+		Action:  actionName,
 		Target:  targetRef,
 		Success: true,
+		Error:   "",
+		Skipped: false,
+		Message: message,
 	}, nil
 }
 
@@ -303,7 +371,7 @@ func verifyGitHubLegacySignature(payload []byte, secret, signature string) error
 	return nil
 }
 
-// verifyGitLabToken verify GitLab token (directly compare)
+// verify GitLab token verify GitLab token (directly compare)
 func verifyGitLabToken(secret, token string) error {
 	if subtle.ConstantTimeCompare([]byte(secret), []byte(token)) != 1 {
 		return fmt.Errorf("GitLab token verification failed")
@@ -311,7 +379,7 @@ func verifyGitLabToken(secret, token string) error {
 	return nil
 }
 
-// verifyGiteeToken verify Gitee token (password mode, directly compare)
+// verify Gitee token verify Gitee token (password mode, directly compare)
 // Gitee supports password mode where X-Gitee-Token contains the plain text password
 func verifyGiteeToken(secret, token string) error {
 	if subtle.ConstantTimeCompare([]byte(secret), []byte(token)) != 1 {
@@ -320,7 +388,7 @@ func verifyGiteeToken(secret, token string) error {
 	return nil
 }
 
-// verifyGiteeSignature verify Gitee HMAC-SHA256 signature
+// verify Gitee signature verify Gitee HMAC-SHA256 signature
 // Gitee signature mode: stringToSign = timestamp + "\n" + secret
 // Sign with HMAC-SHA256, then Base64 encode (no URL encoding needed)
 func verifyGiteeSignature(secret, token, timestamp string) error {
@@ -341,7 +409,7 @@ func verifyGiteeSignature(secret, token, timestamp string) error {
 	return nil
 }
 
-// verifyGiteaSignature verify Gitea HMAC-SHA256 signature
+// verify Gitea signature verify Gitea HMAC-SHA256 signature
 func verifyGiteaSignature(payload []byte, secret, signature string) error {
 	expectedSig := hmacSHA256Hex(payload, secret)
 	if subtle.ConstantTimeCompare([]byte(signature), []byte(expectedSig)) != 1 {
@@ -350,7 +418,7 @@ func verifyGiteaSignature(payload []byte, secret, signature string) error {
 	return nil
 }
 
-// verifyGogsSignature verify Gogs HMAC-SHA256 signature
+// verify Gogs signature verify Gogs HMAC-SHA256 signature
 func verifyGogsSignature(payload []byte, secret, signature string) error {
 	expectedSig := hmacSHA256Hex(payload, secret)
 	if subtle.ConstantTimeCompare([]byte(signature), []byte(expectedSig)) != 1 {
@@ -517,19 +585,26 @@ func HandleGitHook(c *gin.Context) {
 	result, err := tryGitHook(project, payload)
 
 	// 记录GitHook执行日志到数据库
+	var outputMessage string
+	if result.Skipped {
+		outputMessage = fmt.Sprintf("Action: %s, Target: %s, Skipped: true, Message: %s", result.Action, result.Target, result.Message)
+	} else {
+		outputMessage = fmt.Sprintf("Action: %s, Target: %s", result.Action, result.Target)
+	}
+
 	database.LogHookExecution(
-		project.Name,            // hookID (使用项目名作为ID)
-		"GitHook-"+project.Name, // hookName
-		"githook",               // hookType
-		c.Request.Method,        // method
-		c.ClientIP(),            // remoteAddr
-		c.Request.Header,        // headers
-		string(payloadBody),     // body
-		result.Success,          // success
-		fmt.Sprintf("Action: %s, Target: %s", result.Action, result.Target), // output
-		result.Error,          // error
-		0,                     // duration (无精确执行时间)
-		c.Request.UserAgent(), // userAgent
+		project.Name,              // hookID (使用项目名作为ID)
+		"GitHook-"+project.Name,   // hookName
+		"githook",                 // hookType
+		c.Request.Method,          // method
+		middleware.GetClientIP(c), // remoteAddr
+		c.Request.Header,          // headers
+		string(payloadBody),       // body
+		result.Success,            // success
+		outputMessage,             // output
+		result.Error,              // error
+		0,                         // duration (无精确执行时间)
+		c.Request.UserAgent(),     // userAgent
 		map[string][]string{ // queryParams
 			"project": {project.Name},
 			"mode":    {project.Hookmode},
@@ -547,6 +622,8 @@ func HandleGitHook(c *gin.Context) {
 				Target:      result.Target,
 				Success:     result.Success,
 				Error:       "GitHook processing failed: " + err.Error(),
+				Skipped:     result.Skipped,
+				Message:     result.Message,
 			},
 		}
 		stream.Global.Broadcast(wsMessage)
@@ -564,9 +641,17 @@ func HandleGitHook(c *gin.Context) {
 			ProjectName: projectName,
 			Target:      result.Target,
 			Success:     result.Success,
+			Skipped:     result.Skipped,
+			Message:     result.Message,
 		},
 	}
 	stream.Global.Broadcast(wsMessage)
 
-	c.String(http.StatusOK, "GitHook processing successfully: "+result.Action+" "+result.Target+" "+strconv.FormatBool(result.Success))
+	var responseMessage string
+	if result.Skipped {
+		responseMessage = fmt.Sprintf("GitHook processing successfully (skipped): %s %s - %s", result.Action, result.Target, result.Message)
+	} else {
+		responseMessage = fmt.Sprintf("GitHook processing successfully: %s %s", result.Action, result.Target)
+	}
+	c.String(http.StatusOK, responseMessage)
 }

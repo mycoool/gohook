@@ -15,6 +15,7 @@ import (
 
 	"github.com/mycoool/gohook/internal/config"
 	"github.com/mycoool/gohook/internal/database"
+	"github.com/mycoool/gohook/internal/middleware"
 	"github.com/mycoool/gohook/internal/pidfile"
 	"github.com/mycoool/gohook/internal/webhook"
 
@@ -399,6 +400,7 @@ func ginHookHandler(c *gin.Context) {
 	req := &webhook.Request{
 		ID:         c.GetString("request-id"), // can be set by middleware
 		RawRequest: c.Request,
+		ClientIP:   middleware.GetClientIP(c), // set real client IP for proxy-aware detection
 	}
 
 	// if there is no request-id, generate a simple ID
@@ -406,7 +408,7 @@ func ginHookHandler(c *gin.Context) {
 		req.ID = fmt.Sprintf("%d", time.Now().UnixNano())
 	}
 
-	log.Printf("[%s] incoming HTTP %s request from %s\n", req.ID, c.Request.Method, c.Request.RemoteAddr)
+	log.Printf("[%s] incoming HTTP %s request from %s\n", req.ID, c.Request.Method, middleware.GetClientIP(c))
 
 	// debug mode output more request information
 	if *debug {

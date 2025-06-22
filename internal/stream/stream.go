@@ -61,10 +61,12 @@ type ProjectManageMessage struct {
 // git hook triggered message
 type GitHookTriggeredMessage struct {
 	ProjectName string `json:"projectName"`
-	Action      string `json:"action"` // "switch-branch" | "switch-tag" | "delete-tag" | "delete-branch"
+	Action      string `json:"action"` // "switch-branch" | "switch-tag" | "delete-tag" | "delete-branch" | "skip-branch-switch" | "skip-mode-mismatch"
 	Target      string `json:"target"` // branch name or tag name
 	Success     bool   `json:"success"`
 	Error       string `json:"error,omitempty"`
+	Skipped     bool   `json:"skipped,omitempty"` // 是否跳过操作
+	Message     string `json:"message,omitempty"` // 详细消息
 }
 
 // WebSocket upgrader

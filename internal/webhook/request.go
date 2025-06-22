@@ -36,6 +36,9 @@ type Request struct {
 
 	// Treat signature errors as simple validate failures.
 	AllowSignatureErrors bool
+
+	// ClientIP is the real client IP address obtained through proxy-aware detection.
+	ClientIP string
 }
 
 func (r *Request) ParseJSONPayload() error {

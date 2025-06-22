@@ -111,11 +111,15 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
             }
             case 'githook_triggered': {
                 const githookMsg = message.data as IGitHookTriggeredMessage;
-                return githookMsg.success ? (
-                    <SuccessIcon style={{color: '#4caf50'}} />
-                ) : (
-                    <ErrorIcon style={{color: '#f44336'}} />
-                );
+                if (githookMsg.success) {
+                    return githookMsg.skipped ? (
+                        <InfoIcon style={{color: '#ff9800'}} />
+                    ) : (
+                        <SuccessIcon style={{color: '#4caf50'}} />
+                    );
+                } else {
+                    return <ErrorIcon style={{color: '#f44336'}} />;
+                }
             }
             default:
                 return <InfoIcon style={{color: '#2196f3'}} />;
@@ -174,12 +178,25 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
                     case 'delete-tag':
                         actionText = '标签删除';
                         break;
+                    case 'delete-branch':
+                        actionText = '分支删除';
+                        break;
+                    case 'skip-branch-switch':
+                        actionText = '分支检查';
+                        break;
+                    case 'skip-mode-mismatch':
+                        actionText = '模式检查';
+                        break;
                     default:
                         actionText = githookMsg.action;
                 }
 
                 if (githookMsg.success) {
-                    return `${actionText}成功: ${githookMsg.target}`;
+                    if (githookMsg.skipped) {
+                        return `${actionText}跳过: ${githookMsg.message || githookMsg.target}`;
+                    } else {
+                        return `${actionText}成功: ${githookMsg.message || githookMsg.target}`;
+                    }
                 } else {
                     return `${actionText}失败: ${githookMsg.error ?? '未知错误'}`;
                 }
@@ -276,18 +293,24 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
             case 'githook_triggered': {
                 const githookMsg = message.data as IGitHookTriggeredMessage;
                 success = githookMsg.success;
-                label = success ? '成功' : '失败';
+                if (success && githookMsg.skipped) {
+                    label = '跳过';
+                } else {
+                    label = success ? '成功' : '失败';
+                }
                 break;
             }
             default:
                 label = '信息';
         }
 
+        const chipColor = label === '跳过' ? 'warning' : (success ? 'primary' : 'secondary');
+        
         return (
             <Chip
                 size="small"
                 label={label}
-                color={success ? 'primary' : 'secondary'}
+                color={chipColor as 'primary' | 'secondary' | 'warning'}
                 variant="outlined"
             />
         );
