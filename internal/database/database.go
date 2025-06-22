@@ -32,6 +32,46 @@ func DefaultDatabaseConfig() *DatabaseConfig {
 	}
 }
 
+// createSQLiteDialector 创建SQLite方言器，自动选择可用的驱动
+func createSQLiteDialector(dsn string) gorm.Dialector {
+	// 首先尝试标准SQLite驱动，如果失败则使用纯Go驱动
+	dialector := sqlite.Open(dsn)
+
+	// 尝试用GORM打开连接测试
+	testDB, err := gorm.Open(dialector, &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
+
+	if err != nil && (err.Error() == "Binary was compiled with 'CGO_ENABLED=0', go-sqlite3 requires cgo to work. This is a stub" ||
+		err.Error() == "CGO_ENABLED=0" ||
+		err.Error() == "cgo not available") {
+		log.Printf("Standard SQLite driver (go-sqlite3) not available, using pure Go driver")
+
+		// 使用纯Go SQLite驱动
+		dialector = sqlite.Dialector{
+			DriverName: "sqlite",
+			DSN:        dsn,
+		}
+	} else if err != nil {
+		log.Printf("SQLite driver test failed: %v, trying pure Go driver", err)
+		dialector = sqlite.Dialector{
+			DriverName: "sqlite",
+			DSN:        dsn,
+		}
+	} else {
+		// 标准驱动可用
+		log.Printf("Using standard SQLite driver (go-sqlite3)")
+		if testDB != nil {
+			sqlDB, _ := testDB.DB()
+			if sqlDB != nil {
+				sqlDB.Close()
+			}
+		}
+	}
+
+	return dialector
+}
+
 // InitDatabase 初始化数据库连接
 func InitDatabase(config *DatabaseConfig) error {
 	var dsn string
@@ -52,10 +92,7 @@ func InitDatabase(config *DatabaseConfig) error {
 		}
 
 		dsn = config.Database
-
-		// 尝试使用SQLite驱动，它会自动选择可用的驱动
-		// 如果CGO可用，使用标准驱动；否则使用纯Go驱动
-		dialector = sqlite.Open(dsn)
+		dialector = createSQLiteDialector(dsn)
 
 	default:
 		return fmt.Errorf("unsupported database type: %s", config.Type)
