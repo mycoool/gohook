@@ -228,7 +228,7 @@ class Header extends Component<IProps> {
                         />
                     </StyledLink>
                 )}
-                
+
                 <StyledLink to="/logs" id="navigate-logs">
                     <ResponsiveButtonWithTranslation
                         icon={<History />}

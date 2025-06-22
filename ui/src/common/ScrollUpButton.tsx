@@ -4,7 +4,7 @@ import React, {Component} from 'react';
 
 class ScrollUpButton extends Component {
     private observer?: MutationObserver;
-    
+
     state = {
         display: 'none',
         opacity: 0,
@@ -13,18 +13,18 @@ class ScrollUpButton extends Component {
     componentDidMount() {
         window.addEventListener('scroll', this.scrollHandler);
         this.adjustPosition();
-        
+
         // 监听DOM变化，当实时消息面板显示/隐藏时调整位置
         this.observer = new MutationObserver(() => {
             this.adjustPosition();
         });
-        
+
         // 监听body的子元素变化
         this.observer.observe(document.body, {
             childList: true,
             subtree: true,
             attributes: true,
-            attributeFilter: ['data-realtime-messages']
+            attributeFilter: ['data-realtime-messages'],
         });
     }
 
@@ -40,9 +40,9 @@ class ScrollUpButton extends Component {
         // 检查是否有实时消息面板展开
         const realtimeMessagesPanel = document.querySelector('[data-realtime-messages="expanded"]');
         const realtimeMessagesButton = document.querySelector('[data-realtime-messages="button"]');
-        
+
         let bottomOffset = 80; // 默认位置
-        
+
         if (realtimeMessagesPanel) {
             // 如果实时消息面板展开，位置需要更高一些
             bottomOffset = 520; // 面板高度大约500px + 一些间距
@@ -50,7 +50,7 @@ class ScrollUpButton extends Component {
             // 如果只有按钮，保持当前位置
             bottomOffset = 80;
         }
-        
+
         if (this.state.bottomOffset !== bottomOffset) {
             this.setState({bottomOffset});
         }
@@ -63,7 +63,7 @@ class ScrollUpButton extends Component {
         if (this.state.display !== nextState.display || this.state.opacity !== nextState.opacity) {
             this.setState(nextState);
         }
-        
+
         // 每次滚动时也检查位置
         this.adjustPosition();
     };

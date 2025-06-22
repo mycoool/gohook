@@ -133,7 +133,13 @@ export interface IHookTriggeredMessage {
 // GitHook triggered message
 export interface IGitHookTriggeredMessage {
     projectName: string;
-    action: 'switch-branch' | 'switch-tag' | 'delete-tag' | 'delete-branch' | 'skip-branch-switch' | 'skip-mode-mismatch';
+    action:
+        | 'switch-branch'
+        | 'switch-tag'
+        | 'delete-tag'
+        | 'delete-branch'
+        | 'skip-branch-switch'
+        | 'skip-mode-mismatch';
     target: string;
     success: boolean;
     output?: string;

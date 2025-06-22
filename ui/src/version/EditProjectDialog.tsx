@@ -176,7 +176,11 @@ const EditProjectDialogContent: React.FC<EditDialogContentProps> = ({
                 </Grid>
             </DialogContent>
             <DialogActions>
-                <Button onClick={onClose} disabled={submitting} variant="contained" color="secondary">
+                <Button
+                    onClick={onClose}
+                    disabled={submitting}
+                    variant="contained"
+                    color="secondary">
                     {t('common.cancel')}
                 </Button>
                 <Button

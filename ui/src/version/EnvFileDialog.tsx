@@ -540,7 +540,12 @@ app.cache.size = 1024`;
                         </Box>
                     </DialogContent>
                     <DialogActions>
-                        <Button onClick={this.closeEnvFileEditor} variant="contained" color="secondary">Cancel</Button>
+                        <Button
+                            onClick={this.closeEnvFileEditor}
+                            variant="contained"
+                            color="secondary">
+                            Cancel
+                        </Button>
                         <Button
                             onClick={this.validateAndSaveEnvFile}
                             color="primary"

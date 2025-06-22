@@ -85,7 +85,7 @@ export class HookStore {
                         };
                     };
                 };
-                
+
                 const responseData = axiosError.response?.data;
                 if (responseData) {
                     // 构建详细的错误消息
@@ -99,12 +99,12 @@ export class HookStore {
                     if (responseData.output) {
                         errorMessage += `\n输出: ${responseData.output}`;
                     }
-                    
+
                     this.snack(errorMessage);
                     return; // 不重新抛出错误，避免未捕获的异常
                 }
             }
-            
+
             // 兜底错误处理
             const errorMessage = error instanceof Error ? error.message : 'Hook执行失败：未知错误';
             this.snack(errorMessage);

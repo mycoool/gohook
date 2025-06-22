@@ -208,9 +208,17 @@ export class WebSocketStore {
                 const githookMsg = message.data as IGitHookTriggeredMessage;
                 if (githookMsg.success) {
                     if (githookMsg.skipped) {
-                        this.snack(`GitHook "${githookMsg.projectName}" 跳过处理: ${githookMsg.message || '无需操作'}`);
+                        this.snack(
+                            `GitHook "${githookMsg.projectName}" 跳过处理: ${
+                                githookMsg.message || '无需操作'
+                            }`
+                        );
                     } else {
-                        this.snack(`GitHook "${githookMsg.projectName}" 执行成功: ${githookMsg.message || ''}`);
+                        this.snack(
+                            `GitHook "${githookMsg.projectName}" 执行成功: ${
+                                githookMsg.message || ''
+                            }`
+                        );
                     }
                 } else {
                     this.snack(

@@ -358,7 +358,8 @@ const themeMap: Record<ThemeKey, Theme> = {
                         backdropFilter: 'none !important', // 移除背景滤镜
                         backgroundImage: 'none !important', // 移除背景图片overlay
                         '--Paper-overlay': 'none !important', // 禁用Paper-overlay CSS变量
-                        boxShadow: '0px 11px 15px -7px rgba(0,0,0,0.2), 0px 24px 38px 3px rgba(0,0,0,0.14), 0px 9px 46px 8px rgba(0,0,0,0.12) !important',
+                        boxShadow:
+                            '0px 11px 15px -7px rgba(0,0,0,0.2), 0px 24px 38px 3px rgba(0,0,0,0.14), 0px 9px 46px 8px rgba(0,0,0,0.12) !important',
                         // 强制所有文字元素为温和的灰色
                         '& *': {
                             color: '#e0e0e0 !important',
@@ -538,8 +539,12 @@ class Layout extends React.Component<Stores<'currentUser' | 'snackManager'>> {
                                     <CssBaseline />
                                     <style>{`
                                         .MuiDialog-paper {
-                                            background-color: ${currentTheme === 'dark' ? '#424242' : '#ffffff'} !important;
-                                            color: ${currentTheme === 'dark' ? '#e0e0e0' : '#000000'} !important;
+                                            background-color: ${
+                                                currentTheme === 'dark' ? '#424242' : '#ffffff'
+                                            } !important;
+                                            color: ${
+                                                currentTheme === 'dark' ? '#e0e0e0' : '#000000'
+                                            } !important;
                                             opacity: 1 !important;
                                             filter: none !important;
                                             backdrop-filter: none !important;
@@ -547,10 +552,14 @@ class Layout extends React.Component<Stores<'currentUser' | 'snackManager'>> {
                                             background-image: none !important;
                                         }
                                         .MuiDialog-paper * {
-                                            color: ${currentTheme === 'dark' ? '#e0e0e0' : '#000000'} !important;
+                                            color: ${
+                                                currentTheme === 'dark' ? '#e0e0e0' : '#000000'
+                                            } !important;
                                         }
                                         .MuiDialog-paper .MuiDialogTitle-root {
-                                            color: ${currentTheme === 'dark' ? '#f5f5f5' : '#000000'} !important;
+                                            color: ${
+                                                currentTheme === 'dark' ? '#f5f5f5' : '#000000'
+                                            } !important;
                                         }
                                         .MuiBackdrop-root {
                                             backdrop-filter: none !important;

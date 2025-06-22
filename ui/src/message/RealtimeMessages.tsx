@@ -304,8 +304,8 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
                 label = '信息';
         }
 
-        const chipColor = label === '跳过' ? 'warning' : (success ? 'primary' : 'secondary');
-        
+        const chipColor = label === '跳过' ? 'warning' : success ? 'primary' : 'secondary';
+
         return (
             <Chip
                 size="small"

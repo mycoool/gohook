@@ -683,7 +683,11 @@ const VersionsContainer: React.FC<{
                         />
                     </DialogContent>
                     <DialogActions>
-                        <Button onClick={onCancelSetRemote} disabled={loadingRemote} variant="contained" color="secondary">
+                        <Button
+                            onClick={onCancelSetRemote}
+                            disabled={loadingRemote}
+                            variant="contained"
+                            color="secondary">
                             {t('common.cancel')}
                         </Button>
                         <Button

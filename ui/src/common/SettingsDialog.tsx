@@ -94,7 +94,9 @@ class SettingsDialog extends Component<IPropsWithTranslation> {
                     />
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={fClose} variant="contained" color="secondary">{t('common.cancel')}</Button>
+                    <Button onClick={fClose} variant="contained" color="secondary">
+                        {t('common.cancel')}
+                    </Button>
                     <Tooltip
                         title={
                             !oldPasswordPresent
