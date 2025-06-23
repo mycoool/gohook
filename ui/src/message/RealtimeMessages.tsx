@@ -409,28 +409,29 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
                             </Box>
                         </Box>
 
-                        {/* 消息列表 - 美化滚动条 */}
+                        {/* 消息列表 - 使用环境文件编辑器样式的滚动条 */}
                         <Box sx={{
                             overflowY: 'auto',
                             maxHeight: 400,
-                            // 美化滚动条
+                            // 使用环境文件编辑器的精美滚动条样式
                             '&::-webkit-scrollbar': {
                                 width: '8px',
+                                height: '8px',
                             },
                             '&::-webkit-scrollbar-track': {
-                                backgroundColor: 'action.hover',
+                                backgroundColor: (theme) => theme.palette.mode === 'dark' ? '#2d2d2d' : '#f1f3f4',
                                 borderRadius: '4px',
                             },
                             '&::-webkit-scrollbar-thumb': {
-                                backgroundColor: 'action.selected',
+                                backgroundColor: (theme) => theme.palette.mode === 'dark' ? '#30363d' : '#c1c8cd',
                                 borderRadius: '4px',
                                 '&:hover': {
-                                    backgroundColor: 'action.focus',
+                                    backgroundColor: (theme) => theme.palette.mode === 'dark' ? '#484f58' : '#a8b3ba',
                                 },
                             },
                             // Firefox 滚动条样式
                             scrollbarWidth: 'thin',
-                            scrollbarColor: 'action.selected action.hover',
+                            scrollbarColor: (theme) => theme.palette.mode === 'dark' ? '#30363d #2d2d2d' : '#c1c8cd #f1f3f4',
                         }}>
                             {this.messages.length === 0 ? (
                                 <Box p={2} textAlign="center">
