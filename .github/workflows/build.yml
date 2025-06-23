@@ -27,6 +27,16 @@ jobs:
           # Fetch all history so that `git` can determine the correct version
           fetch-depth: 0
 
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
       - name: Install UI dependencies
         if: startsWith(github.ref, 'refs/tags/v')
         run: (cd ui && yarn)
@@ -35,14 +45,14 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         run: make build-js
 
+      - name: Download Go modules
+        run: go mod download
+      
       - name: Run linter
         uses: golangci/golangci-lint-action@v6
         with:
           version: latest 
           args: --timeout=5m
-      
-      - name: Download Go modules
-        run: go mod download
 
       - name: Extract version from tag
         if: startsWith(github.ref, 'refs/tags/v')
