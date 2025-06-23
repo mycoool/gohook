@@ -24,7 +24,7 @@
   "nav": {
     "versions": "版本管理",
     "hooks": "WebHook",
-    "plugins": "插件",
+    "plugins": "插件", 
     "logs": "日志管理",
     "users": "用户",
     "settings": "设置",
@@ -369,6 +369,7 @@
       "custom": "自定义"
     },
     "startDate": "开始日期",
-    "endDate": "结束日期"
+    "endDate": "结束日期",
+    "clearFilters": "清除筛选"
   }
 } 

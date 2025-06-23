@@ -442,13 +442,13 @@ func HandleGetLogs(c *gin.Context) {
 
 	switch logType {
 	case "hook":
-		logs, total, err = logService.GetHookLogs(page, pageSize, "", "", "", success, startTime, endTime)
+		logs, total, err = logService.GetHookLogsForAPI(page, pageSize, "", "", "", success, startTime, endTime)
 	case "system":
-		logs, total, err = logService.GetSystemLogs(page, pageSize, level, category, user, startTime, endTime)
+		logs, total, err = logService.GetSystemLogsForAPI(page, pageSize, level, category, user, startTime, endTime)
 	case "user":
-		logs, total, err = logService.GetUserActivities(page, pageSize, user, "", success, startTime, endTime)
+		logs, total, err = logService.GetUserActivitiesForAPI(page, pageSize, user, "", success, startTime, endTime)
 	case "project":
-		logs, total, err = logService.GetProjectActivities(page, pageSize, project, "", user, success, startTime, endTime)
+		logs, total, err = logService.GetProjectActivitiesForAPI(page, pageSize, project, "", user, success, startTime, endTime)
 	default:
 		// 查询所有类型的日志（这里需要新的方法）
 		logs, total, err = logService.GetAllLogs(page, pageSize, level, search, startTime, endTime)

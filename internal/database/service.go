@@ -424,6 +424,11 @@ func (s *LogService) GetAllLogs(page, pageSize int, level, search string, startT
 
 	total := hookTotal + systemTotal + userTotal + projectTotal
 
+	// 如果没有数据，直接返回
+	if total == 0 {
+		return []map[string]interface{}{}, 0, nil
+	}
+
 	// 计算偏移量和限制
 	offset := (page - 1) * pageSize
 	limit := pageSize
@@ -455,9 +460,20 @@ func (s *LogService) GetAllLogs(page, pageSize int, level, search string, startT
 
 	// 按时间排序（最新的在前）
 	sort.Slice(allLogs, func(i, j int) bool {
-		timeI, _ := time.Parse(time.RFC3339, allLogs[i]["timestamp"].(time.Time).Format(time.RFC3339))
-		timeJ, _ := time.Parse(time.RFC3339, allLogs[j]["timestamp"].(time.Time).Format(time.RFC3339))
-		return timeI.After(timeJ)
+		timestampI, ok1 := allLogs[i]["timestamp"].(string)
+		timestampJ, ok2 := allLogs[j]["timestamp"].(string)
+		if !ok1 || !ok2 {
+			return false
+		}
+
+		// 解析RFC3339格式的时间字符串
+		timeI, errI := time.Parse(time.RFC3339, timestampI)
+		timeJ, errJ := time.Parse(time.RFC3339, timestampJ)
+		if errI != nil || errJ != nil {
+			return false
+		}
+
+		return timeI.After(timeJ) // 最新的在前
 	})
 
 	// 应用分页
@@ -574,7 +590,7 @@ func (s *LogService) getHookLogsAsInterfaceAll(search string, startTime, endTime
 		result = append(result, map[string]interface{}{
 			"id":         log.ID,
 			"type":       "hook",
-			"timestamp":  log.CreatedAt,
+			"timestamp":  log.CreatedAt.Format(time.RFC3339), // 确保时间格式正确
 			"message":    fmt.Sprintf("Hook %s executed", log.HookName),
 			"hookName":   log.HookName,
 			"hookType":   log.HookType,
@@ -617,7 +633,7 @@ func (s *LogService) getSystemLogsAsInterfaceAll(level, search string, startTime
 		result = append(result, map[string]interface{}{
 			"id":        log.ID,
 			"type":      "system",
-			"timestamp": log.CreatedAt,
+			"timestamp": log.CreatedAt.Format(time.RFC3339), // 确保时间格式正确
 			"level":     log.Level,
 			"category":  log.Category,
 			"message":   log.Message,
@@ -661,7 +677,7 @@ func (s *LogService) getUserActivitiesAsInterfaceAll(search string, startTime, e
 		result = append(result, map[string]interface{}{
 			"id":          activity.ID,
 			"type":        "user",
-			"timestamp":   activity.CreatedAt,
+			"timestamp":   activity.CreatedAt.Format(time.RFC3339), // 确保时间格式正确
 			"message":     message,
 			"username":    activity.Username,
 			"action":      activity.Action,
@@ -708,7 +724,7 @@ func (s *LogService) getProjectActivitiesAsInterfaceAll(search string, startTime
 		result = append(result, map[string]interface{}{
 			"id":          activity.ID,
 			"type":        "project",
-			"timestamp":   activity.CreatedAt,
+			"timestamp":   activity.CreatedAt.Format(time.RFC3339), // 确保时间格式正确
 			"message":     message,
 			"projectName": activity.ProjectName,
 			"action":      activity.Action,
@@ -783,4 +799,230 @@ func (s *LogService) ExportLogsToCSV(logType, level, search string, startTime, e
 	}
 
 	return csvData, nil
+}
+
+// API接口专用方法，返回统一格式的日志数据
+
+// GetHookLogsForAPI 获取Hook日志 - API专用版本
+func (s *LogService) GetHookLogsForAPI(page, pageSize int, hookID, hookName, hookType string, success *bool, startTime, endTime *time.Time) ([]map[string]interface{}, int64, error) {
+	query := s.db.Model(&HookLog{})
+	if hookID != "" {
+		query = query.Where("hook_id = ?", hookID)
+	}
+	if hookName != "" {
+		query = query.Where("hook_name LIKE ?", "%"+hookName+"%")
+	}
+	if hookType != "" {
+		query = query.Where("hook_type = ?", hookType)
+	}
+	if success != nil {
+		query = query.Where("success = ?", *success)
+	}
+	if startTime != nil {
+		query = query.Where("created_at >= ?", *startTime)
+	}
+	if endTime != nil {
+		query = query.Where("created_at <= ?", *endTime)
+	}
+
+	var total int64
+	err := query.Count(&total).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	var logs []HookLog
+	offset := (page - 1) * pageSize
+	err = query.Offset(offset).Limit(pageSize).Order("created_at DESC").Find(&logs).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	var result []map[string]interface{}
+	for _, log := range logs {
+		result = append(result, map[string]interface{}{
+			"id":         log.ID,
+			"type":       "hook",
+			"timestamp":  log.CreatedAt.Format(time.RFC3339),
+			"message":    fmt.Sprintf("Hook %s executed", log.HookName),
+			"hookName":   log.HookName,
+			"hookType":   log.HookType,
+			"method":     log.Method,
+			"remoteAddr": log.RemoteAddr,
+			"success":    log.Success,
+			"output":     log.Output,
+			"error":      log.Error,
+			"duration":   log.Duration,
+			"userAgent":  log.UserAgent,
+		})
+	}
+	return result, total, nil
+}
+
+// GetSystemLogsForAPI 获取系统日志 - API专用版本
+func (s *LogService) GetSystemLogsForAPI(page, pageSize int, level, category, userID string, startTime, endTime *time.Time) ([]map[string]interface{}, int64, error) {
+	query := s.db.Model(&SystemLog{})
+	if level != "" {
+		query = query.Where("level = ?", level)
+	}
+	if category != "" {
+		query = query.Where("category = ?", category)
+	}
+	if userID != "" {
+		query = query.Where("user_id = ?", userID)
+	}
+	if startTime != nil {
+		query = query.Where("created_at >= ?", *startTime)
+	}
+	if endTime != nil {
+		query = query.Where("created_at <= ?", *endTime)
+	}
+
+	var total int64
+	err := query.Count(&total).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	var logs []SystemLog
+	offset := (page - 1) * pageSize
+	err = query.Offset(offset).Limit(pageSize).Order("created_at DESC").Find(&logs).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	var result []map[string]interface{}
+	for _, log := range logs {
+		result = append(result, map[string]interface{}{
+			"id":        log.ID,
+			"type":      "system",
+			"timestamp": log.CreatedAt.Format(time.RFC3339),
+			"level":     log.Level,
+			"category":  log.Category,
+			"message":   log.Message,
+			"userId":    log.UserID,
+			"ipAddress": log.IPAddress,
+			"userAgent": log.UserAgent,
+			"details":   log.Details,
+		})
+	}
+	return result, total, nil
+}
+
+// GetUserActivitiesForAPI 获取用户活动 - API专用版本
+func (s *LogService) GetUserActivitiesForAPI(page, pageSize int, username, action string, success *bool, startTime, endTime *time.Time) ([]map[string]interface{}, int64, error) {
+	query := s.db.Model(&UserActivity{})
+	if username != "" {
+		query = query.Where("username LIKE ?", "%"+username+"%")
+	}
+	if action != "" {
+		query = query.Where("action = ?", action)
+	}
+	if success != nil {
+		query = query.Where("success = ?", *success)
+	}
+	if startTime != nil {
+		query = query.Where("created_at >= ?", *startTime)
+	}
+	if endTime != nil {
+		query = query.Where("created_at <= ?", *endTime)
+	}
+
+	var total int64
+	err := query.Count(&total).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	var activities []UserActivity
+	offset := (page - 1) * pageSize
+	err = query.Offset(offset).Limit(pageSize).Order("created_at DESC").Find(&activities).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	var result []map[string]interface{}
+	for _, activity := range activities {
+		message := activity.Description
+		if message == "" {
+			message = fmt.Sprintf("User %s performed %s", activity.Username, activity.Action)
+		}
+
+		result = append(result, map[string]interface{}{
+			"id":          activity.ID,
+			"type":        "user",
+			"timestamp":   activity.CreatedAt.Format(time.RFC3339),
+			"message":     message,
+			"username":    activity.Username,
+			"action":      activity.Action,
+			"resource":    activity.Resource,
+			"description": activity.Description,
+			"success":     activity.Success,
+			"ipAddress":   activity.IPAddress,
+			"userAgent":   activity.UserAgent,
+			"details":     activity.Details,
+		})
+	}
+	return result, total, nil
+}
+
+// GetProjectActivitiesForAPI 获取项目活动 - API专用版本
+func (s *LogService) GetProjectActivitiesForAPI(page, pageSize int, projectName, action, username string, success *bool, startTime, endTime *time.Time) ([]map[string]interface{}, int64, error) {
+	query := s.db.Model(&ProjectActivity{})
+	if projectName != "" {
+		query = query.Where("project_name LIKE ?", "%"+projectName+"%")
+	}
+	if action != "" {
+		query = query.Where("action = ?", action)
+	}
+	if username != "" {
+		query = query.Where("username = ?", username)
+	}
+	if success != nil {
+		query = query.Where("success = ?", *success)
+	}
+	if startTime != nil {
+		query = query.Where("created_at >= ?", *startTime)
+	}
+	if endTime != nil {
+		query = query.Where("created_at <= ?", *endTime)
+	}
+
+	var total int64
+	err := query.Count(&total).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	var activities []ProjectActivity
+	offset := (page - 1) * pageSize
+	err = query.Offset(offset).Limit(pageSize).Order("created_at DESC").Find(&activities).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	var result []map[string]interface{}
+	for _, activity := range activities {
+		message := activity.Description
+		if message == "" {
+			message = fmt.Sprintf("Project %s: %s", activity.ProjectName, activity.Action)
+		}
+
+		result = append(result, map[string]interface{}{
+			"id":          activity.ID,
+			"type":        "project",
+			"timestamp":   activity.CreatedAt.Format(time.RFC3339),
+			"message":     message,
+			"projectName": activity.ProjectName,
+			"action":      activity.Action,
+			"username":    activity.Username,
+			"success":     activity.Success,
+			"oldValue":    activity.OldValue,
+			"newValue":    activity.NewValue,
+			"commitHash":  activity.CommitHash,
+			"description": activity.Description,
+			"ipAddress":   activity.IPAddress,
+		})
+	}
+	return result, total, nil
 }

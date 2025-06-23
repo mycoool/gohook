@@ -24,7 +24,7 @@
   "nav": {
     "versions": "Versions",
     "hooks": "WebHooks",
-    "plugins": "Plugins",
+    "plugins": "Plugins", 
     "logs": "Logs",
     "users": "Users",
     "settings": "Settings",
@@ -369,6 +369,7 @@
       "custom": "Custom"
     },
     "startDate": "Start Date",
-    "endDate": "End Date"
+    "endDate": "End Date",
+    "clearFilters": "Clear Filters"
   }
 } 
