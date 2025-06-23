@@ -7,9 +7,10 @@ build
 hooks.json
 .env
 /ui/package-lock.json
+.cursor/
 
 # Logs
-logs
+/logs
 *.log
 npm-debug.log*
 yarn-debug.log*
