@@ -6,6 +6,7 @@ coverage
 build
 hooks.json
 .env
+.cursor/
 /ui/package-lock.json
 
 # Logs

@@ -30,6 +30,7 @@ import Messages from '../message/Messages';
 import RealtimeMessages from '../message/RealtimeMessages';
 import Users from '../user/Users';
 import Logs from '../logs/Logs';
+import Dashboard from '../dashboard/Dashboard';
 import {observer} from 'mobx-react';
 import {observable} from 'mobx';
 import {inject, Stores} from '../inject';
@@ -615,6 +616,11 @@ class Layout extends React.Component<Stores<'currentUser' | 'snackManager'>> {
                                                 React.createElement(Route as any, {
                                                     exact: true,
                                                     path: '/',
+                                                    component: Dashboard,
+                                                }),
+                                                React.createElement(Route as any, {
+                                                    exact: true,
+                                                    path: '/messages',
                                                     component: Messages,
                                                 }),
                                                 React.createElement(Route as any, {

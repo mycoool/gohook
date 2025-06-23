@@ -22,6 +22,8 @@
     "close": "Close"
   },
   "nav": {
+    "dashboard": "Dashboard",
+    "messages": "Messages",
     "versions": "Versions",
     "hooks": "WebHooks",
     "plugins": "Plugins", 

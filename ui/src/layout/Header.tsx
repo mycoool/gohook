@@ -16,6 +16,8 @@ import Link from '@mui/icons-material/Link';
 
 import AccountTree from '@mui/icons-material/AccountTree';
 import History from '@mui/icons-material/History';
+import Dashboard from '@mui/icons-material/Dashboard';
+import Message from '@mui/icons-material/Message';
 import React, {Component, CSSProperties} from 'react';
 import {Link as RouterLink} from 'react-router-dom';
 import {observer} from 'mobx-react';
@@ -197,6 +199,24 @@ class Header extends Component<IProps> {
                         color="inherit"
                     />
                 )}
+                <StyledLink to="/" id="navigate-dashboard">
+                    <ResponsiveButtonWithTranslation
+                        icon={<Dashboard />}
+                        translationKey="nav.dashboard"
+                        fallbackLabel="dashboard"
+                        width={width}
+                        color="inherit"
+                    />
+                </StyledLink>
+                <StyledLink to="/messages" id="navigate-messages">
+                    <ResponsiveButtonWithTranslation
+                        icon={<Message />}
+                        translationKey="nav.messages"
+                        fallbackLabel="messages"
+                        width={width}
+                        color="inherit"
+                    />
+                </StyledLink>
                 <StyledLink to="/versions" id="navigate-versions">
                     <ResponsiveButtonWithTranslation
                         icon={<AccountTree />}

@@ -114,9 +114,9 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
                 if (githookMsg.success) {
                     return githookMsg.skipped ? (
                         <InfoIcon sx={{ color: '#ff9800', fontSize: '1.5rem' }} />
-                    ) : (
+                ) : (
                         <SuccessIcon sx={{ color: '#4caf50', fontSize: '1.5rem' }} />
-                    );
+                );
                 } else {
                     return <ErrorIcon sx={{ color: '#f44336', fontSize: '1.5rem' }} />;
                 }
@@ -296,7 +296,7 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
                 if (success && githookMsg.skipped) {
                     label = '跳过';
                 } else {
-                    label = success ? '成功' : '失败';
+                label = success ? '成功' : '失败';
                 }
                 break;
             }
