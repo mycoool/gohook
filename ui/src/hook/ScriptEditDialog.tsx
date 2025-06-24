@@ -23,7 +23,7 @@ import {
 import {inject, Stores} from '../inject';
 import {observer} from 'mobx-react';
 import Editor from 'react-simple-code-editor';
-import { createTheme } from '@mui/material/styles';
+import {createTheme} from '@mui/material/styles';
 import Prism from 'prismjs';
 import 'prismjs/components/prism-bash';
 import 'prismjs/components/prism-javascript';
@@ -124,27 +124,31 @@ type ScriptType = 'bash' | 'javascript' | 'python';
 // 检测脚本类型
 const detectScriptType = (content: string): ScriptType => {
     const trimmedContent = content.trim();
-    
+
     // 检测 Python
-    if (trimmedContent.startsWith('#!/usr/bin/env python') || 
+    if (
+        trimmedContent.startsWith('#!/usr/bin/env python') ||
         trimmedContent.startsWith('#!/usr/bin/python') ||
-        trimmedContent.includes('import ') || 
-        trimmedContent.includes('def ') || 
+        trimmedContent.includes('import ') ||
+        trimmedContent.includes('def ') ||
         trimmedContent.includes('if __name__ == "__main__"') ||
-        trimmedContent.includes('print(')) {
+        trimmedContent.includes('print(')
+    ) {
         return 'python';
     }
-    
+
     // 检测 JavaScript
-    if (trimmedContent.includes('function') || 
-        trimmedContent.includes('=>') || 
-        trimmedContent.includes('const ') || 
+    if (
+        trimmedContent.includes('function') ||
+        trimmedContent.includes('=>') ||
+        trimmedContent.includes('const ') ||
         trimmedContent.includes('let ') ||
         trimmedContent.includes('var ') ||
-        trimmedContent.includes('console.log')) {
+        trimmedContent.includes('console.log')
+    ) {
         return 'javascript';
     }
-    
+
     // 默认为 bash
     return 'bash';
 };
@@ -156,7 +160,7 @@ const escapeHtml = (text: string) => {
         '<': '&lt;',
         '>': '&gt;',
         '"': '&quot;',
-        "'": '&#039;'
+        "'": '&#039;',
     };
     return text.replace(/[&<>"']/g, (m) => map[m]);
 };
@@ -364,14 +368,22 @@ def main():
     sys.exit(0 if success else 1)
 
 if __name__ == "__main__":
-    main()`
+    main()`,
 };
 
 interface IProps {
     open: boolean;
     hookId: string;
     onClose: () => void;
-    onGetScript: (hookId: string) => Promise<{content: string; exists: boolean; path: string; isExecutable?: boolean; editable?: boolean; message?: string; suggestion?: string}>;
+    onGetScript: (hookId: string) => Promise<{
+        content: string;
+        exists: boolean;
+        path: string;
+        isExecutable?: boolean;
+        editable?: boolean;
+        message?: string;
+        suggestion?: string;
+    }>;
     onSaveScript: (hookId: string, content: string, path?: string) => Promise<void>;
     onUpdateExecuteCommand: (hookId: string, executeCommand: string) => Promise<void>;
     onGetHookDetails: (hookId: string) => Promise<any>;
@@ -407,20 +419,26 @@ interface IState {
 @observer
 class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState> {
     private theme = createTheme({
-        palette: { mode: 'dark' },
+        palette: {mode: 'dark'},
         custom: {
             colors: {
-                primary: { darkGray: '#2c2c2c' },
-                background: { white: '#424242' },
-                border: { contrast: '#555555', light: '#616161' },
-                text: { onDark: '#e0e0e0' },
-                status: { info: { background: '#2c2c2c', border: '#555555', text: '#e0e0e0' } },
-                interactive: { 
-                    button: { command: '#616161', script: '#424242' },
-                    code: { background: '#2c2c2c', text: '#e0e0e0', padding: '2px 6px', borderRadius: 4, fontSize: '0.875rem' }
-                }
-            }
-        }
+                primary: {darkGray: '#2c2c2c'},
+                background: {white: '#424242'},
+                border: {contrast: '#555555', light: '#616161'},
+                text: {onDark: '#e0e0e0'},
+                status: {info: {background: '#2c2c2c', border: '#555555', text: '#e0e0e0'}},
+                interactive: {
+                    button: {command: '#616161', script: '#424242'},
+                    code: {
+                        background: '#2c2c2c',
+                        text: '#e0e0e0',
+                        padding: '2px 6px',
+                        borderRadius: 4,
+                        fontSize: '0.875rem',
+                    },
+                },
+            },
+        },
     } as any);
     state: IState = {
         scriptContent: '',
@@ -459,13 +477,13 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
         try {
             const [scriptResult, hookDetails] = await Promise.all([
                 this.props.onGetScript(this.props.hookId),
-                this.props.onGetHookDetails(this.props.hookId)
+                this.props.onGetHookDetails(this.props.hookId),
             ]);
-            
+
             // 设置默认的脚本名称和工作目录
             const defaultScriptName = this.props.hookId;
             const defaultWorkingDirectory = hookDetails['command-working-directory'] || '/tmp';
-            
+
             // 检查是否不可编辑（可执行文件）
             if (scriptResult.editable === false || scriptResult.isExecutable === true) {
                 this.setState({
@@ -489,7 +507,7 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
                 });
                 return;
             }
-            
+
             if (scriptResult.exists && scriptResult.content) {
                 const scriptType = detectScriptType(scriptResult.content);
                 this.setState({
@@ -568,23 +586,33 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
     handleSave = async () => {
         try {
             // 如果是创建新脚本模式，传递脚本路径；否则不传递路径
-            const scriptPath = (this.state.scriptCreationStage === 'editing' && !this.state.isEditMode && this.state.scriptPath) 
-                ? this.state.scriptPath 
-                : undefined;
-            
+            const scriptPath =
+                this.state.scriptCreationStage === 'editing' &&
+                !this.state.isEditMode &&
+                this.state.scriptPath
+                    ? this.state.scriptPath
+                    : undefined;
+
             await this.props.onSaveScript(this.props.hookId, this.state.scriptContent, scriptPath);
-            
+
             // 如果是从设置阶段创建的脚本，需要同时更新Hook的execute-command
-            if (this.state.scriptCreationStage === 'editing' && !this.state.isEditMode && this.state.scriptPath) {
+            if (
+                this.state.scriptCreationStage === 'editing' &&
+                !this.state.isEditMode &&
+                this.state.scriptPath
+            ) {
                 try {
-                    await this.props.onUpdateExecuteCommand(this.props.hookId, this.state.scriptPath);
+                    await this.props.onUpdateExecuteCommand(
+                        this.props.hookId,
+                        this.state.scriptPath
+                    );
                 } catch (error) {
                     // 如果更新execute-command失败，只显示警告，不阻止脚本保存
                     this.props.snackManager.snack('脚本保存成功，但更新执行命令失败，请手动配置');
                     return;
                 }
             }
-            
+
             this.props.snackManager.snack('脚本文件保存成功');
             this.setState({
                 originalScriptContent: this.state.scriptContent,
@@ -634,7 +662,7 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
                 originalExecuteCommand: this.state.executeCommand,
                 errors: [],
             });
-            
+
             // 在命令模式下，不需要重新加载脚本状态，避免界面跳转
             // 只有在脚本模式下才需要重新加载脚本内容
             if (this.state.editMode === 'script') {
@@ -677,17 +705,17 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
         const extensions = {
             bash: '.sh',
             javascript: '.js',
-            python: '.py'
+            python: '.py',
         };
         return extensions[scriptType];
     };
 
     handleConfirmScriptSetup = () => {
         const {scriptName, scriptType, scriptWorkingDirectory, selectedTemplate} = this.state;
-        
+
         if (!scriptName.trim()) {
             this.setState({
-                errors: ['请输入脚本名称']
+                errors: ['请输入脚本名称'],
             });
             return;
         }
@@ -695,8 +723,8 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
         // 生成完整的脚本路径
         const extension = this.getFileExtension(scriptType);
         const fileName = scriptName.endsWith(extension) ? scriptName : scriptName + extension;
-        const fullPath = scriptWorkingDirectory.endsWith('/') 
-            ? scriptWorkingDirectory + fileName 
+        const fullPath = scriptWorkingDirectory.endsWith('/')
+            ? scriptWorkingDirectory + fileName
             : scriptWorkingDirectory + '/' + fileName;
 
         // 根据模板生成初始内容
@@ -715,32 +743,32 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
     render() {
         const {open, hookId} = this.props;
         const {
-            scriptContent, 
-            hasScript, 
-            errors, 
-            scriptType, 
-            selectedTemplate, 
-            isEditMode, 
-            editable, 
-            message, 
-            suggestion, 
+            scriptContent,
+            hasScript,
+            errors,
+            scriptType,
+            selectedTemplate,
+            isEditMode,
+            editable,
+            message,
+            suggestion,
             isExecutable,
             editMode,
             executeCommand,
-            originalExecuteCommand
+            originalExecuteCommand,
         } = this.state;
 
         // 根据编辑模式和内容类型确定显示格式
         const getFormatDisplay = () => {
             if (editMode === 'executable') {
-                return { label: '命令', color: this.theme.custom.colors.interactive.button.command };
+                return {label: '命令', color: this.theme.custom.colors.interactive.button.command};
             } else if (hasScript || scriptContent) {
-                return { label: '脚本', color: this.theme.custom.colors.interactive.button.script };
+                return {label: '脚本', color: this.theme.custom.colors.interactive.button.script};
             } else {
-                return { label: '脚本', color: this.theme.custom.colors.interactive.button.script };
+                return {label: '脚本', color: this.theme.custom.colors.interactive.button.script};
             }
         };
-        
+
         const formatDisplay = getFormatDisplay();
         const formatIndicator = scriptType.toUpperCase();
 
@@ -769,323 +797,446 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
 
         return (
             <>
-            <Dialog
-                open={open}
-                onClose={this.handleClose}
-                maxWidth="md"
-                fullWidth
-                scroll="paper"
-                PaperProps={{
-                    style: {
-                        maxHeight: '85vh',
-                        height: 'auto',
-                        color: isDarkTheme ? '#ffffff' : '#000000',
-                    },
-                }}>
-                <DialogTitle>
-                    <Box display="flex" alignItems="center" justifyContent="space-between">
-                        <span>
-                                {editMode === 'executable' ? '执行命令配置' : (isEditMode ? '编辑脚本文件' : '创建脚本文件')} - {hookId}
-                        </span>
+                <Dialog
+                    open={open}
+                    onClose={this.handleClose}
+                    maxWidth="md"
+                    fullWidth
+                    scroll="paper"
+                    PaperProps={{
+                        style: {
+                            maxHeight: '85vh',
+                            height: 'auto',
+                            color: isDarkTheme ? '#ffffff' : '#000000',
+                        },
+                    }}>
+                    <DialogTitle>
+                        <Box display="flex" alignItems="center" justifyContent="space-between">
+                            <span>
+                                {editMode === 'executable'
+                                    ? '执行命令配置'
+                                    : isEditMode
+                                    ? '编辑脚本文件'
+                                    : '创建脚本文件'}{' '}
+                                - {hookId}
+                            </span>
                             <Chip
                                 label={formatDisplay.label}
                                 style={{backgroundColor: formatDisplay.color, color: 'white'}}
                                 size="small"
                             />
-                    </Box>
-                </DialogTitle>
-                <DialogContent style={{paddingBottom: 0, overflow: 'visible'}}>
+                        </Box>
+                    </DialogTitle>
+                    <DialogContent style={{paddingBottom: 0, overflow: 'visible'}}>
+                        {editMode === 'executable' ? (
+                            // 可执行文件模式
+                            <Box>
+                                <Typography variant="h6" gutterBottom>
+                                    ⚙️ 执行命令配置
+                                </Typography>
+                                <Typography variant="body2" color="textSecondary" gutterBottom>
+                                    配置要执行的命令或可执行文件路径，支持添加参数和选项
+                                </Typography>
 
-                    {editMode === 'executable' ? (
-                        // 可执行文件模式
-                        <Box>
-                            <Typography variant="h6" gutterBottom>
-                                ⚙️ 执行命令配置
-                            </Typography>
-                            <Typography variant="body2" color="textSecondary" gutterBottom>
-                                配置要执行的命令或可执行文件路径，支持添加参数和选项
-                            </Typography>
-                            
-                            <TextField
-                                fullWidth
-                                label="执行命令"
-                                value={executeCommand}
-                                onChange={(e) => this.handleExecuteCommandChange(e.target.value)}
-                                placeholder="例如: /bin/echo hello 或 /usr/bin/python3 /path/to/script.py"
-                                variant="outlined"
-                                size="small"
-                                style={{ marginBottom: 16 }}
-                                multiline
-                                rows={2}
-                            />
+                                <TextField
+                                    fullWidth
+                                    label="执行命令"
+                                    value={executeCommand}
+                                    onChange={(e) =>
+                                        this.handleExecuteCommandChange(e.target.value)
+                                    }
+                                    placeholder="例如: /bin/echo hello 或 /usr/bin/python3 /path/to/script.py"
+                                    variant="outlined"
+                                    size="small"
+                                    style={{marginBottom: 16}}
+                                    multiline
+                                    rows={2}
+                                />
 
-                            <Box mb={2} p={2} style={{
+                                <Box
+                                    mb={2}
+                                    p={2}
+                                    style={{
+                                        backgroundColor: '#2c2c2c',
+                                        border: '1px solid #555555',
+                                        borderRadius: 4,
+                                    }}>
+                                    <Typography
+                                        variant="subtitle2"
+                                        style={{marginBottom: 8, color: '#e0e0e0'}}>
+                                        💡 使用示例：
+                                    </Typography>
+                                    <Typography
+                                        variant="body2"
+                                        style={{
+                                            marginBottom: 4,
+                                            fontFamily: 'monospace',
+                                            color: '#e0e0e0',
+                                        }}>
+                                        •{' '}
+                                        <code style={getCodeStyle(this.theme)}>
+                                            /bin/echo &quot;Hello World&quot;
+                                        </code>{' '}
+                                        - 输出文本
+                                    </Typography>
+                                    <Typography
+                                        variant="body2"
+                                        style={{
+                                            marginBottom: 4,
+                                            fontFamily: 'monospace',
+                                            color: '#e0e0e0',
+                                        }}>
+                                        •{' '}
+                                        <code style={getCodeStyle(this.theme)}>
+                                            /usr/bin/curl -X POST https://api.example.com/webhook
+                                        </code>{' '}
+                                        - 发送HTTP请求
+                                    </Typography>
+                                    <Typography
+                                        variant="body2"
+                                        style={{
+                                            marginBottom: 4,
+                                            fontFamily: 'monospace',
+                                            color: '#e0e0e0',
+                                        }}>
+                                        •{' '}
+                                        <code style={getCodeStyle(this.theme)}>
+                                            /usr/bin/python3 /path/to/your-script.py
+                                        </code>{' '}
+                                        - 执行Python脚本
+                                    </Typography>
+                                    <Typography
+                                        variant="body2"
+                                        style={{fontFamily: 'monospace', color: '#e0e0e0'}}>
+                                        •{' '}
+                                        <code style={getCodeStyle(this.theme)}>
+                                            /bin/bash /path/to/your-script.sh
+                                        </code>{' '}
+                                        - 执行Bash脚本
+                                    </Typography>
+                                </Box>
+
+                                {message && (
+                                    <Box
+                                        mb={2}
+                                        p={2}
+                                        style={{
+                                            backgroundColor: '#2c2c2c',
+                                            border: '1px solid #555555',
+                                            borderRadius: 4,
+                                            color: '#e0e0e0',
+                                        }}>
+                                        <Typography variant="body2">
+                                            <strong>💡 提示:</strong> {message}
+                                        </Typography>
+                                    </Box>
+                                )}
+                            </Box>
+                        ) : (
+                            // 脚本文件模式
+                            <Box>
+                                {this.state.scriptCreationStage === 'setup' ? (
+                                    // 脚本设置阶段
+                                    <Box>
+                                        <Typography variant="h6" gutterBottom>
+                                            📝 创建新脚本文件
+                                        </Typography>
+                                        <Typography
+                                            variant="body2"
+                                            color="textSecondary"
+                                            gutterBottom>
+                                            请配置脚本文件的基本信息
+                                        </Typography>
+
+                                        <Paper
+                                            elevation={1}
+                                            style={{padding: 16, marginBottom: 16}}>
+                                            <Box mb={2}>
+                                                <TextField
+                                                    fullWidth
+                                                    label="脚本名称"
+                                                    value={this.state.scriptName}
+                                                    onChange={(e) =>
+                                                        this.handleScriptNameChange(e.target.value)
+                                                    }
+                                                    placeholder="例如: webhook-handler"
+                                                    variant="outlined"
+                                                    size="small"
+                                                    helperText="不需要包含文件扩展名，会根据选择的类型自动添加"
+                                                />
+                                            </Box>
+                                            <Box mb={2}>
+                                                <TextField
+                                                    fullWidth
+                                                    label="保存目录"
+                                                    value={this.state.scriptWorkingDirectory}
+                                                    onChange={(e) =>
+                                                        this.handleScriptWorkingDirectoryChange(
+                                                            e.target.value
+                                                        )
+                                                    }
+                                                    variant="outlined"
+                                                    size="small"
+                                                    helperText="脚本文件将保存到此目录"
+                                                />
+                                            </Box>
+                                            <Box mb={2}>
+                                                <FormControl
+                                                    fullWidth
+                                                    variant="outlined"
+                                                    size="small">
+                                                    <InputLabel>脚本类型和模板</InputLabel>
+                                                    <Select
+                                                        value={this.state.selectedTemplate}
+                                                        onChange={this.handleTemplateChangeInSetup}
+                                                        label="脚本类型和模板">
+                                                        <MenuItem value="empty">
+                                                            空白 Bash 脚本 (.sh)
+                                                        </MenuItem>
+                                                        <MenuItem value="bash_simple">
+                                                            简单 Bash 脚本 (.sh)
+                                                        </MenuItem>
+                                                        <MenuItem value="bash_git_deploy">
+                                                            Git 部署脚本 (.sh)
+                                                        </MenuItem>
+                                                        <MenuItem value="javascript_simple">
+                                                            简单 JavaScript 脚本 (.js)
+                                                        </MenuItem>
+                                                        <MenuItem value="javascript_webhook_handler">
+                                                            Webhook 处理脚本 (.js)
+                                                        </MenuItem>
+                                                        <MenuItem value="python_simple">
+                                                            简单 Python 脚本 (.py)
+                                                        </MenuItem>
+                                                        <MenuItem value="python_webhook_handler">
+                                                            Python Webhook 处理脚本 (.py)
+                                                        </MenuItem>
+                                                    </Select>
+                                                </FormControl>
+                                            </Box>
+
+                                            {/* 预览生成的路径 */}
+                                            <Box
+                                                mt={2}
+                                                p={1}
+                                                style={{
+                                                    backgroundColor: '#2c2c2c',
+                                                    borderRadius: 4,
+                                                    border: '1px solid #555555',
+                                                }}>
+                                                <Typography
+                                                    variant="body2"
+                                                    style={{color: '#e0e0e0'}}>
+                                                    <strong>生成的文件路径:</strong>
+                                                </Typography>
+                                                <Typography
+                                                    variant="body2"
+                                                    style={{
+                                                        fontFamily: 'monospace',
+                                                        marginTop: 4,
+                                                        color: '#bdbdbd',
+                                                    }}>
+                                                    {this.state.scriptWorkingDirectory}
+                                                    {this.state.scriptWorkingDirectory.endsWith('/')
+                                                        ? ''
+                                                        : '/'}
+                                                    {this.state.scriptName}
+                                                    {this.state.scriptName &&
+                                                        this.getFileExtension(
+                                                            this.state.scriptType
+                                                        )}
+                                                </Typography>
+                                            </Box>
+                                        </Paper>
+                                    </Box>
+                                ) : (
+                                    // 脚本编辑阶段
+                                    <Box>
+                                        <Typography variant="h6" gutterBottom>
+                                            📄 脚本文件编辑
+                                        </Typography>
+
+                                        {/* 模板选择器 - 仅在创建模式显示 */}
+                                        {!isEditMode && (
+                                            <Box mb={2}>
+                                                <FormControl
+                                                    fullWidth
+                                                    variant="outlined"
+                                                    size="small">
+                                                    <InputLabel>选择模板</InputLabel>
+                                                    <Select
+                                                        value={selectedTemplate}
+                                                        onChange={this.handleTemplateChange}
+                                                        label="选择模板">
+                                                        <MenuItem value="empty">空白</MenuItem>
+                                                        <MenuItem value="bash_simple">
+                                                            简单 Bash 脚本
+                                                        </MenuItem>
+                                                        <MenuItem value="bash_git_deploy">
+                                                            Git 部署脚本
+                                                        </MenuItem>
+                                                        <MenuItem value="javascript_simple">
+                                                            简单 JavaScript 脚本
+                                                        </MenuItem>
+                                                        <MenuItem value="javascript_webhook_handler">
+                                                            Webhook 处理脚本
+                                                        </MenuItem>
+                                                        <MenuItem value="python_simple">
+                                                            简单 Python 脚本
+                                                        </MenuItem>
+                                                        <MenuItem value="python_webhook_handler">
+                                                            Python Webhook 处理脚本
+                                                        </MenuItem>
+                                                    </Select>
+                                                </FormControl>
+                                                <Typography
+                                                    variant="caption"
+                                                    color="textSecondary"
+                                                    style={{display: 'block', marginTop: '8px'}}>
+                                                    选择模板将自动填充内容到编辑器中
+                                                </Typography>
+                                            </Box>
+                                        )}
+
+                                        {/* 语法高亮编辑器 */}
+                                        <Box
+                                            mb={2}
+                                            style={editorContainerStyle}
+                                            className={isDarkTheme ? 'prism-dark' : 'prism-light'}>
+                                            <Editor
+                                                value={scriptContent}
+                                                onValueChange={this.handleContentChange}
+                                                highlight={(code) =>
+                                                    highlightScript(code, scriptType, isDarkTheme)
+                                                }
+                                                padding={16}
+                                                style={editorStyles}
+                                                textareaId="script-editor"
+                                                placeholder={
+                                                    !isEditMode
+                                                        ? `# ${formatIndicator} 脚本内容\n\n# 选择上方模板快速开始`
+                                                        : `# ${formatIndicator} 脚本文件`
+                                                }
+                                            />
+                                        </Box>
+
+                                        {/* 脚本文件信息 */}
+                                        <Box mt={2} mb={1}>
+                                            <Typography variant="body2" color="textSecondary">
+                                                脚本文件路径:{' '}
+                                                <code
+                                                    style={{
+                                                        backgroundColor: '#2c2c2c',
+                                                        color: '#e0e0e0',
+                                                        padding: '2px 6px',
+                                                        borderRadius: 4,
+                                                        fontSize: '0.875rem',
+                                                    }}>
+                                                    {this.state.scriptPath || '未知路径'}
+                                                </code>
+                                            </Typography>
+                                            {!isEditMode && !scriptContent && (
+                                                <Typography
+                                                    variant="body2"
+                                                    color="primary"
+                                                    style={{marginTop: '8px'}}>
+                                                    💡 提示：选择上方模板可快速开始配置脚本
+                                                </Typography>
+                                            )}
+                                        </Box>
+                                    </Box>
+                                )}
+                            </Box>
+                        )}
+
+                        {/* 错误显示 */}
+                        {errors.length > 0 && (
+                            <Box mt={2}>
+                                <Typography variant="subtitle2" color="error">
+                                    验证错误：
+                                </Typography>
+                                {errors.map((error, index) => (
+                                    <Typography key={index} variant="body2" color="error">
+                                        • {error}
+                                    </Typography>
+                                ))}
+                            </Box>
+                        )}
+                    </DialogContent>
+                    <DialogActions style={{paddingLeft: 24, paddingRight: 24}}>
+                        {/* 左侧：模式切换 */}
+                        <ToggleButtonGroup
+                            value={editMode}
+                            exclusive
+                            onChange={(e, newMode) => newMode && this.handleModeSwitch(newMode)}
+                            size="small"
+                            style={{
                                 backgroundColor: '#2c2c2c',
-                                border: '1px solid #555555',
                                 borderRadius: 4,
                             }}>
-                                <Typography variant="subtitle2" style={{marginBottom: 8, color: '#e0e0e0'}}>
-                                    💡 使用示例：
-                                </Typography>
-                                <Typography variant="body2" style={{marginBottom: 4, fontFamily: 'monospace', color: '#e0e0e0'}}>
-                                    • <code style={getCodeStyle(this.theme)}>/bin/echo &quot;Hello World&quot;</code> - 输出文本
-                                </Typography>
-                                <Typography variant="body2" style={{marginBottom: 4, fontFamily: 'monospace', color: '#e0e0e0'}}>
-                                    • <code style={getCodeStyle(this.theme)}>/usr/bin/curl -X POST https://api.example.com/webhook</code> - 发送HTTP请求
-                                </Typography>
-                                <Typography variant="body2" style={{marginBottom: 4, fontFamily: 'monospace', color: '#e0e0e0'}}>
-                                    • <code style={getCodeStyle(this.theme)}>/usr/bin/python3 /path/to/your-script.py</code> - 执行Python脚本
-                                </Typography>
-                                <Typography variant="body2" style={{fontFamily: 'monospace', color: '#e0e0e0'}}>
-                                    • <code style={getCodeStyle(this.theme)}>/bin/bash /path/to/your-script.sh</code> - 执行Bash脚本
-                                </Typography>
-                            </Box>
-
-                            {message && (
-                                <Box mb={2} p={2} style={{
-                                    backgroundColor: '#2c2c2c',
+                            <ToggleButton
+                                value="executable"
+                                style={{
+                                    backgroundColor:
+                                        editMode === 'executable' ? '#616161' : 'transparent',
+                                    color: editMode === 'executable' ? '#ffffff' : '#e0e0e0',
                                     border: '1px solid #555555',
-                                    borderRadius: 4,
-                                    color: '#e0e0e0'
+                                    minWidth: '60px',
                                 }}>
-                                    <Typography variant="body2">
-                                        <strong>💡 提示:</strong> {message}
-                                    </Typography>
-                                </Box>
-                            )}
+                                命令
+                            </ToggleButton>
+                            <ToggleButton
+                                value="script"
+                                style={{
+                                    backgroundColor:
+                                        editMode === 'script' ? '#424242' : 'transparent',
+                                    color: editMode === 'script' ? '#ffffff' : '#e0e0e0',
+                                    border: '1px solid #555555',
+                                    minWidth: '60px',
+                                }}>
+                                脚本
+                            </ToggleButton>
+                        </ToggleButtonGroup>
+
+                        <Box flexGrow={1} />
+
+                        {/* 右侧：操作按钮组 */}
+                        <Box display="flex" gap={1}>
+                            <Button onClick={this.handleClose} variant="outlined" color="secondary">
+                                关闭
+                            </Button>
                         </Box>
-                    ) : (
-                        // 脚本文件模式
-                        <Box>
-                            {this.state.scriptCreationStage === 'setup' ? (
-                                // 脚本设置阶段
-                                <Box>
-                                    <Typography variant="h6" gutterBottom>
-                                        📝 创建新脚本文件
-                                    </Typography>
-                                    <Typography variant="body2" color="textSecondary" gutterBottom>
-                                        请配置脚本文件的基本信息
-                                    </Typography>
 
-                                    <Paper elevation={1} style={{ padding: 16, marginBottom: 16 }}>
-                                        <Box mb={2}>
-                                            <TextField
-                                                fullWidth
-                                                label="脚本名称"
-                                                value={this.state.scriptName}
-                                                onChange={(e) => this.handleScriptNameChange(e.target.value)}
-                                                placeholder="例如: webhook-handler"
-                                                variant="outlined"
-                                                size="small"
-                                                helperText="不需要包含文件扩展名，会根据选择的类型自动添加"
-                                            />
-                                        </Box>
-                                        <Box mb={2}>
-                                            <TextField
-                                                fullWidth
-                                                label="保存目录"
-                                                value={this.state.scriptWorkingDirectory}
-                                                onChange={(e) => this.handleScriptWorkingDirectoryChange(e.target.value)}
-                                                variant="outlined"
-                                                size="small"
-                                                helperText="脚本文件将保存到此目录"
-                                            />
-                                        </Box>
-                                        <Box mb={2}>
-                                            <FormControl fullWidth variant="outlined" size="small">
-                                                <InputLabel>脚本类型和模板</InputLabel>
-                                                <Select
-                                                    value={this.state.selectedTemplate}
-                                                    onChange={this.handleTemplateChangeInSetup}
-                                                    label="脚本类型和模板">
-                                                    <MenuItem value="empty">空白 Bash 脚本 (.sh)</MenuItem>
-                                                    <MenuItem value="bash_simple">简单 Bash 脚本 (.sh)</MenuItem>
-                                                    <MenuItem value="bash_git_deploy">Git 部署脚本 (.sh)</MenuItem>
-                                                    <MenuItem value="javascript_simple">简单 JavaScript 脚本 (.js)</MenuItem>
-                                                    <MenuItem value="javascript_webhook_handler">Webhook 处理脚本 (.js)</MenuItem>
-                                                    <MenuItem value="python_simple">简单 Python 脚本 (.py)</MenuItem>
-                                                    <MenuItem value="python_webhook_handler">Python Webhook 处理脚本 (.py)</MenuItem>
-                                                </Select>
-                                            </FormControl>
-                                        </Box>
-
-                                        {/* 预览生成的路径 */}
-                                        <Box mt={2} p={1} style={{
-                                            backgroundColor: '#2c2c2c',
-                                            borderRadius: 4,
-                                            border: '1px solid #555555'
-                                        }}>
-                                            <Typography variant="body2" style={{ color: '#e0e0e0' }}>
-                                                <strong>生成的文件路径:</strong>
-                                            </Typography>
-                                            <Typography variant="body2" style={{ 
-                                                fontFamily: 'monospace', 
-                                                marginTop: 4,
-                                                color: '#bdbdbd'
-                                            }}>
-                                                {this.state.scriptWorkingDirectory}
-                                                {this.state.scriptWorkingDirectory.endsWith('/') ? '' : '/'}
-                                                {this.state.scriptName}
-                                                {this.state.scriptName && this.getFileExtension(this.state.scriptType)}
-                                            </Typography>
-                                        </Box>
-                                    </Paper>
-                                </Box>
-                            ) : (
-                                // 脚本编辑阶段
-                                <Box>
-                                    <Typography variant="h6" gutterBottom>
-                                        📄 脚本文件编辑
-                                    </Typography>
-                                    
-                    {/* 模板选择器 - 仅在创建模式显示 */}
-                    {!isEditMode && (
-                        <Box mb={2}>
-                            <FormControl fullWidth variant="outlined" size="small">
-                                <InputLabel>选择模板</InputLabel>
-                                <Select
-                                    value={selectedTemplate}
-                                    onChange={this.handleTemplateChange}
-                                    label="选择模板">
-                                    <MenuItem value="empty">空白</MenuItem>
-                                    <MenuItem value="bash_simple">简单 Bash 脚本</MenuItem>
-                                    <MenuItem value="bash_git_deploy">Git 部署脚本</MenuItem>
-                                    <MenuItem value="javascript_simple">简单 JavaScript 脚本</MenuItem>
-                                    <MenuItem value="javascript_webhook_handler">Webhook 处理脚本</MenuItem>
-                                                    <MenuItem value="python_simple">简单 Python 脚本</MenuItem>
-                                                    <MenuItem value="python_webhook_handler">Python Webhook 处理脚本</MenuItem>
-                                </Select>
-                            </FormControl>
-                            <Typography
-                                variant="caption"
-                                color="textSecondary"
-                                style={{display: 'block', marginTop: '8px'}}>
-                                选择模板将自动填充内容到编辑器中
-                            </Typography>
-                        </Box>
-                    )}
-
-                    {/* 语法高亮编辑器 */}
-                    <Box
-                        mb={2}
-                        style={editorContainerStyle}
-                        className={isDarkTheme ? 'prism-dark' : 'prism-light'}>
-                        <Editor
-                            value={scriptContent}
-                            onValueChange={this.handleContentChange}
-                            highlight={(code) => highlightScript(code, scriptType, isDarkTheme)}
-                            padding={16}
-                            style={editorStyles}
-                            textareaId="script-editor"
-                            placeholder={
-                                !isEditMode
-                                    ? `# ${formatIndicator} 脚本内容\n\n# 选择上方模板快速开始`
-                                    : `# ${formatIndicator} 脚本文件`
-                            }
-                        />
-                    </Box>
-
-                                    {/* 脚本文件信息 */}
-                                    <Box mt={2} mb={1}>
-                                        <Typography variant="body2" color="textSecondary">
-                                            脚本文件路径: <code style={{backgroundColor: '#2c2c2c', color: '#e0e0e0', padding: '2px 6px', borderRadius: 4, fontSize: '0.875rem'}}>{this.state.scriptPath || '未知路径'}</code>
-                                        </Typography>
-                                        {!isEditMode && !scriptContent && (
-                                            <Typography variant="body2" color="primary" style={{marginTop: '8px'}}>
-                                                💡 提示：选择上方模板可快速开始配置脚本
-                                            </Typography>
-                                        )}
-                                    </Box>
-                                </Box>
-                            )}
-                        </Box>
-                    )}
-
-                    {/* 错误显示 */}
-                    {errors.length > 0 && (
-                        <Box mt={2}>
-                            <Typography variant="subtitle2" color="error">
-                                验证错误：
-                            </Typography>
-                            {errors.map((error, index) => (
-                                <Typography key={index} variant="body2" color="error">
-                                    • {error}
-                                </Typography>
-                            ))}
-                        </Box>
-                    )}
-                </DialogContent>
-                <DialogActions style={{paddingLeft: 24, paddingRight: 24}}>
-                    {/* 左侧：模式切换 */}
-                    <ToggleButtonGroup
-                        value={editMode}
-                        exclusive
-                        onChange={(e, newMode) => newMode && this.handleModeSwitch(newMode)}
-                        size="small"
-                        style={{
-                            backgroundColor: '#2c2c2c',
-                            borderRadius: 4,
-                        }}
-                    >
-                        <ToggleButton 
-                            value="executable"
-                            style={{
-                                backgroundColor: editMode === 'executable' ? '#616161' : 'transparent',
-                                color: editMode === 'executable' ? '#ffffff' : '#e0e0e0',
-                                border: '1px solid #555555',
-                                minWidth: '60px'
-                            }}>
-                            命令
-                        </ToggleButton>
-                        <ToggleButton 
-                            value="script"
-                            style={{
-                                backgroundColor: editMode === 'script' ? '#424242' : 'transparent',
-                                color: editMode === 'script' ? '#ffffff' : '#e0e0e0',
-                                border: '1px solid #555555',
-                                minWidth: '60px'
-                            }}>
-                            脚本
-                        </ToggleButton>
-                    </ToggleButtonGroup>
-                    
-                    <Box flexGrow={1} />
-                    
-                    {/* 右侧：操作按钮组 */}
-                    <Box display="flex" gap={1}>
-                         <Button onClick={this.handleClose} variant="outlined" color="secondary">
-                             关闭
-                         </Button>
-                     </Box>
-                    
-                    {editMode === 'executable' ? (
-                        // 可执行文件模式按钮
-                        <Tooltip
-                            title={
-                                executeCommand === originalExecuteCommand && executeCommand.trim()
-                                    ? "命令未改变，无需更新"
-                                    : !executeCommand.trim()
-                                    ? "请输入执行命令"
-                                    : "更新执行命令"
-                            }
-                            arrow
-                        >
-                            <span>
-                                <Button 
-                                    onClick={this.handleUpdateExecuteCommand} 
-                                    color="primary" 
-                                    variant="contained"
-                                    disabled={executeCommand === originalExecuteCommand || !executeCommand.trim()}>
-                                    更新执行命令
-                                </Button>
-                            </span>
-                        </Tooltip>
-                    ) : (
-                        // 脚本文件模式按钮
+                        {editMode === 'executable' ? (
+                            // 可执行文件模式按钮
+                            <Tooltip
+                                title={
+                                    executeCommand === originalExecuteCommand &&
+                                    executeCommand.trim()
+                                        ? '命令未改变，无需更新'
+                                        : !executeCommand.trim()
+                                        ? '请输入执行命令'
+                                        : '更新执行命令'
+                                }
+                                arrow>
+                                <span>
+                                    <Button
+                                        onClick={this.handleUpdateExecuteCommand}
+                                        color="primary"
+                                        variant="contained"
+                                        disabled={
+                                            executeCommand === originalExecuteCommand ||
+                                            !executeCommand.trim()
+                                        }>
+                                        更新执行命令
+                                    </Button>
+                                </span>
+                            </Tooltip>
+                        ) : // 脚本文件模式按钮
                         this.state.scriptCreationStage === 'setup' ? (
-                            <Button 
-                                onClick={this.handleConfirmScriptSetup} 
-                                color="primary" 
+                            <Button
+                                onClick={this.handleConfirmScriptSetup}
+                                color="primary"
                                 variant="contained"
                                 disabled={!this.state.scriptName.trim()}>
                                 确认并创建脚本
@@ -1093,11 +1244,10 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
                         ) : (
                             <Button onClick={this.handleSave} color="primary" variant="contained">
                                 {isEditMode ? '保存修改' : '创建脚本'}
-                        </Button>
-                        )
-                    )}
-                </DialogActions>
-            </Dialog>
+                            </Button>
+                        )}
+                    </DialogActions>
+                </Dialog>
             </>
         );
     }

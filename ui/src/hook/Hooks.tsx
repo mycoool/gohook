@@ -114,9 +114,15 @@ class Hooks extends Component<Stores<'hookStore' | 'snackManager'>> {
                     onTriggerHook={this.triggerHook}
                     onEditScript={(id) => (this.editingScriptId = id)}
                     onEditBasic={(hook) => (this.editBasicDialog = {open: true, hookId: hook.id})}
-                    onEditParameters={(hook) => (this.editParametersDialog = {open: true, hookId: hook.id})}
-                    onEditTriggers={(hook) => (this.editTriggersDialog = {open: true, hookId: hook.id})}
-                    onEditResponse={(hook) => (this.editResponseDialog = {open: true, hookId: hook.id})}
+                    onEditParameters={(hook) =>
+                        (this.editParametersDialog = {open: true, hookId: hook.id})
+                    }
+                    onEditTriggers={(hook) =>
+                        (this.editTriggersDialog = {open: true, hookId: hook.id})
+                    }
+                    onEditResponse={(hook) =>
+                        (this.editResponseDialog = {open: true, hookId: hook.id})
+                    }
                     onDeleteHook={(id) => (this.deleteId = id)}
                     onCancelDelete={() => (this.deleteId = false)}
                     onConfirmDelete={() => hookStore.remove(deleteId as string)}
@@ -185,11 +191,14 @@ class Hooks extends Component<Stores<'hookStore' | 'snackManager'>> {
         }
     };
 
-    private updateHookBasic = async (hookId: string, basicData: {
-        'execute-command': string;
-        'command-working-directory': string;
-        'response-message': string;
-    }) => {
+    private updateHookBasic = async (
+        hookId: string,
+        basicData: {
+            'execute-command': string;
+            'command-working-directory': string;
+            'response-message': string;
+        }
+    ) => {
         try {
             await this.props.hookStore.updateHookBasic(hookId, basicData);
             this.props.hookStore.refresh();
@@ -357,11 +366,11 @@ interface IRowProps extends WithStyles<typeof styles> {
 // 智能显示执行命令
 const formatExecuteCommand = (executeCommand: string): string => {
     if (!executeCommand) return '';
-    
+
     // 检查是否是脚本文件路径（包含.sh, .py, .js, .ts, .bat, .cmd等扩展名）
     const scriptExtensions = ['.sh', '.py', '.js', '.ts', '.bat', '.cmd', '.ps1', '.pl', '.rb'];
-    const isScript = scriptExtensions.some(ext => executeCommand.toLowerCase().includes(ext));
-    
+    const isScript = scriptExtensions.some((ext) => executeCommand.toLowerCase().includes(ext));
+
     if (isScript) {
         // 如果是脚本路径，只显示文件名
         const parts = executeCommand.split(/[/\\]/);
@@ -372,7 +381,7 @@ const formatExecuteCommand = (executeCommand: string): string => {
         if (words.length <= 3) {
             return executeCommand; // 短命令直接显示
         }
-        
+
         // 长命令显示前3个词 + "..."
         return words.slice(0, 3).join(' ') + '...';
     }
@@ -387,177 +396,194 @@ const getExecuteCommandTooltip = (executeCommand: string, workingDirectory: stri
     return tooltip;
 };
 
-const Row: React.FC<IRowProps> = observer(({hook, fTrigger, fEditScript, fEditBasic, fEditParameters, fEditTriggers, fEditResponse, fDelete, classes}) => {
-    const {t} = useTranslation();
+const Row: React.FC<IRowProps> = observer(
+    ({
+        hook,
+        fTrigger,
+        fEditScript,
+        fEditBasic,
+        fEditParameters,
+        fEditTriggers,
+        fEditResponse,
+        fDelete,
+        classes,
+    }) => {
+        const {t} = useTranslation();
 
-    return (
-        <TableRow>
-            <TableCell>
-                <strong>{hook.name}</strong>
-                <br />
-                <small style={{color: '#666'}}>ID: {hook.id}</small>
-            </TableCell>
-            <TableCell>
-                <code 
-                    className={classes.codeBlock}
-                    title={getExecuteCommandTooltip(hook.executeCommand || '', hook.workingDirectory || '')}
-                >
-                    {formatExecuteCommand(hook.executeCommand || '')}
-                </code>
-                {hook.workingDirectory && (
-                    <div className={classes.workingDir}>
-                        {t('hook.workingDir')}: {hook.workingDirectory}
-                    </div>
-                )}
-            </TableCell>
-            <TableCell>
-                {hook.httpMethods.map((method) => (
+        return (
+            <TableRow>
+                <TableCell>
+                    <strong>{hook.name}</strong>
+                    <br />
+                    <small style={{color: '#666'}}>ID: {hook.id}</small>
+                </TableCell>
+                <TableCell>
+                    <code
+                        className={classes.codeBlock}
+                        title={getExecuteCommandTooltip(
+                            hook.executeCommand || '',
+                            hook.workingDirectory || ''
+                        )}>
+                        {formatExecuteCommand(hook.executeCommand || '')}
+                    </code>
+                    {hook.workingDirectory && (
+                        <div className={classes.workingDir}>
+                            {t('hook.workingDir')}: {hook.workingDirectory}
+                        </div>
+                    )}
+                </TableCell>
+                <TableCell>
+                    {hook.httpMethods.map((method) => (
+                        <Chip
+                            key={method}
+                            label={method}
+                            size="small"
+                            style={{
+                                marginRight: '4px',
+                                marginBottom: '2px',
+                                backgroundColor: getMethodColor(method),
+                                color: 'white',
+                                fontSize: '0.7em',
+                            }}
+                        />
+                    ))}
+                </TableCell>
+                <TableCell>
                     <Chip
-                        key={method}
-                        label={method}
+                        label={`参数: ${hook.argumentsCount || 0}`}
                         size="small"
                         style={{
                             marginRight: '4px',
                             marginBottom: '2px',
-                            backgroundColor: getMethodColor(method),
+                            backgroundColor: '#2196f3',
                             color: 'white',
                             fontSize: '0.7em',
                         }}
                     />
-                ))}
-            </TableCell>
-            <TableCell>
-                <Chip
-                    label={`参数: ${hook.argumentsCount || 0}`}
-                    size="small"
-                    style={{
-                        marginRight: '4px',
-                        marginBottom: '2px',
-                        backgroundColor: '#2196f3',
-                        color: 'white',
-                        fontSize: '0.7em',
-                    }}
-                />
-                <Chip
-                    label={`环境变量: ${hook.environmentCount || 0}`}
-                    size="small"
-                    style={{
-                        marginRight: '4px',
-                        marginBottom: '2px',
-                        backgroundColor: '#4caf50',
-                        color: 'white',
-                        fontSize: '0.7em',
-                    }}
-                />
-            </TableCell>
-            <TableCell>
-                <Chip
-                    label={`规则: ${countTriggerRules(hook['trigger-rule'])}`}
-                    size="small"
-                    style={{
-                        backgroundColor: countTriggerRules(hook['trigger-rule']) > 0 ? '#ff9800' : '#9e9e9e',
-                        color: 'white',
-                        fontSize: '0.7em',
-                    }}
-                />
-            </TableCell>
-            <TableCell>
-                <Chip
-                    label={hook.status === 'active' ? t('version.active') : t('version.inactive')}
-                    size="small"
-                    style={{
-                        backgroundColor: hook.status === 'active' ? '#4caf50' : '#f44336',
-                        color: 'white',
-                    }}
-                />
-            </TableCell>
-            <TableCell align="center" padding="none">
-                <IconButton
-                    onClick={fTrigger}
-                    className="trigger"
-                    title={t('hook.triggerHook')}
-                    size="small">
-                    <PlayArrow />
-                </IconButton>
-                <IconButton
-                    onClick={fEditScript}
-                    className="edit-script"
-                    title="编辑脚本"
-                    size="small">
-                    <Code />
-                </IconButton>
-                <IconButton
-                    onClick={fEditBasic}
-                    className="edit-basic"
-                    title="编辑基本信息"
-                    size="small">
-                    <Settings />
-                </IconButton>
-                <IconButton
-                    onClick={fEditParameters}
-                    className="edit-parameters"
-                    title="编辑参数配置"
-                    size="small">
-                    <Tune />
-                </IconButton>
-                <IconButton
-                    onClick={fEditTriggers}
-                    className="edit-triggers"
-                    title="编辑触发规则"
-                    size="small">
-                    <FilterAlt />
-                </IconButton>
-                <IconButton
-                    onClick={fEditResponse}
-                    className="edit-response"
-                    title="编辑响应配置"
-                    size="small">
-                    <Http />
-                </IconButton>
-                <IconButton
-                    onClick={fDelete}
-                    className="delete"
-                    title={t('hook.deleteHook')}
-                    size="small">
-                    <Delete />
-                </IconButton>
-            </TableCell>
-        </TableRow>
-    );
-});
+                    <Chip
+                        label={`环境变量: ${hook.environmentCount || 0}`}
+                        size="small"
+                        style={{
+                            marginRight: '4px',
+                            marginBottom: '2px',
+                            backgroundColor: '#4caf50',
+                            color: 'white',
+                            fontSize: '0.7em',
+                        }}
+                    />
+                </TableCell>
+                <TableCell>
+                    <Chip
+                        label={`规则: ${countTriggerRules(hook['trigger-rule'])}`}
+                        size="small"
+                        style={{
+                            backgroundColor:
+                                countTriggerRules(hook['trigger-rule']) > 0 ? '#ff9800' : '#9e9e9e',
+                            color: 'white',
+                            fontSize: '0.7em',
+                        }}
+                    />
+                </TableCell>
+                <TableCell>
+                    <Chip
+                        label={
+                            hook.status === 'active' ? t('version.active') : t('version.inactive')
+                        }
+                        size="small"
+                        style={{
+                            backgroundColor: hook.status === 'active' ? '#4caf50' : '#f44336',
+                            color: 'white',
+                        }}
+                    />
+                </TableCell>
+                <TableCell align="center" padding="none">
+                    <IconButton
+                        onClick={fTrigger}
+                        className="trigger"
+                        title={t('hook.triggerHook')}
+                        size="small">
+                        <PlayArrow />
+                    </IconButton>
+                    <IconButton
+                        onClick={fEditScript}
+                        className="edit-script"
+                        title="编辑脚本"
+                        size="small">
+                        <Code />
+                    </IconButton>
+                    <IconButton
+                        onClick={fEditBasic}
+                        className="edit-basic"
+                        title="编辑基本信息"
+                        size="small">
+                        <Settings />
+                    </IconButton>
+                    <IconButton
+                        onClick={fEditParameters}
+                        className="edit-parameters"
+                        title="编辑参数配置"
+                        size="small">
+                        <Tune />
+                    </IconButton>
+                    <IconButton
+                        onClick={fEditTriggers}
+                        className="edit-triggers"
+                        title="编辑触发规则"
+                        size="small">
+                        <FilterAlt />
+                    </IconButton>
+                    <IconButton
+                        onClick={fEditResponse}
+                        className="edit-response"
+                        title="编辑响应配置"
+                        size="small">
+                        <Http />
+                    </IconButton>
+                    <IconButton
+                        onClick={fDelete}
+                        className="delete"
+                        title={t('hook.deleteHook')}
+                        size="small">
+                        <Delete />
+                    </IconButton>
+                </TableCell>
+            </TableRow>
+        );
+    }
+);
 
 // 计算触发规则条数
 function countTriggerRules(triggerRule: any): number {
     if (!triggerRule) {
         return 0;
     }
-    
+
     let count = 0;
-    
+
     // 如果有直接的match规则
     if (triggerRule.match) {
         count++;
     }
-    
+
     // 递归计算and规则
     if (triggerRule.and && Array.isArray(triggerRule.and)) {
         triggerRule.and.forEach((rule: any) => {
             count += countTriggerRules(rule);
         });
     }
-    
+
     // 递归计算or规则
     if (triggerRule.or && Array.isArray(triggerRule.or)) {
         triggerRule.or.forEach((rule: any) => {
             count += countTriggerRules(rule);
         });
     }
-    
+
     // 递归计算not规则
     if (triggerRule.not) {
         count += countTriggerRules(triggerRule.not);
     }
-    
+
     return count;
 }
 

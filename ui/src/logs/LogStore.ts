@@ -243,4 +243,3 @@ class LogStore {
 }
 
 export default LogStore;
- 

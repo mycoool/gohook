@@ -11,7 +11,7 @@ export interface IHook {
     'command-working-directory'?: string;
     'response-message'?: string;
     'http-methods': string[];
-    'response-headers'?: { [key: string]: string };
+    'response-headers'?: {[key: string]: string};
     'pass-arguments-to-command': IParameter[];
     'pass-environment-to-command': IEnvironmentVariable[];
     'trigger-rule'?: ITriggerRule;
@@ -23,7 +23,7 @@ export interface IHook {
     'last-execution': string;
     argumentsCount: number;
     environmentCount: number;
-    
+
     // UI字段（用于显示）
     name?: string;
     executeCommand?: string;
@@ -47,7 +47,14 @@ export interface IEnvironmentVariable {
 
 // 触发规则类型定义
 export interface IMatchRule {
-    type: 'value' | 'regex' | 'payload-hmac-sha1' | 'payload-hmac-sha256' | 'payload-hmac-sha512' | 'ip-whitelist' | 'scalr-signature';
+    type:
+        | 'value'
+        | 'regex'
+        | 'payload-hmac-sha1'
+        | 'payload-hmac-sha256'
+        | 'payload-hmac-sha512'
+        | 'ip-whitelist'
+        | 'scalr-signature';
     parameter?: IParameter;
     value?: string;
     regex?: string;

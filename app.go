@@ -32,7 +32,6 @@ var (
 	logPath            = flag.String("logfile", "", "send log output to a file; implicitly enables verbose logging")
 	debug              = flag.Bool("debug", false, "show debug output")
 	ginDebug           = flag.Bool("gin-debug", false, "show gin debug output")
-	noPanic            = flag.Bool("nopanic", false, "do not panic if hooks cannot be loaded when webhook is not running in verbose mode")
 	hotReload          = flag.Bool("hotreload", false, "watch hooks file for changes and reload them automatically")
 	hooksURLPrefix     = flag.String("urlprefix", "hooks", "url prefix to use for served hooks (protocol://yourserver:port/PREFIX/:hook-id)")
 	secure             = flag.Bool("secure", false, "use HTTPS instead of HTTP")

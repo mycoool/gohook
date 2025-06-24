@@ -89,49 +89,49 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
             case 'hook_triggered': {
                 const hookMsg = message.data as IHookTriggeredMessage;
                 return hookMsg.success ? (
-                    <SuccessIcon sx={{ color: '#4caf50', fontSize: '1.5rem' }} />
+                    <SuccessIcon sx={{color: '#4caf50', fontSize: '1.5rem'}} />
                 ) : (
-                    <ErrorIcon sx={{ color: '#f44336', fontSize: '1.5rem' }} />
+                    <ErrorIcon sx={{color: '#f44336', fontSize: '1.5rem'}} />
                 );
             }
             case 'hook_managed': {
                 const hookManageMsg = message.data as IHookManageMessage;
                 return hookManageMsg.success ? (
-                    <SuccessIcon sx={{ color: '#4caf50', fontSize: '1.5rem' }} />
+                    <SuccessIcon sx={{color: '#4caf50', fontSize: '1.5rem'}} />
                 ) : (
-                    <ErrorIcon sx={{ color: '#f44336', fontSize: '1.5rem' }} />
+                    <ErrorIcon sx={{color: '#f44336', fontSize: '1.5rem'}} />
                 );
             }
             case 'version_switched': {
                 const versionMsg = message.data as IVersionSwitchMessage;
                 return versionMsg.success ? (
-                    <SuccessIcon sx={{ color: '#4caf50', fontSize: '1.5rem' }} />
+                    <SuccessIcon sx={{color: '#4caf50', fontSize: '1.5rem'}} />
                 ) : (
-                    <ErrorIcon sx={{ color: '#f44336', fontSize: '1.5rem' }} />
+                    <ErrorIcon sx={{color: '#f44336', fontSize: '1.5rem'}} />
                 );
             }
             case 'project_managed': {
                 const projectMsg = message.data as IProjectManageMessage;
                 return projectMsg.success ? (
-                    <SuccessIcon sx={{ color: '#4caf50', fontSize: '1.5rem' }} />
+                    <SuccessIcon sx={{color: '#4caf50', fontSize: '1.5rem'}} />
                 ) : (
-                    <ErrorIcon sx={{ color: '#f44336', fontSize: '1.5rem' }} />
+                    <ErrorIcon sx={{color: '#f44336', fontSize: '1.5rem'}} />
                 );
             }
             case 'githook_triggered': {
                 const githookMsg = message.data as IGitHookTriggeredMessage;
                 if (githookMsg.success) {
                     return githookMsg.skipped ? (
-                        <InfoIcon sx={{ color: '#ff9800', fontSize: '1.5rem' }} />
+                        <InfoIcon sx={{color: '#ff9800', fontSize: '1.5rem'}} />
                     ) : (
-                        <SuccessIcon sx={{ color: '#4caf50', fontSize: '1.5rem' }} />
+                        <SuccessIcon sx={{color: '#4caf50', fontSize: '1.5rem'}} />
                     );
                 } else {
-                    return <ErrorIcon sx={{ color: '#f44336', fontSize: '1.5rem' }} />;
+                    return <ErrorIcon sx={{color: '#f44336', fontSize: '1.5rem'}} />;
                 }
             }
             default:
-                return <InfoIcon sx={{ color: '#2196f3', fontSize: '1.5rem' }} />;
+                return <InfoIcon sx={{color: '#2196f3', fontSize: '1.5rem'}} />;
         }
     };
 
@@ -364,9 +364,9 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
                         borderColor: 'success.main',
                         backgroundColor: 'success.light',
                         color: 'success.dark',
-                    }
+                    },
                 },
-                variant: 'filled' as const
+                variant: 'filled' as const,
             };
         } else if (label === '失败') {
             chipProps = {
@@ -375,7 +375,7 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
                     color: 'error.contrastText',
                     fontWeight: 'bold',
                 },
-                variant: 'filled' as const
+                variant: 'filled' as const,
             };
         } else if (label === '跳过') {
             chipProps = {
@@ -384,7 +384,7 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
                     color: 'warning.contrastText',
                     fontWeight: 'bold',
                 },
-                variant: 'filled' as const
+                variant: 'filled' as const,
             };
         } else {
             chipProps = {
@@ -393,17 +393,11 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
                     color: 'info.contrastText',
                     fontWeight: 'bold',
                 },
-                variant: 'filled' as const
+                variant: 'filled' as const,
             };
         }
 
-        return (
-            <Chip
-                size="small"
-                label={label}
-                {...chipProps}
-            />
-        );
+        return <Chip size="small" label={label} {...chipProps} />;
     };
 
     public render() {
@@ -439,7 +433,7 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
                             display="flex"
                             justifyContent="space-between"
                             alignItems="center"
-                            sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                            sx={{borderBottom: 1, borderColor: 'divider'}}>
                             <Typography variant="h6">Messages ({this.messages.length})</Typography>
                             <Box>
                                 <Tooltip title="清空消息">
@@ -458,29 +452,36 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
                         </Box>
 
                         {/* 消息列表 - 使用环境文件编辑器样式的滚动条 */}
-                        <Box sx={{
-                            overflowY: 'auto',
-                            maxHeight: 400,
-                            // 使用环境文件编辑器的精美滚动条样式
-                            '&::-webkit-scrollbar': {
-                                width: '8px',
-                                height: '8px',
-                            },
-                            '&::-webkit-scrollbar-track': {
-                                backgroundColor: (theme) => theme.palette.mode === 'dark' ? '#2d2d2d' : '#f1f3f4',
-                                borderRadius: '4px',
-                            },
-                            '&::-webkit-scrollbar-thumb': {
-                                backgroundColor: (theme) => theme.palette.mode === 'dark' ? '#30363d' : '#c1c8cd',
-                                borderRadius: '4px',
-                                '&:hover': {
-                                    backgroundColor: (theme) => theme.palette.mode === 'dark' ? '#484f58' : '#a8b3ba',
+                        <Box
+                            sx={{
+                                overflowY: 'auto',
+                                maxHeight: 400,
+                                // 使用环境文件编辑器的精美滚动条样式
+                                '&::-webkit-scrollbar': {
+                                    width: '8px',
+                                    height: '8px',
                                 },
-                            },
-                            // Firefox 滚动条样式
-                            scrollbarWidth: 'thin',
-                            scrollbarColor: (theme) => theme.palette.mode === 'dark' ? '#30363d #2d2d2d' : '#c1c8cd #f1f3f4',
-                        }}>
+                                '&::-webkit-scrollbar-track': {
+                                    backgroundColor: (theme) =>
+                                        theme.palette.mode === 'dark' ? '#2d2d2d' : '#f1f3f4',
+                                    borderRadius: '4px',
+                                },
+                                '&::-webkit-scrollbar-thumb': {
+                                    backgroundColor: (theme) =>
+                                        theme.palette.mode === 'dark' ? '#30363d' : '#c1c8cd',
+                                    borderRadius: '4px',
+                                    '&:hover': {
+                                        backgroundColor: (theme) =>
+                                            theme.palette.mode === 'dark' ? '#484f58' : '#a8b3ba',
+                                    },
+                                },
+                                // Firefox 滚动条样式
+                                scrollbarWidth: 'thin',
+                                scrollbarColor: (theme) =>
+                                    theme.palette.mode === 'dark'
+                                        ? '#30363d #2d2d2d'
+                                        : '#c1c8cd #f1f3f4',
+                            }}>
                             {this.messages.length === 0 ? (
                                 <Box p={2} textAlign="center">
                                     <Typography variant="body2" color="textSecondary">
@@ -493,15 +494,15 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
                                         // 生成稳定的key
                                         const messageKey = `${message.type}-${message.timestamp}-${index}`;
                                         return (
-                                            <ListItem 
-                                                key={messageKey} 
+                                            <ListItem
+                                                key={messageKey}
                                                 divider
                                                 sx={{
                                                     '&:hover': {
                                                         backgroundColor: 'action.hover',
-                                                    }
+                                                    },
                                                 }}>
-                                                <ListItemIcon sx={{ minWidth: 40 }}>
+                                                <ListItemIcon sx={{minWidth: 40}}>
                                                     {this.getMessageIcon(message)}
                                                 </ListItemIcon>
                                                 <ListItemText
@@ -510,7 +511,9 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
                                                             display="flex"
                                                             justifyContent="space-between"
                                                             alignItems="center">
-                                                            <Typography variant="subtitle2" sx={{ fontWeight: 'medium' }}>
+                                                            <Typography
+                                                                variant="subtitle2"
+                                                                sx={{fontWeight: 'medium'}}>
                                                                 {this.getMessageTitle(message)}
                                                             </Typography>
                                                             {this.getStatusChip(message)}
@@ -520,12 +523,14 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
                                                         <Box>
                                                             <Typography
                                                                 variant="body2"
-                                                                sx={{ 
+                                                                sx={{
                                                                     marginBottom: 0.5,
                                                                     wordBreak: 'break-word',
                                                                     color: 'text.primary',
                                                                 }}>
-                                                                {this.getMessageDescription(message)}
+                                                                {this.getMessageDescription(
+                                                                    message
+                                                                )}
                                                             </Typography>
                                                             <Typography
                                                                 variant="caption"

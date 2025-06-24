@@ -160,13 +160,9 @@ export class HookStore {
         'response-message': string;
     }): Promise<void> => {
         try {
-            const response = await axios.post(
-                `${config.get('url')}hook`,
-                hookData,
-                {
-                    headers: {'X-GoHook-Key': this.tokenProvider()},
-                }
-            );
+            const response = await axios.post(`${config.get('url')}hook`, hookData, {
+                headers: {'X-GoHook-Key': this.tokenProvider()},
+            });
             this.snack(response.data.message || 'Hook创建成功');
         } catch (error: unknown) {
             const errorMessage =
@@ -180,11 +176,14 @@ export class HookStore {
     };
 
     @action
-    public updateHookBasic = async (hookId: string, basicData: {
-        'execute-command': string;
-        'command-working-directory': string;
-        'response-message': string;
-    }): Promise<void> => {
+    public updateHookBasic = async (
+        hookId: string,
+        basicData: {
+            'execute-command': string;
+            'command-working-directory': string;
+            'response-message': string;
+        }
+    ): Promise<void> => {
         try {
             const response = await axios.put(
                 `${config.get('url')}hook/${hookId}/basic`,
@@ -206,11 +205,14 @@ export class HookStore {
     };
 
     @action
-    public updateHookParameters = async (hookId: string, parametersData: {
-        'pass-arguments-to-command': {source: string; name: string}[];
-        'pass-environment-to-command': {name: string; source: string}[];
-        'parse-parameters-as-json': string[];
-    }): Promise<void> => {
+    public updateHookParameters = async (
+        hookId: string,
+        parametersData: {
+            'pass-arguments-to-command': {source: string; name: string}[];
+            'pass-environment-to-command': {name: string; source: string}[];
+            'parse-parameters-as-json': string[];
+        }
+    ): Promise<void> => {
         try {
             const response = await axios.put(
                 `${config.get('url')}hook/${hookId}/parameters`,
@@ -232,10 +234,13 @@ export class HookStore {
     };
 
     @action
-    public updateHookTriggers = async (hookId: string, triggersData: {
-        'trigger-rule': any;
-        'trigger-rule-mismatch-http-response-code': number;
-    }): Promise<void> => {
+    public updateHookTriggers = async (
+        hookId: string,
+        triggersData: {
+            'trigger-rule': any;
+            'trigger-rule-mismatch-http-response-code': number;
+        }
+    ): Promise<void> => {
         try {
             const response = await axios.put(
                 `${config.get('url')}hook/${hookId}/triggers`,
@@ -257,12 +262,15 @@ export class HookStore {
     };
 
     @action
-    public updateHookResponse = async (hookId: string, responseData: {
-        'http-methods': string[];
-        'response-headers': {[key: string]: string};
-        'include-command-output-in-response': boolean;
-        'include-command-output-in-response-on-error': boolean;
-    }): Promise<void> => {
+    public updateHookResponse = async (
+        hookId: string,
+        responseData: {
+            'http-methods': string[];
+            'response-headers': {[key: string]: string};
+            'include-command-output-in-response': boolean;
+            'include-command-output-in-response-on-error': boolean;
+        }
+    ): Promise<void> => {
         try {
             const response = await axios.put(
                 `${config.get('url')}hook/${hookId}/response`,
@@ -283,28 +291,31 @@ export class HookStore {
         }
     };
 
-
-
     // 脚本文件管理方法
 
     public getScript = async (
         hookId: string
-    ): Promise<{content: string; exists: boolean; path: string; isExecutable?: boolean; editable?: boolean; message?: string; suggestion?: string}> => {
+    ): Promise<{
+        content: string;
+        exists: boolean;
+        path: string;
+        isExecutable?: boolean;
+        editable?: boolean;
+        message?: string;
+        suggestion?: string;
+    }> => {
         try {
             const response = await axios.get<{
-                content: string; 
-                exists: boolean; 
-                path: string; 
-                isExecutable?: boolean; 
-                editable?: boolean; 
-                message?: string; 
-                suggestion?: string
-            }>(
-                `${config.get('url')}hook/${hookId}/script`,
-                {
-                    headers: {'X-GoHook-Key': this.tokenProvider()},
-                }
-            );
+                content: string;
+                exists: boolean;
+                path: string;
+                isExecutable?: boolean;
+                editable?: boolean;
+                message?: string;
+                suggestion?: string;
+            }>(`${config.get('url')}hook/${hookId}/script`, {
+                headers: {'X-GoHook-Key': this.tokenProvider()},
+            });
             return response.data;
         } catch (error: unknown) {
             const errorMessage =
@@ -323,7 +334,7 @@ export class HookStore {
             if (path) {
                 requestData.path = path;
             }
-            
+
             const response = await axios.post(
                 `${config.get('url')}hook/${hookId}/script`,
                 requestData,

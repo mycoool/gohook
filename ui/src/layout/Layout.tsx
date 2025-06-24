@@ -9,155 +9,155 @@ import {
 
 // 扩展主题类型
 declare module '@mui/material/styles' {
-  interface Theme {
-    custom: {
-      colors: {
-        primary: {
-          black: string;
-          darkGray: string;
-          mediumGray: string;
-          lightGray: string;
+    interface Theme {
+        custom: {
+            colors: {
+                primary: {
+                    black: string;
+                    darkGray: string;
+                    mediumGray: string;
+                    lightGray: string;
+                };
+                background: {
+                    white: string;
+                    lightGray: string;
+                    mediumGray: string;
+                    overlay: string;
+                };
+                border: {
+                    light: string;
+                    medium: string;
+                    dark: string;
+                    contrast: string;
+                };
+                text: {
+                    primary: string;
+                    secondary: string;
+                    disabled: string;
+                    onDark: string;
+                    onDarkSecondary: string;
+                };
+                status: {
+                    info: {
+                        background: string;
+                        border: string;
+                        text: string;
+                    };
+                    warning: {
+                        background: string;
+                        border: string;
+                        text: string;
+                    };
+                    error: {
+                        background: string;
+                        border: string;
+                        text: string;
+                    };
+                    success: {
+                        background: string;
+                        border: string;
+                        text: string;
+                    };
+                };
+                interactive: {
+                    button: {
+                        command: string;
+                        script: string;
+                        hover: string;
+                        disabled: string;
+                    };
+                    input: {
+                        background: string;
+                        border: string;
+                        focus: string;
+                        text: string;
+                    };
+                    code: {
+                        background: string;
+                        text: string;
+                        padding: string;
+                        borderRadius: number;
+                        fontSize: string;
+                    };
+                };
+            };
         };
-        background: {
-          white: string;
-          lightGray: string;
-          mediumGray: string;
-          overlay: string;
-        };
-        border: {
-          light: string;
-          medium: string;
-          dark: string;
-          contrast: string;
-        };
-        text: {
-          primary: string;
-          secondary: string;
-          disabled: string;
-          onDark: string;
-          onDarkSecondary: string;
-        };
-        status: {
-          info: {
-            background: string;
-            border: string;
-            text: string;
-          };
-          warning: {
-            background: string;
-            border: string;
-            text: string;
-          };
-          error: {
-            background: string;
-            border: string;
-            text: string;
-          };
-          success: {
-            background: string;
-            border: string;
-            text: string;
-          };
-        };
-        interactive: {
-          button: {
-            command: string;
-            script: string;
-            hover: string;
-            disabled: string;
-          };
-          input: {
-            background: string;
-            border: string;
-            focus: string;
-            text: string;
-          };
-          code: {
-            background: string;
-            text: string;
-            padding: string;
-            borderRadius: number;
-            fontSize: string;
-          };
-        };
-      };
-    };
-  }
+    }
 
-  interface ThemeOptions {
-    custom?: {
-      colors?: {
-        primary?: {
-          black?: string;
-          darkGray?: string;
-          mediumGray?: string;
-          lightGray?: string;
+    interface ThemeOptions {
+        custom?: {
+            colors?: {
+                primary?: {
+                    black?: string;
+                    darkGray?: string;
+                    mediumGray?: string;
+                    lightGray?: string;
+                };
+                background?: {
+                    white?: string;
+                    lightGray?: string;
+                    mediumGray?: string;
+                    overlay?: string;
+                };
+                border?: {
+                    light?: string;
+                    medium?: string;
+                    dark?: string;
+                    contrast?: string;
+                };
+                text?: {
+                    primary?: string;
+                    secondary?: string;
+                    disabled?: string;
+                    onDark?: string;
+                    onDarkSecondary?: string;
+                };
+                status?: {
+                    info?: {
+                        background?: string;
+                        border?: string;
+                        text?: string;
+                    };
+                    warning?: {
+                        background?: string;
+                        border?: string;
+                        text?: string;
+                    };
+                    error?: {
+                        background?: string;
+                        border?: string;
+                        text?: string;
+                    };
+                    success?: {
+                        background?: string;
+                        border?: string;
+                        text?: string;
+                    };
+                };
+                interactive?: {
+                    button?: {
+                        command?: string;
+                        script?: string;
+                        hover?: string;
+                        disabled?: string;
+                    };
+                    input?: {
+                        background?: string;
+                        border?: string;
+                        focus?: string;
+                        text?: string;
+                    };
+                    code?: {
+                        background?: string;
+                        text?: string;
+                        padding?: string;
+                        borderRadius?: number;
+                        fontSize?: string;
+                    };
+                };
+            };
         };
-        background?: {
-          white?: string;
-          lightGray?: string;
-          mediumGray?: string;
-          overlay?: string;
-        };
-        border?: {
-          light?: string;
-          medium?: string;
-          dark?: string;
-          contrast?: string;
-        };
-        text?: {
-          primary?: string;
-          secondary?: string;
-          disabled?: string;
-          onDark?: string;
-          onDarkSecondary?: string;
-        };
-        status?: {
-          info?: {
-            background?: string;
-            border?: string;
-            text?: string;
-          };
-          warning?: {
-            background?: string;
-            border?: string;
-            text?: string;
-          };
-          error?: {
-            background?: string;
-            border?: string;
-            text?: string;
-          };
-          success?: {
-            background?: string;
-            border?: string;
-            text?: string;
-          };
-        };
-        interactive?: {
-          button?: {
-            command?: string;
-            script?: string;
-            hover?: string;
-            disabled?: string;
-          };
-          input?: {
-            background?: string;
-            border?: string;
-            focus?: string;
-            text?: string;
-          };
-          code?: {
-            background?: string;
-            text?: string;
-            padding?: string;
-            borderRadius?: number;
-            fontSize?: string;
-          };
-        };
-      };
-    };
-  }
+    }
 }
 import {ThemeProvider as StylesThemeProvider} from '@mui/styles';
 import Box from '@mui/material/Box';

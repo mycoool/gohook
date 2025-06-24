@@ -83,9 +83,11 @@ class Logs extends Component<LogsProps, LogsState> {
         const windowHeight = window.innerHeight;
         const documentHeight = document.documentElement.scrollHeight;
 
-        if (scrollTop + windowHeight >= documentHeight - threshold && 
-            this.logStore.hasMore && 
-            !this.logStore.loading) {
+        if (
+            scrollTop + windowHeight >= documentHeight - threshold &&
+            this.logStore.hasMore &&
+            !this.logStore.loading
+        ) {
             this.handleLoadMore();
         }
     };
@@ -145,7 +147,7 @@ class Logs extends Component<LogsProps, LogsState> {
             const levelKey = log.level.toUpperCase();
             const translationKey = `logs.logLevel.${levelKey.toLowerCase()}`;
             const translatedLevel = this.props.t(translationKey);
-            
+
             return (
                 <Chip
                     size="small"
@@ -164,11 +166,11 @@ class Logs extends Component<LogsProps, LogsState> {
             user: 'default',
             project: 'default',
         };
-        
+
         // 确保type在已知类型列表中
         const validTypes = ['hook', 'system', 'user', 'project'];
         const displayType = validTypes.includes(type) ? type : 'system';
-        
+
         return (
             <Chip
                 size="small"
@@ -287,18 +289,25 @@ class Logs extends Component<LogsProps, LogsState> {
                                                     edge="end"
                                                     size="small"
                                                     sx={{
-                                                        visibility: (filters.type || filters.level || filters.startDate || filters.endDate || filters.search) ? 'visible' : 'hidden',
+                                                        visibility:
+                                                            filters.type ||
+                                                            filters.level ||
+                                                            filters.startDate ||
+                                                            filters.endDate ||
+                                                            filters.search
+                                                                ? 'visible'
+                                                                : 'hidden',
                                                         transition: 'all 0.2s ease',
                                                         '&:hover': {
                                                             backgroundColor: 'action.hover',
                                                             transform: 'scale(1.1)',
-                                                        }
+                                                        },
                                                     }}>
                                                     <ClearIcon fontSize="small" />
                                                 </IconButton>
                                             </Tooltip>
                                         </InputAdornment>
-                                    )
+                                    ),
                                 }}
                             />
                         </Box>
@@ -336,7 +345,7 @@ class Logs extends Component<LogsProps, LogsState> {
                             <Typography variant="subtitle2" gutterBottom>
                                 基本信息
                             </Typography>
-                            <Paper sx={{ p: 2, bgcolor: 'background.default' }}>
+                            <Paper sx={{p: 2, bgcolor: 'background.default'}}>
                                 <Box display="grid" gridTemplateColumns="repeat(2, 1fr)" gap={2}>
                                     <Box>
                                         <Typography variant="caption" color="textSecondary">
@@ -349,7 +358,9 @@ class Logs extends Component<LogsProps, LogsState> {
                                             {this.props.t('logs.timestamp')}
                                         </Typography>
                                         <Typography variant="body2">
-                                            {selectedLog.timestamp ? new Date(selectedLog.timestamp).toLocaleString() : 'Invalid Date'}
+                                            {selectedLog.timestamp
+                                                ? new Date(selectedLog.timestamp).toLocaleString()
+                                                : 'Invalid Date'}
                                         </Typography>
                                     </Box>
                                     {selectedLog.username && (
@@ -357,7 +368,9 @@ class Logs extends Component<LogsProps, LogsState> {
                                             <Typography variant="caption" color="textSecondary">
                                                 {this.props.t('logs.user')}
                                             </Typography>
-                                            <Typography variant="body2">{selectedLog.username}</Typography>
+                                            <Typography variant="body2">
+                                                {selectedLog.username}
+                                            </Typography>
                                         </Box>
                                     )}
                                     {selectedLog.action && (
@@ -366,7 +379,9 @@ class Logs extends Component<LogsProps, LogsState> {
                                                 {this.props.t('logs.action')}
                                             </Typography>
                                             <Typography variant="body2">
-                                                {this.props.t(`logs.userActions.${selectedLog.action}`) || selectedLog.action}
+                                                {this.props.t(
+                                                    `logs.userActions.${selectedLog.action}`
+                                                ) || selectedLog.action}
                                             </Typography>
                                         </Box>
                                     )}
@@ -375,7 +390,9 @@ class Logs extends Component<LogsProps, LogsState> {
                                             <Typography variant="caption" color="textSecondary">
                                                 {this.props.t('logs.resource')}
                                             </Typography>
-                                            <Typography variant="body2">{selectedLog.resource}</Typography>
+                                            <Typography variant="body2">
+                                                {selectedLog.resource}
+                                            </Typography>
                                         </Box>
                                     )}
                                     {selectedLog.ipAddress && (
@@ -383,7 +400,9 @@ class Logs extends Component<LogsProps, LogsState> {
                                             <Typography variant="caption" color="textSecondary">
                                                 {this.props.t('logs.ipAddress')}
                                             </Typography>
-                                            <Typography variant="body2">{selectedLog.ipAddress}</Typography>
+                                            <Typography variant="body2">
+                                                {selectedLog.ipAddress}
+                                            </Typography>
                                         </Box>
                                     )}
                                 </Box>
@@ -399,7 +418,8 @@ class Logs extends Component<LogsProps, LogsState> {
                                 <Paper
                                     sx={{
                                         p: 2,
-                                        bgcolor: (theme) => theme.palette.mode === 'dark' ? '#1a1a1a' : '#f8f9fa',
+                                        bgcolor: (theme) =>
+                                            theme.palette.mode === 'dark' ? '#1a1a1a' : '#f8f9fa',
                                         border: 1,
                                         borderColor: 'divider',
                                     }}>
@@ -416,14 +436,19 @@ class Logs extends Component<LogsProps, LogsState> {
                                 <Typography variant="subtitle2" gutterBottom>
                                     Hook信息
                                 </Typography>
-                                <Paper sx={{ p: 2, bgcolor: 'background.default' }}>
-                                    <Box display="grid" gridTemplateColumns="repeat(2, 1fr)" gap={2}>
+                                <Paper sx={{p: 2, bgcolor: 'background.default'}}>
+                                    <Box
+                                        display="grid"
+                                        gridTemplateColumns="repeat(2, 1fr)"
+                                        gap={2}>
                                         {selectedLog.hookName && (
                                             <Box>
                                                 <Typography variant="caption" color="textSecondary">
                                                     Hook名称
                                                 </Typography>
-                                                <Typography variant="body2">{selectedLog.hookName}</Typography>
+                                                <Typography variant="body2">
+                                                    {selectedLog.hookName}
+                                                </Typography>
                                             </Box>
                                         )}
                                         {selectedLog.method && (
@@ -431,7 +456,9 @@ class Logs extends Component<LogsProps, LogsState> {
                                                 <Typography variant="caption" color="textSecondary">
                                                     请求方法
                                                 </Typography>
-                                                <Typography variant="body2">{selectedLog.method}</Typography>
+                                                <Typography variant="body2">
+                                                    {selectedLog.method}
+                                                </Typography>
                                             </Box>
                                         )}
                                         {selectedLog.remoteAddr && (
@@ -439,7 +466,9 @@ class Logs extends Component<LogsProps, LogsState> {
                                                 <Typography variant="caption" color="textSecondary">
                                                     远程地址
                                                 </Typography>
-                                                <Typography variant="body2">{selectedLog.remoteAddr}</Typography>
+                                                <Typography variant="body2">
+                                                    {selectedLog.remoteAddr}
+                                                </Typography>
                                             </Box>
                                         )}
                                         {selectedLog.duration !== undefined && (
@@ -447,7 +476,9 @@ class Logs extends Component<LogsProps, LogsState> {
                                                 <Typography variant="caption" color="textSecondary">
                                                     执行时长
                                                 </Typography>
-                                                <Typography variant="body2">{selectedLog.duration}ms</Typography>
+                                                <Typography variant="body2">
+                                                    {selectedLog.duration}ms
+                                                </Typography>
                                             </Box>
                                         )}
                                     </Box>
@@ -463,11 +494,15 @@ class Logs extends Component<LogsProps, LogsState> {
                                 <Paper
                                     sx={{
                                         p: 2,
-                                        bgcolor: (theme) => theme.palette.mode === 'dark' ? '#1a1a1a' : '#f8f9fa',
-                                        color: (theme) => theme.palette.mode === 'dark' ? '#d0d7de' : '#24292f',
+                                        bgcolor: (theme) =>
+                                            theme.palette.mode === 'dark' ? '#1a1a1a' : '#f8f9fa',
+                                        color: (theme) =>
+                                            theme.palette.mode === 'dark' ? '#d0d7de' : '#24292f',
                                         border: 1,
-                                        borderColor: (theme) => theme.palette.mode === 'dark' ? '#30363d' : '#d0d7de',
-                                        fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+                                        borderColor: (theme) =>
+                                            theme.palette.mode === 'dark' ? '#30363d' : '#d0d7de',
+                                        fontFamily:
+                                            'ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
                                         fontSize: '0.85rem',
                                         maxHeight: 200,
                                         overflow: 'auto',
@@ -482,18 +517,30 @@ class Logs extends Component<LogsProps, LogsState> {
                                             height: '8px',
                                         },
                                         '&::-webkit-scrollbar-track': {
-                                            backgroundColor: (theme) => theme.palette.mode === 'dark' ? '#2d2d2d' : '#f1f3f4',
+                                            backgroundColor: (theme) =>
+                                                theme.palette.mode === 'dark'
+                                                    ? '#2d2d2d'
+                                                    : '#f1f3f4',
                                             borderRadius: '4px',
                                         },
                                         '&::-webkit-scrollbar-thumb': {
-                                            backgroundColor: (theme) => theme.palette.mode === 'dark' ? '#424242' : '#c1c8cd',
+                                            backgroundColor: (theme) =>
+                                                theme.palette.mode === 'dark'
+                                                    ? '#424242'
+                                                    : '#c1c8cd',
                                             borderRadius: '4px',
                                         },
                                         '&::-webkit-scrollbar-thumb:hover': {
-                                            backgroundColor: (theme) => theme.palette.mode === 'dark' ? '#484f58' : '#a8b3ba',
+                                            backgroundColor: (theme) =>
+                                                theme.palette.mode === 'dark'
+                                                    ? '#484f58'
+                                                    : '#a8b3ba',
                                         },
                                         scrollbarWidth: 'thin',
-                                        scrollbarColor: (theme) => theme.palette.mode === 'dark' ? '#30363d #2d2d2d' : '#c1c8cd #f1f3f4',
+                                        scrollbarColor: (theme) =>
+                                            theme.palette.mode === 'dark'
+                                                ? '#30363d #2d2d2d'
+                                                : '#c1c8cd #f1f3f4',
                                     }}>
                                     <pre>{selectedLog.output}</pre>
                                 </Paper>
@@ -512,7 +559,8 @@ class Logs extends Component<LogsProps, LogsState> {
                                         color: 'error.contrastText',
                                         border: 1,
                                         borderColor: 'error.main',
-                                        fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+                                        fontFamily:
+                                            'ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
                                         fontSize: '0.85rem',
                                         maxHeight: 200,
                                         overflow: 'auto',
@@ -527,18 +575,30 @@ class Logs extends Component<LogsProps, LogsState> {
                                             height: '8px',
                                         },
                                         '&::-webkit-scrollbar-track': {
-                                            backgroundColor: (theme) => theme.palette.mode === 'dark' ? '#2d2d2d' : '#f1f3f4',
+                                            backgroundColor: (theme) =>
+                                                theme.palette.mode === 'dark'
+                                                    ? '#2d2d2d'
+                                                    : '#f1f3f4',
                                             borderRadius: '4px',
                                         },
                                         '&::-webkit-scrollbar-thumb': {
-                                            backgroundColor: (theme) => theme.palette.mode === 'dark' ? '#424242' : '#c1c8cd',
+                                            backgroundColor: (theme) =>
+                                                theme.palette.mode === 'dark'
+                                                    ? '#424242'
+                                                    : '#c1c8cd',
                                             borderRadius: '4px',
                                         },
                                         '&::-webkit-scrollbar-thumb:hover': {
-                                            backgroundColor: (theme) => theme.palette.mode === 'dark' ? '#484f58' : '#a8b3ba',
+                                            backgroundColor: (theme) =>
+                                                theme.palette.mode === 'dark'
+                                                    ? '#484f58'
+                                                    : '#a8b3ba',
                                         },
                                         scrollbarWidth: 'thin',
-                                        scrollbarColor: (theme) => theme.palette.mode === 'dark' ? '#30363d #2d2d2d' : '#c1c8cd #f1f3f4',
+                                        scrollbarColor: (theme) =>
+                                            theme.palette.mode === 'dark'
+                                                ? '#30363d #2d2d2d'
+                                                : '#c1c8cd #f1f3f4',
                                     }}>
                                     <pre>{selectedLog.error}</pre>
                                 </Paper>
@@ -556,7 +616,8 @@ class Logs extends Component<LogsProps, LogsState> {
                                         bgcolor: 'background.paper',
                                         border: 1,
                                         borderColor: 'divider',
-                                        fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+                                        fontFamily:
+                                            'ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
                                         fontSize: '0.85rem',
                                         maxHeight: 300,
                                         overflow: 'auto',
@@ -572,18 +633,30 @@ class Logs extends Component<LogsProps, LogsState> {
                                             height: '8px',
                                         },
                                         '&::-webkit-scrollbar-track': {
-                                            backgroundColor: (theme) => theme.palette.mode === 'dark' ? '#2d2d2d' : '#f1f3f4',
+                                            backgroundColor: (theme) =>
+                                                theme.palette.mode === 'dark'
+                                                    ? '#2d2d2d'
+                                                    : '#f1f3f4',
                                             borderRadius: '4px',
                                         },
                                         '&::-webkit-scrollbar-thumb': {
-                                            backgroundColor: (theme) => theme.palette.mode === 'dark' ? '#424242' : '#c1c8cd',
+                                            backgroundColor: (theme) =>
+                                                theme.palette.mode === 'dark'
+                                                    ? '#424242'
+                                                    : '#c1c8cd',
                                             borderRadius: '4px',
                                         },
                                         '&::-webkit-scrollbar-thumb:hover': {
-                                            backgroundColor: (theme) => theme.palette.mode === 'dark' ? '#484f58' : '#a8b3ba',
+                                            backgroundColor: (theme) =>
+                                                theme.palette.mode === 'dark'
+                                                    ? '#484f58'
+                                                    : '#a8b3ba',
                                         },
                                         scrollbarWidth: 'thin',
-                                        scrollbarColor: (theme) => theme.palette.mode === 'dark' ? '#30363d #2d2d2d' : '#c1c8cd #f1f3f4',
+                                        scrollbarColor: (theme) =>
+                                            theme.palette.mode === 'dark'
+                                                ? '#30363d #2d2d2d'
+                                                : '#c1c8cd #f1f3f4',
                                     }}>
                                     <pre>{JSON.stringify(selectedLog.details, null, 2)}</pre>
                                 </Paper>
@@ -701,12 +774,18 @@ class Logs extends Component<LogsProps, LogsState> {
                                         <TableCell>{log.id}</TableCell>
                                         <TableCell>
                                             <Tooltip
-                                                title={log.timestamp ? new Date(log.timestamp).toLocaleString() : 'Invalid Date'}>
-                                                <span>
-                                                    {log.timestamp && !isNaN(Date.parse(log.timestamp)) 
-                                                        ? new Date(log.timestamp).toLocaleTimeString()
+                                                title={
+                                                    log.timestamp
+                                                        ? new Date(log.timestamp).toLocaleString()
                                                         : 'Invalid Date'
-                                                    }
+                                                }>
+                                                <span>
+                                                    {log.timestamp &&
+                                                    !isNaN(Date.parse(log.timestamp))
+                                                        ? new Date(
+                                                              log.timestamp
+                                                          ).toLocaleTimeString()
+                                                        : 'Invalid Date'}
                                                 </span>
                                             </Tooltip>
                                         </TableCell>
