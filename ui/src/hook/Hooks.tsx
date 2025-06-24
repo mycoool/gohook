@@ -43,23 +43,29 @@ import withStyles from '@mui/styles/withStyles';
 import createStyles from '@mui/styles/createStyles';
 
 // 添加样式定义 - 优化代码块显示效果
-const styles = () =>
+const styles = (theme: Theme) =>
     createStyles({
         codeBlock: {
-            fontSize: '0.875rem',
-            backgroundColor: '#21262d',
-            color: '#e6edf3',
+            backgroundColor: theme.palette.mode === 'dark' ? '#2d2d2d' : '#f5f5f5',
+            border: `1px solid ${theme.palette.mode === 'dark' ? '#444' : '#e0e0e0'}`,
+            borderRadius: '4px',
             padding: '4px 8px',
-            borderRadius: '6px',
-            border: '1px solid #30363d',
-            fontFamily:
-                'ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-            fontWeight: 400,
+            fontSize: '0.85em',
+            fontFamily: 'Consolas, Monaco, "Courier New", monospace',
+            display: 'inline-block',
+            maxWidth: '200px',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
         },
         workingDir: {
-            fontSize: '0.8em',
-            color: '#8b949e',
+            fontSize: '0.75em',
+            color: theme.palette.text.secondary,
             marginTop: '4px',
+            maxWidth: '200px',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
         },
     });
 
@@ -348,6 +354,39 @@ interface IRowProps extends WithStyles<typeof styles> {
     fDelete: VoidFunction;
 }
 
+// 智能显示执行命令
+const formatExecuteCommand = (executeCommand: string): string => {
+    if (!executeCommand) return '';
+    
+    // 检查是否是脚本文件路径（包含.sh, .py, .js, .ts, .bat, .cmd等扩展名）
+    const scriptExtensions = ['.sh', '.py', '.js', '.ts', '.bat', '.cmd', '.ps1', '.pl', '.rb'];
+    const isScript = scriptExtensions.some(ext => executeCommand.toLowerCase().includes(ext));
+    
+    if (isScript) {
+        // 如果是脚本路径，只显示文件名
+        const parts = executeCommand.split(/[/\\]/);
+        return parts[parts.length - 1] || executeCommand;
+    } else {
+        // 如果是命令，进行智能缩短
+        const words = executeCommand.trim().split(/\s+/);
+        if (words.length <= 3) {
+            return executeCommand; // 短命令直接显示
+        }
+        
+        // 长命令显示前3个词 + "..."
+        return words.slice(0, 3).join(' ') + '...';
+    }
+};
+
+// 获取执行命令的完整工具提示
+const getExecuteCommandTooltip = (executeCommand: string, workingDirectory: string): string => {
+    let tooltip = `完整命令: ${executeCommand}`;
+    if (workingDirectory) {
+        tooltip += `\n工作目录: ${workingDirectory}`;
+    }
+    return tooltip;
+};
+
 const Row: React.FC<IRowProps> = observer(({hook, fTrigger, fEditScript, fEditBasic, fEditParameters, fEditTriggers, fEditResponse, fDelete, classes}) => {
     const {t} = useTranslation();
 
@@ -359,7 +398,12 @@ const Row: React.FC<IRowProps> = observer(({hook, fTrigger, fEditScript, fEditBa
                 <small style={{color: '#666'}}>ID: {hook.id}</small>
             </TableCell>
             <TableCell>
-                <code className={classes.codeBlock}>{hook.executeCommand}</code>
+                <code 
+                    className={classes.codeBlock}
+                    title={getExecuteCommandTooltip(hook.executeCommand || '', hook.workingDirectory || '')}
+                >
+                    {formatExecuteCommand(hook.executeCommand || '')}
+                </code>
                 {hook.workingDirectory && (
                     <div className={classes.workingDir}>
                         {t('hook.workingDir')}: {hook.workingDirectory}
