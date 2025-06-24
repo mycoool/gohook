@@ -373,7 +373,6 @@ interface IProps {
     onClose: () => void;
     onGetScript: (hookId: string) => Promise<{content: string; exists: boolean; path: string; isExecutable?: boolean; editable?: boolean; message?: string; suggestion?: string}>;
     onSaveScript: (hookId: string, content: string, path?: string) => Promise<void>;
-    onDeleteScript: (hookId: string) => Promise<void>;
     onUpdateExecuteCommand: (hookId: string, executeCommand: string) => Promise<void>;
     onGetHookDetails: (hookId: string) => Promise<any>;
 }
@@ -403,7 +402,6 @@ interface IState {
     scriptCreationStage: ScriptCreationStage;
     scriptName: string;
     scriptWorkingDirectory: string;
-    showDeleteConfirm: boolean;
 }
 
 @observer
@@ -443,7 +441,6 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
         scriptCreationStage: 'editing',
         scriptName: '',
         scriptWorkingDirectory: '',
-        showDeleteConfirm: false,
     };
 
     componentDidMount() {
@@ -602,35 +599,6 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
                 this.props.snackManager.snack('保存脚本文件失败');
             }
         }
-    };
-
-    handleDelete = () => {
-        this.setState({ showDeleteConfirm: true });
-    };
-
-    handleDeleteConfirm = async () => {
-            try {
-                await this.props.onDeleteScript(this.props.hookId);
-                this.props.snackManager.snack('脚本文件删除成功');
-                this.setState({
-                    scriptContent: '',
-                    originalScriptContent: '',
-                    hasScript: false,
-                    errors: [],
-                    scriptType: 'bash',
-                    selectedTemplate: 'empty',
-                    isEditMode: false,
-                showDeleteConfirm: false,
-                });
-                this.props.onClose();
-            } catch (error) {
-                this.props.snackManager.snack('删除脚本文件失败');
-            this.setState({ showDeleteConfirm: false });
-        }
-    };
-
-    handleDeleteCancel = () => {
-        this.setState({ showDeleteConfirm: false });
     };
 
     handleExecuteCommandChange = (value: string) => {
@@ -1085,14 +1053,6 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
                     
                     {/* 右侧：操作按钮组 */}
                     <Box display="flex" gap={1}>
-                        {/* 删除按钮 */}
-                        {editMode === 'script' && hasScript && (
-                            <Button onClick={this.handleDelete} variant="outlined" color="error">
-                                删除
-                            </Button>
-                        )}
-                        
-                                                 {/* 关闭按钮 */}
                          <Button onClick={this.handleClose} variant="outlined" color="secondary">
                              关闭
                          </Button>
@@ -1136,34 +1096,6 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
                         </Button>
                         )
                     )}
-                </DialogActions>
-            </Dialog>
-            
-            {/* 删除确认对话框 */}
-            <Dialog
-                open={this.state.showDeleteConfirm}
-                onClose={this.handleDeleteCancel}
-                aria-labelledby="delete-confirm-dialog-title"
-                aria-describedby="delete-confirm-dialog-description"
-            >
-                <DialogTitle id="delete-confirm-dialog-title">
-                    确认删除脚本文件
-                </DialogTitle>
-                <DialogContent>
-                    <DialogContentText id="delete-confirm-dialog-description">
-                        您确定要删除当前的脚本文件吗？此操作无法撤销。
-                        <br />
-                        <br />
-                        脚本路径：<code style={{backgroundColor: '#2c2c2c', color: '#e0e0e0', padding: '2px 6px', borderRadius: 4, fontSize: '0.875rem'}}>{this.state.scriptPath}</code>
-                    </DialogContentText>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={this.handleDeleteCancel} color="primary" variant="outlined">
-                        取消
-                    </Button>
-                    <Button onClick={this.handleDeleteConfirm} color="error" variant="contained" autoFocus>
-                        确认删除
-                    </Button>
                 </DialogActions>
             </Dialog>
             </>

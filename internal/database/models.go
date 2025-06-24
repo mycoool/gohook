@@ -99,6 +99,18 @@ const (
 	UserActionUpdateUser   = "UPDATE_USER"
 	UserActionDeleteUser   = "DELETE_USER"
 	UserActionChangePasswd = "CHANGE_PASSWORD"
+	// Hook管理操作
+	UserActionCreateHook         = "CREATE_HOOK"
+	UserActionUpdateHookBasic    = "UPDATE_HOOK_BASIC"
+	UserActionUpdateHookParam    = "UPDATE_HOOK_PARAMETERS"
+	UserActionUpdateHookTrigger  = "UPDATE_HOOK_TRIGGERS"
+	UserActionUpdateHookResponse = "UPDATE_HOOK_RESPONSE"
+	UserActionUpdateHookScript   = "UPDATE_HOOK_SCRIPT"
+	UserActionDeleteHook         = "DELETE_HOOK"
+	// 添加缺失的常量
+	UserActionUpdateHookParameters = "UPDATE_HOOK_PARAMETERS"
+	UserActionUpdateHookTriggers   = "UPDATE_HOOK_TRIGGERS"
+	UserActionSaveHookScript       = "SAVE_HOOK_SCRIPT"
 )
 
 // ProjectAction 项目操作常量

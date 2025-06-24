@@ -9,6 +9,7 @@ import {
     IVersionSwitchMessage,
     IProjectManageMessage,
     IGitHookTriggeredMessage,
+    IHookManageMessage,
 } from '../types';
 
 export class WebSocketStore {
@@ -116,6 +117,71 @@ export class WebSocketStore {
                 } else {
                     this.snack(
                         `Hook "${hookMsg.hookName}" 执行失败: ${hookMsg.error ?? '未知错误'}`
+                    );
+                }
+                break;
+            }
+            case 'hook_managed': {
+                const hookManageMsg = message.data as IHookManageMessage;
+                if (hookManageMsg.success) {
+                    let actionText = '';
+                    switch (hookManageMsg.action) {
+                        case 'create':
+                            actionText = '创建';
+                            break;
+                        case 'update_basic':
+                            actionText = '基本信息更新';
+                            break;
+                        case 'update_parameters':
+                            actionText = '参数配置更新';
+                            break;
+                        case 'update_triggers':
+                            actionText = '触发规则更新';
+                            break;
+                        case 'update_response':
+                            actionText = '响应配置更新';
+                            break;
+                        case 'update_script':
+                            actionText = '脚本更新';
+                            break;
+                        case 'delete':
+                            actionText = '删除';
+                            break;
+                        default:
+                            actionText = hookManageMsg.action;
+                    }
+                    this.snack(`Hook "${hookManageMsg.hookName}" ${actionText}成功`);
+                } else {
+                    let actionText = '';
+                    switch (hookManageMsg.action) {
+                        case 'create':
+                            actionText = '创建';
+                            break;
+                        case 'update_basic':
+                            actionText = '基本信息更新';
+                            break;
+                        case 'update_parameters':
+                            actionText = '参数配置更新';
+                            break;
+                        case 'update_triggers':
+                            actionText = '触发规则更新';
+                            break;
+                        case 'update_response':
+                            actionText = '响应配置更新';
+                            break;
+                        case 'update_script':
+                            actionText = '脚本更新';
+                            break;
+                        case 'delete':
+                            actionText = '删除';
+                            break;
+                        default:
+                            actionText = hookManageMsg.action;
+                    }
+                    this.snack(
+                        `Hook "${hookManageMsg.hookName}" ${actionText}失败: ${
+                            hookManageMsg.error ?? '未知错误'
+                        }`
                     );
                 }
                 break;

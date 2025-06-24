@@ -81,6 +81,46 @@ func LogProjectAction(projectName, action, oldValue, newValue,
 	}
 }
 
+// LogHookManagement 记录Hook管理操作日志（全局函数）
+func LogHookManagement(action, hookID, hookName, username, ipAddress, userAgent string, success bool, details interface{}) {
+	if globalLogService == nil {
+		InitLogService()
+	}
+
+	if globalLogService != nil {
+		resource := "hook:" + hookID
+		description := getHookManagementDescription(action, hookName)
+
+		err := globalLogService.CreateUserActivity(username, action, resource, description,
+			ipAddress, userAgent, success, details)
+		if err != nil {
+			log.Printf("Failed to log hook management activity: %v", err)
+		}
+	}
+}
+
+// getHookManagementDescription 获取Hook管理操作的描述
+func getHookManagementDescription(action, hookName string) string {
+	switch action {
+	case "CREATE_HOOK":
+		return "创建Hook: " + hookName
+	case "UPDATE_HOOK_BASIC":
+		return "更新Hook基本信息: " + hookName
+	case "UPDATE_HOOK_PARAMETERS":
+		return "更新Hook参数配置: " + hookName
+	case "UPDATE_HOOK_TRIGGERS":
+		return "更新Hook触发规则: " + hookName
+	case "UPDATE_HOOK_RESPONSE":
+		return "更新Hook响应配置: " + hookName
+	case "UPDATE_HOOK_SCRIPT":
+		return "更新Hook脚本: " + hookName
+	case "DELETE_HOOK":
+		return "删除Hook: " + hookName
+	default:
+		return "Hook管理操作: " + hookName
+	}
+}
+
 // ScheduleLogCleanup 启动定期日志清理任务
 func ScheduleLogCleanup(retentionDays int) {
 	if retentionDays <= 0 {

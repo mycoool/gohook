@@ -371,6 +371,21 @@
     },
     "startDate": "开始日期",
     "endDate": "结束日期",
-    "clearFilters": "清除筛选"
+    "clearFilters": "清除筛选",
+    "userActions": {
+      "CREATE_HOOK": "创建Hook",
+      "UPDATE_HOOK_BASIC": "更新基本信息",
+      "UPDATE_HOOK_PARAMETERS": "更新参数配置",
+      "UPDATE_HOOK_TRIGGERS": "更新触发规则",
+      "UPDATE_HOOK_RESPONSE": "更新响应配置",
+      "UPDATE_HOOK_SCRIPT": "更新脚本",
+      "DELETE_HOOK": "删除Hook",
+      "LOGIN": "登录",
+      "LOGOUT": "登出",
+      "CREATE_USER": "创建用户",
+      "UPDATE_USER": "更新用户",
+      "DELETE_USER": "删除用户",
+      "CHANGE_PASSWORD": "修改密码"
+    }
   }
 } 

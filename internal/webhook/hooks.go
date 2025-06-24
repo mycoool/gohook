@@ -943,7 +943,160 @@ func HandleGetHookScript(c *gin.Context) {
 	})
 }
 
-// 脚本文件管理 - 保存脚本内容
+// HandleUpdateHookResponse 更新Hook响应配置
+func HandleUpdateHookResponse(c *gin.Context) {
+	hookID := c.Param("id")
+	existingHook := HookManager.MatchLoadedHook(hookID)
+	if existingHook == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Hook not found"})
+		return
+	}
+
+	var request struct {
+		HTTPMethods                           []string          `json:"http-methods,omitempty"`
+		ResponseHeaders                       map[string]string `json:"response-headers,omitempty"`
+		IncludeCommandOutputInResponse        bool              `json:"include-command-output-in-response,omitempty"`
+		IncludeCommandOutputInResponseOnError bool              `json:"include-command-output-in-response-on-error,omitempty"`
+	}
+
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request parameters: " + err.Error()})
+		return
+	}
+
+	// 验证HTTP方法
+	validMethods := map[string]bool{"GET": true, "POST": true, "PUT": true, "DELETE": true, "PATCH": true}
+	for _, method := range request.HTTPMethods {
+		if !validMethods[strings.ToUpper(method)] {
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("无效的HTTP方法: %s", method)})
+			return
+		}
+	}
+
+	// 备份原值，以便保存失败时恢复和记录日志
+	originalHTTPMethods := existingHook.HTTPMethods
+	originalResponseHeaders := existingHook.ResponseHeaders
+	originalCaptureCommandOutput := existingHook.CaptureCommandOutput
+	originalCaptureCommandOutputOnError := existingHook.CaptureCommandOutputOnError
+
+	// 更新响应配置
+	if len(request.HTTPMethods) > 0 {
+		existingHook.HTTPMethods = request.HTTPMethods
+	}
+
+	// 转换ResponseHeaders格式
+	if request.ResponseHeaders != nil {
+		existingHook.ResponseHeaders = make(ResponseHeaders, 0, len(request.ResponseHeaders))
+		for name, value := range request.ResponseHeaders {
+			existingHook.ResponseHeaders = append(existingHook.ResponseHeaders, Header{
+				Name:  name,
+				Value: value,
+			})
+		}
+	}
+
+	existingHook.CaptureCommandOutput = request.IncludeCommandOutputInResponse
+	existingHook.CaptureCommandOutputOnError = request.IncludeCommandOutputInResponseOnError
+
+	// 保存到配置文件
+	if err := HookManager.SaveHookChanges(hookID); err != nil {
+		// 保存失败，恢复原值
+		existingHook.HTTPMethods = originalHTTPMethods
+		existingHook.ResponseHeaders = originalResponseHeaders
+		existingHook.CaptureCommandOutput = originalCaptureCommandOutput
+		existingHook.CaptureCommandOutputOnError = originalCaptureCommandOutputOnError
+
+		// 记录失败的日志
+		username, _ := c.Get("username")
+		usernameStr := "unknown"
+		if username != nil {
+			usernameStr = username.(string)
+		}
+		database.LogHookManagement(
+			database.UserActionUpdateHookResponse,
+			hookID,
+			hookID,
+			usernameStr,
+			middleware.GetClientIP(c),
+			c.Request.UserAgent(),
+			false,
+			map[string]interface{}{
+				"hookId": hookID,
+				"error":  err.Error(),
+				"action": "update_hook_response",
+				"changes": map[string]interface{}{
+					"httpMethods":     request.HTTPMethods,
+					"responseHeaders": request.ResponseHeaders,
+					"captureOutput":   request.IncludeCommandOutputInResponse,
+					"captureError":    request.IncludeCommandOutputInResponseOnError,
+				},
+			},
+		)
+
+		// 推送失败消息
+		wsMessage := stream.WsMessage{
+			Type:      "hook_managed",
+			Timestamp: time.Now(),
+			Data: stream.HookManageMessage{
+				Action:   "update_response",
+				HookID:   hookID,
+				HookName: hookID,
+				Success:  false,
+				Error:    "保存Hook响应配置失败: " + err.Error(),
+			},
+		}
+		stream.Global.Broadcast(wsMessage)
+
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save hook changes: " + err.Error()})
+		return
+	}
+
+	// 记录成功的日志
+	username, _ := c.Get("username")
+	usernameStr := "unknown"
+	if username != nil {
+		usernameStr = username.(string)
+	}
+	database.LogHookManagement(
+		database.UserActionUpdateHookResponse,
+		hookID,
+		hookID,
+		usernameStr,
+		middleware.GetClientIP(c),
+		c.Request.UserAgent(),
+		true,
+		map[string]interface{}{
+			"hookId": hookID,
+			"action": "update_hook_response",
+			"changes": map[string]interface{}{
+				"httpMethods":     request.HTTPMethods,
+				"responseHeaders": request.ResponseHeaders,
+				"captureOutput":   request.IncludeCommandOutputInResponse,
+				"captureError":    request.IncludeCommandOutputInResponseOnError,
+			},
+		},
+	)
+
+	// 推送成功消息
+	wsMessage := stream.WsMessage{
+		Type:      "hook_managed",
+		Timestamp: time.Now(),
+		Data: stream.HookManageMessage{
+			Action:   "update_response",
+			HookID:   hookID,
+			HookName: hookID,
+			Success:  true,
+		},
+	}
+	stream.Global.Broadcast(wsMessage)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Hook响应配置更新成功",
+		"hookId":  hookID,
+	})
+}
+
+// HandleSaveHookScript 脚本文件管理 - 保存脚本内容
 func HandleSaveHookScript(c *gin.Context) {
 	hookID := c.Param("id")
 
@@ -978,6 +1131,42 @@ func HandleSaveHookScript(c *gin.Context) {
 	// 确保脚本文件所在目录存在
 	scriptDir := filepath.Dir(scriptPath)
 	if err := os.MkdirAll(scriptDir, 0755); err != nil {
+		// 记录失败的日志
+		username, _ := c.Get("username")
+		usernameStr := "unknown"
+		if username != nil {
+			usernameStr = username.(string)
+		}
+		database.LogHookManagement(
+			database.UserActionSaveHookScript,
+			hookID,
+			hookID,
+			usernameStr,
+			middleware.GetClientIP(c),
+			c.Request.UserAgent(),
+			false,
+			map[string]interface{}{
+				"hookId":     hookID,
+				"error":      "创建脚本目录失败: " + err.Error(),
+				"action":     "save_hook_script",
+				"scriptPath": scriptPath,
+			},
+		)
+
+		// 推送失败消息
+		wsMessage := stream.WsMessage{
+			Type:      "hook_managed",
+			Timestamp: time.Now(),
+			Data: stream.HookManageMessage{
+				Action:   "update_script",
+				HookID:   hookID,
+				HookName: hookID,
+				Success:  false,
+				Error:    "创建脚本目录失败: " + err.Error(),
+			},
+		}
+		stream.Global.Broadcast(wsMessage)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "创建脚本目录失败: " + err.Error()})
 		return
 	}
@@ -985,49 +1174,83 @@ func HandleSaveHookScript(c *gin.Context) {
 	// 写入文件
 	err := os.WriteFile(scriptPath, []byte(req.Content), 0755)
 	if err != nil {
+		// 记录失败的日志
+		username, _ := c.Get("username")
+		usernameStr := "unknown"
+		if username != nil {
+			usernameStr = username.(string)
+		}
+		database.LogHookManagement(
+			database.UserActionSaveHookScript,
+			hookID,
+			hookID,
+			usernameStr,
+			middleware.GetClientIP(c),
+			c.Request.UserAgent(),
+			false,
+			map[string]interface{}{
+				"hookId":     hookID,
+				"error":      err.Error(),
+				"action":     "save_hook_script",
+				"scriptPath": scriptPath,
+			},
+		)
+
+		// 推送失败消息
+		wsMessage := stream.WsMessage{
+			Type:      "hook_managed",
+			Timestamp: time.Now(),
+			Data: stream.HookManageMessage{
+				Action:   "update_script",
+				HookID:   hookID,
+				HookName: hookID,
+				Success:  false,
+				Error:    "保存脚本文件失败: " + err.Error(),
+			},
+		}
+		stream.Global.Broadcast(wsMessage)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "保存脚本文件失败: " + err.Error()})
 		return
 	}
 
+	// 记录成功的日志
+	username, _ := c.Get("username")
+	usernameStr := "unknown"
+	if username != nil {
+		usernameStr = username.(string)
+	}
+	database.LogHookManagement(
+		database.UserActionSaveHookScript,
+		hookID,
+		hookID,
+		usernameStr,
+		middleware.GetClientIP(c),
+		c.Request.UserAgent(),
+		true,
+		map[string]interface{}{
+			"hookId":      hookID,
+			"action":      "save_hook_script",
+			"scriptPath":  scriptPath,
+			"contentSize": len(req.Content),
+		},
+	)
+
+	// 推送成功消息
+	wsMessage := stream.WsMessage{
+		Type:      "hook_managed",
+		Timestamp: time.Now(),
+		Data: stream.HookManageMessage{
+			Action:   "update_script",
+			HookID:   hookID,
+			HookName: hookID,
+			Success:  true,
+		},
+	}
+	stream.Global.Broadcast(wsMessage)
+
 	c.JSON(http.StatusOK, gin.H{
 		"message": "脚本文件保存成功",
-		"path":    scriptPath,
-	})
-}
-
-// 脚本文件管理 - 删除脚本文件
-func HandleDeleteHookScript(c *gin.Context) {
-	hookID := c.Param("id")
-
-	// 检查 hook 是否存在，并获取配置
-	hook := HookManager.MatchLoadedHook(hookID)
-	if hook == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Hook not found"})
-		return
-	}
-
-	// 使用hook配置中的execute-command作为脚本路径
-	scriptPath := hook.ExecuteCommand
-	if scriptPath == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Hook has no execute-command configured"})
-		return
-	}
-
-	// 检查文件是否存在
-	if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
-		c.JSON(http.StatusNotFound, gin.H{"error": "脚本文件不存在"})
-		return
-	}
-
-	// 删除文件
-	err := os.Remove(scriptPath)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "删除脚本文件失败: " + err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"message": "脚本文件删除成功",
 		"path":    scriptPath,
 	})
 }
@@ -1092,10 +1315,84 @@ func HandleCreateHook(c *gin.Context) {
 					}
 				}
 			}
+
+			// 记录失败的日志
+			username, _ := c.Get("username")
+			usernameStr := "unknown"
+			if username != nil {
+				usernameStr = username.(string)
+			}
+			database.LogHookManagement(
+				database.UserActionCreateHook,
+				request.ID,
+				request.ID,
+				usernameStr,
+				middleware.GetClientIP(c),
+				c.Request.UserAgent(),
+				false,
+				map[string]interface{}{
+					"hookId":   request.ID,
+					"error":    err.Error(),
+					"action":   "create_hook",
+					"filePath": targetFilePath,
+				},
+			)
+
+			// 推送失败消息
+			wsMessage := stream.WsMessage{
+				Type:      "hook_managed",
+				Timestamp: time.Now(),
+				Data: stream.HookManageMessage{
+					Action:   "create",
+					HookID:   request.ID,
+					HookName: request.ID,
+					Success:  false,
+					Error:    "保存Hook配置失败: " + err.Error(),
+				},
+			}
+			stream.Global.Broadcast(wsMessage)
+
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save hook to file: " + err.Error()})
 			return
 		}
 	}
+
+	// 记录成功的日志
+	username, _ := c.Get("username")
+	usernameStr := "unknown"
+	if username != nil {
+		usernameStr = username.(string)
+	}
+	database.LogHookManagement(
+		database.UserActionCreateHook,
+		request.ID,
+		request.ID,
+		usernameStr,
+		middleware.GetClientIP(c),
+		c.Request.UserAgent(),
+		true,
+		map[string]interface{}{
+			"hookId":          request.ID,
+			"executeCommand":  request.ExecuteCommand,
+			"workingDir":      request.CommandWorkingDirectory,
+			"responseMessage": request.ResponseMessage,
+			"action":          "create_hook",
+			"filePath":        targetFilePath,
+		},
+	)
+
+	// 推送成功消息
+	wsMessage := stream.WsMessage{
+		Type:      "hook_managed",
+		Timestamp: time.Now(),
+		Data: stream.HookManageMessage{
+			Action:   "create",
+			HookID:   request.ID,
+			HookName: request.ID,
+			Success:  true,
+		},
+	}
+	stream.Global.Broadcast(wsMessage)
 
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "Hook创建成功",
@@ -1123,7 +1420,7 @@ func HandleUpdateHookBasic(c *gin.Context) {
 		return
 	}
 
-	// 备份原值，以便保存失败时恢复
+	// 备份原值，以便保存失败时恢复和记录日志
 	originalExecuteCommand := existingHook.ExecuteCommand
 	originalCommandWorkingDirectory := existingHook.CommandWorkingDirectory
 	originalResponseMessage := existingHook.ResponseMessage
@@ -1139,9 +1436,97 @@ func HandleUpdateHookBasic(c *gin.Context) {
 		existingHook.ExecuteCommand = originalExecuteCommand
 		existingHook.CommandWorkingDirectory = originalCommandWorkingDirectory
 		existingHook.ResponseMessage = originalResponseMessage
+
+		// 记录失败的日志
+		username, _ := c.Get("username")
+		usernameStr := "unknown"
+		if username != nil {
+			usernameStr = username.(string)
+		}
+		database.LogHookManagement(
+			database.UserActionUpdateHookBasic,
+			hookID,
+			hookID,
+			usernameStr,
+			middleware.GetClientIP(c),
+			c.Request.UserAgent(),
+			false,
+			map[string]interface{}{
+				"hookId": hookID,
+				"error":  err.Error(),
+				"action": "update_hook_basic",
+				"changes": map[string]interface{}{
+					"executeCommand":  request.ExecuteCommand,
+					"workingDir":      request.CommandWorkingDirectory,
+					"responseMessage": request.ResponseMessage,
+				},
+			},
+		)
+
+		// 推送失败消息
+		wsMessage := stream.WsMessage{
+			Type:      "hook_managed",
+			Timestamp: time.Now(),
+			Data: stream.HookManageMessage{
+				Action:   "update_basic",
+				HookID:   hookID,
+				HookName: hookID,
+				Success:  false,
+				Error:    "保存Hook基本信息失败: " + err.Error(),
+			},
+		}
+		stream.Global.Broadcast(wsMessage)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save hook changes: " + err.Error()})
 		return
 	}
+
+	// 记录成功的日志
+	username, _ := c.Get("username")
+	usernameStr := "unknown"
+	if username != nil {
+		usernameStr = username.(string)
+	}
+	database.LogHookManagement(
+		database.UserActionUpdateHookBasic,
+		hookID,
+		hookID,
+		usernameStr,
+		middleware.GetClientIP(c),
+		c.Request.UserAgent(),
+		true,
+		map[string]interface{}{
+			"hookId": hookID,
+			"action": "update_hook_basic",
+			"changes": map[string]interface{}{
+				"executeCommand": map[string]string{
+					"old": originalExecuteCommand,
+					"new": request.ExecuteCommand,
+				},
+				"workingDir": map[string]string{
+					"old": originalCommandWorkingDirectory,
+					"new": request.CommandWorkingDirectory,
+				},
+				"responseMessage": map[string]string{
+					"old": originalResponseMessage,
+					"new": request.ResponseMessage,
+				},
+			},
+		},
+	)
+
+	// 推送成功消息
+	wsMessage := stream.WsMessage{
+		Type:      "hook_managed",
+		Timestamp: time.Now(),
+		Data: stream.HookManageMessage{
+			Action:   "update_basic",
+			HookID:   hookID,
+			HookName: hookID,
+			Success:  true,
+		},
+	}
+	stream.Global.Broadcast(wsMessage)
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Hook基本信息更新成功",
@@ -1192,7 +1577,7 @@ func HandleUpdateHookParameters(c *gin.Context) {
 		}
 	}
 
-	// 备份原值，以便保存失败时恢复
+	// 备份原值，以便保存失败时恢复和记录日志
 	originalPassArgumentsToCommand := existingHook.PassArgumentsToCommand
 	originalPassEnvironmentToCommand := existingHook.PassEnvironmentToCommand
 	originalJSONStringParameters := existingHook.JSONStringParameters
@@ -1208,9 +1593,97 @@ func HandleUpdateHookParameters(c *gin.Context) {
 		existingHook.PassArgumentsToCommand = originalPassArgumentsToCommand
 		existingHook.PassEnvironmentToCommand = originalPassEnvironmentToCommand
 		existingHook.JSONStringParameters = originalJSONStringParameters
+
+		// 记录失败的日志
+		username, _ := c.Get("username")
+		usernameStr := "unknown"
+		if username != nil {
+			usernameStr = username.(string)
+		}
+		database.LogHookManagement(
+			database.UserActionUpdateHookParameters,
+			hookID,
+			hookID,
+			usernameStr,
+			middleware.GetClientIP(c),
+			c.Request.UserAgent(),
+			false,
+			map[string]interface{}{
+				"hookId": hookID,
+				"error":  err.Error(),
+				"action": "update_hook_parameters",
+				"changes": map[string]interface{}{
+					"argumentsCount":      len(request.PassArgumentsToCommand),
+					"environmentCount":    len(request.PassEnvironmentToCommand),
+					"jsonParametersCount": len(request.ParseParametersAsJSON),
+				},
+			},
+		)
+
+		// 推送失败消息
+		wsMessage := stream.WsMessage{
+			Type:      "hook_managed",
+			Timestamp: time.Now(),
+			Data: stream.HookManageMessage{
+				Action:   "update_parameters",
+				HookID:   hookID,
+				HookName: hookID,
+				Success:  false,
+				Error:    "保存Hook参数配置失败: " + err.Error(),
+			},
+		}
+		stream.Global.Broadcast(wsMessage)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save hook changes: " + err.Error()})
 		return
 	}
+
+	// 记录成功的日志
+	username, _ := c.Get("username")
+	usernameStr := "unknown"
+	if username != nil {
+		usernameStr = username.(string)
+	}
+	database.LogHookManagement(
+		database.UserActionUpdateHookParameters,
+		hookID,
+		hookID,
+		usernameStr,
+		middleware.GetClientIP(c),
+		c.Request.UserAgent(),
+		true,
+		map[string]interface{}{
+			"hookId": hookID,
+			"action": "update_hook_parameters",
+			"changes": map[string]interface{}{
+				"arguments": map[string]interface{}{
+					"oldCount": len(originalPassArgumentsToCommand),
+					"newCount": len(request.PassArgumentsToCommand),
+				},
+				"environment": map[string]interface{}{
+					"oldCount": len(originalPassEnvironmentToCommand),
+					"newCount": len(request.PassEnvironmentToCommand),
+				},
+				"jsonParameters": map[string]interface{}{
+					"oldCount": len(originalJSONStringParameters),
+					"newCount": len(request.ParseParametersAsJSON),
+				},
+			},
+		},
+	)
+
+	// 推送成功消息
+	wsMessage := stream.WsMessage{
+		Type:      "hook_managed",
+		Timestamp: time.Now(),
+		Data: stream.HookManageMessage{
+			Action:   "update_parameters",
+			HookID:   hookID,
+			HookName: hookID,
+			Success:  true,
+		},
+	}
+	stream.Global.Broadcast(wsMessage)
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Hook参数配置更新成功",
@@ -1244,7 +1717,7 @@ func HandleUpdateHookTriggers(c *gin.Context) {
 		return
 	}
 
-	// 备份原值，以便保存失败时恢复
+	// 备份原值，以便保存失败时恢复和记录日志
 	originalTriggerRule := existingHook.TriggerRule
 	originalTriggerRuleMismatchHttpResponseCode := existingHook.TriggerRuleMismatchHttpResponseCode
 
@@ -1259,84 +1732,95 @@ func HandleUpdateHookTriggers(c *gin.Context) {
 		// 保存失败，恢复原值
 		existingHook.TriggerRule = originalTriggerRule
 		existingHook.TriggerRuleMismatchHttpResponseCode = originalTriggerRuleMismatchHttpResponseCode
+
+		// 记录失败的日志
+		username, _ := c.Get("username")
+		usernameStr := "unknown"
+		if username != nil {
+			usernameStr = username.(string)
+		}
+		database.LogHookManagement(
+			database.UserActionUpdateHookTriggers,
+			hookID,
+			hookID,
+			usernameStr,
+			middleware.GetClientIP(c),
+			c.Request.UserAgent(),
+			false,
+			map[string]interface{}{
+				"hookId": hookID,
+				"error":  err.Error(),
+				"action": "update_hook_triggers",
+				"changes": map[string]interface{}{
+					"hasRules":     request.TriggerRule != nil,
+					"responseCode": request.TriggerRuleMismatchHTTPResponseCode,
+				},
+			},
+		)
+
+		// 推送失败消息
+		wsMessage := stream.WsMessage{
+			Type:      "hook_managed",
+			Timestamp: time.Now(),
+			Data: stream.HookManageMessage{
+				Action:   "update_triggers",
+				HookID:   hookID,
+				HookName: hookID,
+				Success:  false,
+				Error:    "保存Hook触发规则失败: " + err.Error(),
+			},
+		}
+		stream.Global.Broadcast(wsMessage)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save hook changes: " + err.Error()})
 		return
 	}
+
+	// 记录成功的日志
+	username, _ := c.Get("username")
+	usernameStr := "unknown"
+	if username != nil {
+		usernameStr = username.(string)
+	}
+	database.LogHookManagement(
+		database.UserActionUpdateHookTriggers,
+		hookID,
+		hookID,
+		usernameStr,
+		middleware.GetClientIP(c),
+		c.Request.UserAgent(),
+		true,
+		map[string]interface{}{
+			"hookId": hookID,
+			"action": "update_hook_triggers",
+			"changes": map[string]interface{}{
+				"triggerRule": map[string]interface{}{
+					"hadRules": originalTriggerRule != nil,
+					"hasRules": request.TriggerRule != nil,
+				},
+				"responseCode": map[string]interface{}{
+					"old": originalTriggerRuleMismatchHttpResponseCode,
+					"new": request.TriggerRuleMismatchHTTPResponseCode,
+				},
+			},
+		},
+	)
+
+	// 推送成功消息
+	wsMessage := stream.WsMessage{
+		Type:      "hook_managed",
+		Timestamp: time.Now(),
+		Data: stream.HookManageMessage{
+			Action:   "update_triggers",
+			HookID:   hookID,
+			HookName: hookID,
+			Success:  true,
+		},
+	}
+	stream.Global.Broadcast(wsMessage)
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Hook触发规则更新成功",
-		"hookId":  hookID,
-	})
-}
-
-// HandleUpdateHookResponse 更新Hook响应配置
-func HandleUpdateHookResponse(c *gin.Context) {
-	hookID := c.Param("id")
-	existingHook := HookManager.MatchLoadedHook(hookID)
-	if existingHook == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Hook not found"})
-		return
-	}
-
-	var request struct {
-		HTTPMethods                           []string          `json:"http-methods,omitempty"`
-		ResponseHeaders                       map[string]string `json:"response-headers,omitempty"`
-		IncludeCommandOutputInResponse        bool              `json:"include-command-output-in-response,omitempty"`
-		IncludeCommandOutputInResponseOnError bool              `json:"include-command-output-in-response-on-error,omitempty"`
-	}
-
-	if err := c.ShouldBindJSON(&request); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request parameters: " + err.Error()})
-		return
-	}
-
-	// 验证HTTP方法
-	validMethods := map[string]bool{"GET": true, "POST": true, "PUT": true, "DELETE": true, "PATCH": true}
-	for _, method := range request.HTTPMethods {
-		if !validMethods[strings.ToUpper(method)] {
-			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("无效的HTTP方法: %s", method)})
-			return
-		}
-	}
-
-	// 备份原值，以便保存失败时恢复
-	originalHTTPMethods := existingHook.HTTPMethods
-	originalResponseHeaders := existingHook.ResponseHeaders
-	originalCaptureCommandOutput := existingHook.CaptureCommandOutput
-	originalCaptureCommandOutputOnError := existingHook.CaptureCommandOutputOnError
-
-	// 更新响应配置
-	if len(request.HTTPMethods) > 0 {
-		existingHook.HTTPMethods = request.HTTPMethods
-	}
-
-	// 转换ResponseHeaders格式
-	if request.ResponseHeaders != nil {
-		existingHook.ResponseHeaders = make(ResponseHeaders, 0, len(request.ResponseHeaders))
-		for name, value := range request.ResponseHeaders {
-			existingHook.ResponseHeaders = append(existingHook.ResponseHeaders, Header{
-				Name:  name,
-				Value: value,
-			})
-		}
-	}
-
-	existingHook.CaptureCommandOutput = request.IncludeCommandOutputInResponse
-	existingHook.CaptureCommandOutputOnError = request.IncludeCommandOutputInResponseOnError
-
-	// 保存到配置文件
-	if err := HookManager.SaveHookChanges(hookID); err != nil {
-		// 保存失败，恢复原值
-		existingHook.HTTPMethods = originalHTTPMethods
-		existingHook.ResponseHeaders = originalResponseHeaders
-		existingHook.CaptureCommandOutput = originalCaptureCommandOutput
-		existingHook.CaptureCommandOutputOnError = originalCaptureCommandOutputOnError
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save hook changes: " + err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Hook响应配置更新成功",
 		"hookId":  hookID,
 	})
 }
@@ -1369,9 +1853,59 @@ func HandleUpdateHookExecuteCommand(c *gin.Context) {
 	if err := HookManager.SaveHookChanges(hookID); err != nil {
 		// 保存失败，恢复原值
 		existingHook.ExecuteCommand = originalExecuteCommand
+
+		// 记录失败的日志
+		username, _ := c.Get("username")
+		usernameStr := "unknown"
+		if username != nil {
+			usernameStr = username.(string)
+		}
+		database.LogHookManagement(
+			database.UserActionUpdateHookScript,
+			hookID,
+			hookID,
+			usernameStr,
+			middleware.GetClientIP(c),
+			c.Request.UserAgent(),
+			false,
+			map[string]interface{}{
+				"hookId":     hookID,
+				"error":      err.Error(),
+				"action":     "update_execute_command",
+				"oldCommand": originalExecuteCommand,
+				"newCommand": request.ExecuteCommand,
+			},
+		)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save hook changes: " + err.Error()})
 		return
 	}
+
+	// 记录成功的日志
+	username, _ := c.Get("username")
+	usernameStr := "unknown"
+	if username != nil {
+		usernameStr = username.(string)
+	}
+	database.LogHookManagement(
+		database.UserActionUpdateHookScript,
+		hookID,
+		hookID,
+		usernameStr,
+		middleware.GetClientIP(c),
+		c.Request.UserAgent(),
+		true,
+		map[string]interface{}{
+			"hookId": hookID,
+			"action": "update_execute_command",
+			"changes": map[string]interface{}{
+				"executeCommand": map[string]interface{}{
+					"old": originalExecuteCommand,
+					"new": request.ExecuteCommand,
+				},
+			},
+		},
+	)
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Hook执行命令更新成功",

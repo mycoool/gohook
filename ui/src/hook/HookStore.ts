@@ -319,11 +319,11 @@ export class HookStore {
 
     public saveScript = async (hookId: string, content: string, path?: string): Promise<void> => {
         try {
-            const requestData: { content: string; path?: string } = { content };
+            const requestData: any = {content};
             if (path) {
                 requestData.path = path;
             }
-
+            
             const response = await axios.post(
                 `${config.get('url')}hook/${hookId}/script`,
                 requestData,
@@ -333,46 +333,12 @@ export class HookStore {
             );
             this.snack(response.data.message || '脚本文件保存成功');
         } catch (error: unknown) {
-            if (error && typeof error === 'object' && 'response' in error) {
-                const axiosError = error as {
-                    response?: {data?: {error?: string; details?: string[]}};
-                };
-                const errorData = axiosError.response?.data;
-
-                if (errorData?.details && Array.isArray(errorData.details)) {
-                    // 格式验证失败，显示详细错误信息
-                    const details = errorData.details.join('\n');
-                    this.snack(`脚本文件格式验证失败:\n${details}`);
-                    throw new Error(`格式验证失败:\n${details}`);
-                } else {
-                    const errorMessage = errorData?.error ?? '保存脚本文件失败';
-                    this.snack('保存脚本文件失败: ' + errorMessage);
-                    throw new Error(errorMessage);
-                }
-            } else {
-                const errorMessage = error instanceof Error ? error.message : '未知错误';
-                this.snack('保存脚本文件失败: ' + errorMessage);
-                throw new Error(errorMessage);
-            }
-        }
-    };
-
-    public deleteScript = async (hookId: string): Promise<void> => {
-        try {
-            const response = await axios.delete(
-                `${config.get('url')}hook/${hookId}/script`,
-                {
-                    headers: {'X-GoHook-Key': this.tokenProvider()},
-                }
-            );
-            this.snack(response.data.message || '脚本文件删除成功');
-        } catch (error: unknown) {
             const errorMessage =
                 error instanceof Error
                     ? error.message
                     : (error as {response?: {data?: {error?: string}}})?.response?.data?.error ??
-                      '删除脚本文件失败';
-            this.snack('删除脚本文件失败: ' + errorMessage);
+                      '保存脚本文件失败';
+            this.snack('保存脚本文件失败: ' + errorMessage);
             throw new Error(errorMessage);
         }
     };

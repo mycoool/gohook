@@ -40,6 +40,15 @@ type HookTriggeredMessage struct {
 	Error      string `json:"error,omitempty"`
 }
 
+// hook manage message
+type HookManageMessage struct {
+	Action   string `json:"action"`          // "create" | "update_basic" | "update_parameters" | "update_triggers" | "update_response" | "delete" | "update_script"
+	HookID   string `json:"hookId"`          // Hook ID
+	HookName string `json:"hookName"`        // Hook名称
+	Success  bool   `json:"success"`         // 是否成功
+	Error    string `json:"error,omitempty"` // 错误信息
+}
+
 // version switch message
 type VersionSwitchMessage struct {
 	ProjectName string `json:"projectName"`

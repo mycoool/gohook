@@ -177,19 +177,12 @@ export interface IHookTriggeredMessage {
 // GitHook triggered message
 export interface IGitHookTriggeredMessage {
     projectName: string;
-    action:
-        | 'switch-branch'
-        | 'switch-tag'
-        | 'delete-tag'
-        | 'delete-branch'
-        | 'skip-branch-switch'
-        | 'skip-mode-mismatch';
-    target: string;
+    action: string; // "switch-branch" | "switch-tag" | "delete-tag" | "delete-branch" | "skip-branch-switch" | "skip-mode-mismatch"
+    target: string; // branch name or tag name
     success: boolean;
-    output?: string;
     error?: string;
-    skipped?: boolean;
-    message?: string;
+    skipped?: boolean; // 是否跳过操作
+    message?: string; // 详细消息
 }
 
 // Version switch message
@@ -208,4 +201,13 @@ export interface IProjectManageMessage {
     projectPath?: string;
     success: boolean;
     error?: string;
+}
+
+// Hook管理消息
+export interface IHookManageMessage {
+    action: string; // "create" | "update_basic" | "update_parameters" | "update_triggers" | "update_response" | "delete" | "update_script"
+    hookId: string; // Hook ID
+    hookName: string; // Hook名称
+    success: boolean; // 是否成功
+    error?: string; // 错误信息
 }

@@ -133,16 +133,24 @@ class Logs extends Component<LogsProps, LogsState> {
         // 对于系统日志，使用level字段
         if (log.level) {
             const colors: Record<string, 'default' | 'info' | 'warning' | 'error'> = {
+                INFO: 'info',
+                WARN: 'warning',
+                ERROR: 'error',
+                DEBUG: 'default',
                 info: 'info',
                 warn: 'warning',
                 error: 'error',
                 debug: 'default',
             };
+            const levelKey = log.level.toUpperCase();
+            const translationKey = `logs.logLevel.${levelKey.toLowerCase()}`;
+            const translatedLevel = this.props.t(translationKey);
+            
             return (
                 <Chip
                     size="small"
-                    label={this.props.t(`logs.logLevel.${log.level}`)}
-                    color={colors[log.level] || 'default'}
+                    label={translatedLevel !== translationKey ? translatedLevel : levelKey}
+                    color={colors[levelKey] || 'default'}
                 />
             );
         }
@@ -301,172 +309,242 @@ class Logs extends Component<LogsProps, LogsState> {
     };
 
     renderDetailDialog = () => {
-        const {selectedLog, detailDialogOpen} = this.state;
+        const {selectedLog} = this.state;
         if (!selectedLog) return null;
 
         return (
             <Dialog
-                open={detailDialogOpen}
+                open={this.state.detailDialogOpen}
                 onClose={() => this.setState({detailDialogOpen: false})}
                 maxWidth="md"
                 fullWidth>
                 <DialogTitle>
-                    {this.props.t('logs.details')} - ID: {selectedLog.id}
+                    <Box display="flex" justifyContent="space-between" alignItems="center">
+                        <Typography variant="h6">
+                            {this.props.t('logs.details')} - {selectedLog.type}
+                        </Typography>
+                        <Box display="flex" gap={1}>
+                            {this.getTypeChip(selectedLog.type)}
+                            {this.getStatusChip(selectedLog)}
+                        </Box>
+                    </Box>
                 </DialogTitle>
                 <DialogContent>
                     <Stack spacing={2}>
-                        <Box sx={{display: 'flex', gap: 2}}>
-                            <Box sx={{flex: 1}}>
-                                <Typography variant="subtitle2">
-                                    {this.props.t('logs.timestamp')}
-                                </Typography>
-                                <Typography variant="body2">
-                                    {new Date(selectedLog.timestamp).toLocaleString()}
-                                </Typography>
-                            </Box>
-                            <Box sx={{flex: 1}}>
-                                <Typography variant="subtitle2">
-                                    {this.props.t('logs.filterByType')}
-                                </Typography>
-                                <Typography variant="body2" component="div">
-                                    {this.getTypeChip(selectedLog.type)}
-                                </Typography>
-                            </Box>
-                        </Box>
+                        {/* 基本信息 */}
                         <Box>
-                            <Typography variant="subtitle2">
-                                {this.props.t('logs.message')}
+                            <Typography variant="subtitle2" gutterBottom>
+                                基本信息
                             </Typography>
-                            <Typography variant="body2">{selectedLog.message}</Typography>
+                            <Paper sx={{ p: 2, bgcolor: 'background.default' }}>
+                                <Box display="grid" gridTemplateColumns="repeat(2, 1fr)" gap={2}>
+                                    <Box>
+                                        <Typography variant="caption" color="textSecondary">
+                                            {this.props.t('logs.logId')}
+                                        </Typography>
+                                        <Typography variant="body2">{selectedLog.id}</Typography>
+                                    </Box>
+                                    <Box>
+                                        <Typography variant="caption" color="textSecondary">
+                                            {this.props.t('logs.timestamp')}
+                                        </Typography>
+                                        <Typography variant="body2">
+                                            {selectedLog.timestamp ? new Date(selectedLog.timestamp).toLocaleString() : 'Invalid Date'}
+                                        </Typography>
+                                    </Box>
+                                    {selectedLog.username && (
+                                        <Box>
+                                            <Typography variant="caption" color="textSecondary">
+                                                {this.props.t('logs.user')}
+                                            </Typography>
+                                            <Typography variant="body2">{selectedLog.username}</Typography>
+                                        </Box>
+                                    )}
+                                    {selectedLog.action && (
+                                        <Box>
+                                            <Typography variant="caption" color="textSecondary">
+                                                {this.props.t('logs.action')}
+                                            </Typography>
+                                            <Typography variant="body2">
+                                                {this.props.t(`logs.userActions.${selectedLog.action}`) || selectedLog.action}
+                                            </Typography>
+                                        </Box>
+                                    )}
+                                    {selectedLog.resource && (
+                                        <Box>
+                                            <Typography variant="caption" color="textSecondary">
+                                                {this.props.t('logs.resource')}
+                                            </Typography>
+                                            <Typography variant="body2">{selectedLog.resource}</Typography>
+                                        </Box>
+                                    )}
+                                    {selectedLog.ipAddress && (
+                                        <Box>
+                                            <Typography variant="caption" color="textSecondary">
+                                                {this.props.t('logs.ipAddress')}
+                                            </Typography>
+                                            <Typography variant="body2">{selectedLog.ipAddress}</Typography>
+                                        </Box>
+                                    )}
+                                </Box>
+                            </Paper>
                         </Box>
-                        {selectedLog.type === 'hook' && (
-                            <>
-                                <Box sx={{display: 'flex', gap: 2}}>
-                                    <Box sx={{flex: 1}}>
-                                        <Typography variant="subtitle2">
-                                            {this.props.t('logs.hookName')}
-                                        </Typography>
-                                        <Typography variant="body2">
-                                            {selectedLog.hookName}
-                                        </Typography>
-                                    </Box>
-                                    <Box sx={{flex: 1}}>
-                                        <Typography variant="subtitle2">
-                                            {this.props.t('logs.method')}
-                                        </Typography>
-                                        <Typography variant="body2">
-                                            {selectedLog.method}
-                                        </Typography>
-                                    </Box>
-                                </Box>
-                                <Box sx={{display: 'flex', gap: 2}}>
-                                    <Box sx={{flex: 1}}>
-                                        <Typography variant="subtitle2">
-                                            {this.props.t('logs.remoteAddr')}
-                                        </Typography>
-                                        <Typography variant="body2">
-                                            {selectedLog.remoteAddr}
-                                        </Typography>
-                                    </Box>
-                                    <Box sx={{flex: 1}}>
-                                        <Typography variant="subtitle2">
-                                            {this.props.t('logs.duration')}
-                                        </Typography>
-                                        <Typography variant="body2">
-                                            {selectedLog.duration}ms
-                                        </Typography>
-                                    </Box>
-                                </Box>
-                                {selectedLog.output && (
-                                    <Box>
-                                        <Typography variant="subtitle2">
-                                            {this.props.t('logs.output')}
-                                        </Typography>
-                                        <Paper
-                                            sx={{
-                                                p: 2,
-                                                bgcolor: (theme) => theme.palette.mode === 'dark' ? '#1a1a1a' : '#f8f9fa',
-                                                color: (theme) => theme.palette.mode === 'dark' ? '#d0d7de' : '#24292f',
-                                                border: 1,
-                                                borderColor: (theme) => theme.palette.mode === 'dark' ? '#30363d' : '#d0d7de',
-                                                fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-                                                fontSize: '0.85rem',
-                                                maxHeight: 200,
-                                                overflow: 'auto',
-                                                '& pre': {
-                                                    margin: 0,
-                                                    whiteSpace: 'pre-wrap',
-                                                    wordBreak: 'break-word',
-                                                },
-                                                // 应用环境文件编辑器的滚动条样式
-                                                '&::-webkit-scrollbar': {
-                                                    width: '8px',
-                                                    height: '8px',
-                                                },
-                                                '&::-webkit-scrollbar-track': {
-                                                    backgroundColor: (theme) => theme.palette.mode === 'dark' ? '#2d2d2d' : '#f1f3f4',
-                                                    borderRadius: '4px',
-                                                },
-                                                '&::-webkit-scrollbar-thumb': {
-                                                    backgroundColor: (theme) => theme.palette.mode === 'dark' ? '#30363d' : '#c1c8cd',
-                                                    borderRadius: '4px',
-                                                    '&:hover': {
-                                                        backgroundColor: (theme) => theme.palette.mode === 'dark' ? '#484f58' : '#a8b3ba',
-                                                    },
-                                                },
-                                                scrollbarWidth: 'thin',
-                                                scrollbarColor: (theme) => theme.palette.mode === 'dark' ? '#30363d #2d2d2d' : '#c1c8cd #f1f3f4',
-                                            }}>
-                                            <pre>{selectedLog.output}</pre>
-                                        </Paper>
-                                    </Box>
-                                )}
-                                {selectedLog.error && (
-                                    <Box>
-                                        <Typography variant="subtitle2">
-                                            {this.props.t('logs.error')}
-                                        </Typography>
-                                        <Paper
-                                            sx={{
-                                                p: 2,
-                                                bgcolor: 'error.light',
-                                                color: 'error.contrastText',
-                                                border: 1,
-                                                borderColor: 'error.main',
-                                                fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-                                                fontSize: '0.85rem',
-                                                maxHeight: 200,
-                                                overflow: 'auto',
-                                                '& pre': {
-                                                    margin: 0,
-                                                    whiteSpace: 'pre-wrap',
-                                                    wordBreak: 'break-word',
-                                                },
-                                                // 应用环境文件编辑器的滚动条样式
-                                                '&::-webkit-scrollbar': {
-                                                    width: '8px',
-                                                    height: '8px',
-                                                },
-                                                '&::-webkit-scrollbar-track': {
-                                                    backgroundColor: (theme) => theme.palette.mode === 'dark' ? '#2d2d2d' : '#f1f3f4',
-                                                    borderRadius: '4px',
-                                                },
-                                                '&::-webkit-scrollbar-thumb': {
-                                                    backgroundColor: (theme) => theme.palette.mode === 'dark' ? '#30363d' : '#c1c8cd',
-                                                    borderRadius: '4px',
-                                                    '&:hover': {
-                                                        backgroundColor: (theme) => theme.palette.mode === 'dark' ? '#484f58' : '#a8b3ba',
-                                                    },
-                                                },
-                                                scrollbarWidth: 'thin',
-                                                scrollbarColor: (theme) => theme.palette.mode === 'dark' ? '#30363d #2d2d2d' : '#c1c8cd #f1f3f4',
-                                            }}>
-                                            <pre>{selectedLog.error}</pre>
-                                        </Paper>
-                                    </Box>
-                                )}
-                            </>
+
+                        {/* 消息/描述 */}
+                        {(selectedLog.message || selectedLog.description) && (
+                            <Box>
+                                <Typography variant="subtitle2">
+                                    {this.props.t('logs.message')}
+                                </Typography>
+                                <Paper
+                                    sx={{
+                                        p: 2,
+                                        bgcolor: (theme) => theme.palette.mode === 'dark' ? '#1a1a1a' : '#f8f9fa',
+                                        border: 1,
+                                        borderColor: 'divider',
+                                    }}>
+                                    <Typography variant="body2">
+                                        {selectedLog.message || selectedLog.description}
+                                    </Typography>
+                                </Paper>
+                            </Box>
                         )}
+
+                        {/* Hook特定信息 */}
+                        {selectedLog.type === 'hook' && (
+                            <Box>
+                                <Typography variant="subtitle2" gutterBottom>
+                                    Hook信息
+                                </Typography>
+                                <Paper sx={{ p: 2, bgcolor: 'background.default' }}>
+                                    <Box display="grid" gridTemplateColumns="repeat(2, 1fr)" gap={2}>
+                                        {selectedLog.hookName && (
+                                            <Box>
+                                                <Typography variant="caption" color="textSecondary">
+                                                    Hook名称
+                                                </Typography>
+                                                <Typography variant="body2">{selectedLog.hookName}</Typography>
+                                            </Box>
+                                        )}
+                                        {selectedLog.method && (
+                                            <Box>
+                                                <Typography variant="caption" color="textSecondary">
+                                                    请求方法
+                                                </Typography>
+                                                <Typography variant="body2">{selectedLog.method}</Typography>
+                                            </Box>
+                                        )}
+                                        {selectedLog.remoteAddr && (
+                                            <Box>
+                                                <Typography variant="caption" color="textSecondary">
+                                                    远程地址
+                                                </Typography>
+                                                <Typography variant="body2">{selectedLog.remoteAddr}</Typography>
+                                            </Box>
+                                        )}
+                                        {selectedLog.duration !== undefined && (
+                                            <Box>
+                                                <Typography variant="caption" color="textSecondary">
+                                                    执行时长
+                                                </Typography>
+                                                <Typography variant="body2">{selectedLog.duration}ms</Typography>
+                                            </Box>
+                                        )}
+                                    </Box>
+                                </Paper>
+                            </Box>
+                        )}
+
+                        {selectedLog.output && (
+                            <Box>
+                                <Typography variant="subtitle2">
+                                    {this.props.t('logs.output')}
+                                </Typography>
+                                <Paper
+                                    sx={{
+                                        p: 2,
+                                        bgcolor: (theme) => theme.palette.mode === 'dark' ? '#1a1a1a' : '#f8f9fa',
+                                        color: (theme) => theme.palette.mode === 'dark' ? '#d0d7de' : '#24292f',
+                                        border: 1,
+                                        borderColor: (theme) => theme.palette.mode === 'dark' ? '#30363d' : '#d0d7de',
+                                        fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+                                        fontSize: '0.85rem',
+                                        maxHeight: 200,
+                                        overflow: 'auto',
+                                        '& pre': {
+                                            margin: 0,
+                                            whiteSpace: 'pre-wrap',
+                                            wordBreak: 'break-word',
+                                        },
+                                        // 应用环境文件编辑器的滚动条样式
+                                        '&::-webkit-scrollbar': {
+                                            width: '8px',
+                                            height: '8px',
+                                        },
+                                        '&::-webkit-scrollbar-track': {
+                                            backgroundColor: (theme) => theme.palette.mode === 'dark' ? '#2d2d2d' : '#f1f3f4',
+                                            borderRadius: '4px',
+                                        },
+                                        '&::-webkit-scrollbar-thumb': {
+                                            backgroundColor: (theme) => theme.palette.mode === 'dark' ? '#424242' : '#c1c8cd',
+                                            borderRadius: '4px',
+                                        },
+                                        '&::-webkit-scrollbar-thumb:hover': {
+                                            backgroundColor: (theme) => theme.palette.mode === 'dark' ? '#484f58' : '#a8b3ba',
+                                        },
+                                        scrollbarWidth: 'thin',
+                                        scrollbarColor: (theme) => theme.palette.mode === 'dark' ? '#30363d #2d2d2d' : '#c1c8cd #f1f3f4',
+                                    }}>
+                                    <pre>{selectedLog.output}</pre>
+                                </Paper>
+                            </Box>
+                        )}
+
+                        {selectedLog.error && (
+                            <Box>
+                                <Typography variant="subtitle2">
+                                    {this.props.t('logs.error')}
+                                </Typography>
+                                <Paper
+                                    sx={{
+                                        p: 2,
+                                        bgcolor: 'error.light',
+                                        color: 'error.contrastText',
+                                        border: 1,
+                                        borderColor: 'error.main',
+                                        fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+                                        fontSize: '0.85rem',
+                                        maxHeight: 200,
+                                        overflow: 'auto',
+                                        '& pre': {
+                                            margin: 0,
+                                            whiteSpace: 'pre-wrap',
+                                            wordBreak: 'break-word',
+                                        },
+                                        // 应用环境文件编辑器的滚动条样式
+                                        '&::-webkit-scrollbar': {
+                                            width: '8px',
+                                            height: '8px',
+                                        },
+                                        '&::-webkit-scrollbar-track': {
+                                            backgroundColor: (theme) => theme.palette.mode === 'dark' ? '#2d2d2d' : '#f1f3f4',
+                                            borderRadius: '4px',
+                                        },
+                                        '&::-webkit-scrollbar-thumb': {
+                                            backgroundColor: (theme) => theme.palette.mode === 'dark' ? '#424242' : '#c1c8cd',
+                                            borderRadius: '4px',
+                                        },
+                                        '&::-webkit-scrollbar-thumb:hover': {
+                                            backgroundColor: (theme) => theme.palette.mode === 'dark' ? '#484f58' : '#a8b3ba',
+                                        },
+                                        scrollbarWidth: 'thin',
+                                        scrollbarColor: (theme) => theme.palette.mode === 'dark' ? '#30363d #2d2d2d' : '#c1c8cd #f1f3f4',
+                                    }}>
+                                    <pre>{selectedLog.error}</pre>
+                                </Paper>
+                            </Box>
+                        )}
+
                         {selectedLog.details && (
                             <Box>
                                 <Typography variant="subtitle2">
@@ -498,11 +576,11 @@ class Logs extends Component<LogsProps, LogsState> {
                                             borderRadius: '4px',
                                         },
                                         '&::-webkit-scrollbar-thumb': {
-                                            backgroundColor: (theme) => theme.palette.mode === 'dark' ? '#30363d' : '#c1c8cd',
+                                            backgroundColor: (theme) => theme.palette.mode === 'dark' ? '#424242' : '#c1c8cd',
                                             borderRadius: '4px',
-                                            '&:hover': {
-                                                backgroundColor: (theme) => theme.palette.mode === 'dark' ? '#484f58' : '#a8b3ba',
-                                            },
+                                        },
+                                        '&::-webkit-scrollbar-thumb:hover': {
+                                            backgroundColor: (theme) => theme.palette.mode === 'dark' ? '#484f58' : '#a8b3ba',
                                         },
                                         scrollbarWidth: 'thin',
                                         scrollbarColor: (theme) => theme.palette.mode === 'dark' ? '#30363d #2d2d2d' : '#c1c8cd #f1f3f4',

@@ -124,7 +124,6 @@ class Hooks extends Component<Stores<'hookStore' | 'snackManager'>> {
                         onClose={() => (this.editingScriptId = false)}
                         onGetScript={hookStore.getScript}
                         onSaveScript={hookStore.saveScript}
-                        onDeleteScript={hookStore.deleteScript}
                         onUpdateExecuteCommand={hookStore.updateExecuteCommand}
                         onGetHookDetails={hookStore.getHookDetails}
                     />

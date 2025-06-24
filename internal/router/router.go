@@ -165,7 +165,6 @@ func InitRouter() *gin.Engine {
 		// script management
 		hookAPI.GET("/:id/script", webhook.HandleGetHookScript)
 		hookAPI.POST("/:id/script", webhook.HandleSaveHookScript)
-		hookAPI.DELETE("/:id/script", webhook.HandleDeleteHookScript)
 		hookAPI.PUT("/:id/execute-command", webhook.HandleUpdateHookExecuteCommand)
 	}
 
