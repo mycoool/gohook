@@ -3,8 +3,162 @@ import {
     ThemeProvider,
     StyledEngineProvider,
     Theme,
+    ThemeOptions,
     styled,
 } from '@mui/material/styles';
+
+// 扩展主题类型
+declare module '@mui/material/styles' {
+  interface Theme {
+    custom: {
+      colors: {
+        primary: {
+          black: string;
+          darkGray: string;
+          mediumGray: string;
+          lightGray: string;
+        };
+        background: {
+          white: string;
+          lightGray: string;
+          mediumGray: string;
+          overlay: string;
+        };
+        border: {
+          light: string;
+          medium: string;
+          dark: string;
+          contrast: string;
+        };
+        text: {
+          primary: string;
+          secondary: string;
+          disabled: string;
+          onDark: string;
+          onDarkSecondary: string;
+        };
+        status: {
+          info: {
+            background: string;
+            border: string;
+            text: string;
+          };
+          warning: {
+            background: string;
+            border: string;
+            text: string;
+          };
+          error: {
+            background: string;
+            border: string;
+            text: string;
+          };
+          success: {
+            background: string;
+            border: string;
+            text: string;
+          };
+        };
+        interactive: {
+          button: {
+            command: string;
+            script: string;
+            hover: string;
+            disabled: string;
+          };
+          input: {
+            background: string;
+            border: string;
+            focus: string;
+            text: string;
+          };
+          code: {
+            background: string;
+            text: string;
+            padding: string;
+            borderRadius: number;
+            fontSize: string;
+          };
+        };
+      };
+    };
+  }
+
+  interface ThemeOptions {
+    custom?: {
+      colors?: {
+        primary?: {
+          black?: string;
+          darkGray?: string;
+          mediumGray?: string;
+          lightGray?: string;
+        };
+        background?: {
+          white?: string;
+          lightGray?: string;
+          mediumGray?: string;
+          overlay?: string;
+        };
+        border?: {
+          light?: string;
+          medium?: string;
+          dark?: string;
+          contrast?: string;
+        };
+        text?: {
+          primary?: string;
+          secondary?: string;
+          disabled?: string;
+          onDark?: string;
+          onDarkSecondary?: string;
+        };
+        status?: {
+          info?: {
+            background?: string;
+            border?: string;
+            text?: string;
+          };
+          warning?: {
+            background?: string;
+            border?: string;
+            text?: string;
+          };
+          error?: {
+            background?: string;
+            border?: string;
+            text?: string;
+          };
+          success?: {
+            background?: string;
+            border?: string;
+            text?: string;
+          };
+        };
+        interactive?: {
+          button?: {
+            command?: string;
+            script?: string;
+            hover?: string;
+            disabled?: string;
+          };
+          input?: {
+            background?: string;
+            border?: string;
+            focus?: string;
+            text?: string;
+          };
+          code?: {
+            background?: string;
+            text?: string;
+            padding?: string;
+            borderRadius?: number;
+            fontSize?: string;
+          };
+        };
+      };
+    };
+  }
+}
 import {ThemeProvider as StylesThemeProvider} from '@mui/styles';
 import Box from '@mui/material/Box';
 import CssBaseline from '@mui/material/CssBaseline';
@@ -65,6 +219,78 @@ const themeMap: Record<ThemeKey, Theme> = {
             text: {
                 primary: '#212121',
                 secondary: '#757575',
+            },
+        },
+        custom: {
+            colors: {
+                primary: {
+                    black: '#000000',
+                    darkGray: '#424242',
+                    mediumGray: '#616161',
+                    lightGray: '#9e9e9e',
+                },
+                background: {
+                    white: '#ffffff',
+                    lightGray: '#f5f5f5',
+                    mediumGray: '#e0e0e0',
+                    overlay: '#f8f8f8',
+                },
+                border: {
+                    light: '#e0e0e0',
+                    medium: '#d0d0d0',
+                    dark: '#bdbdbd',
+                    contrast: '#757575',
+                },
+                text: {
+                    primary: '#212121',
+                    secondary: '#757575',
+                    disabled: '#bdbdbd',
+                    onDark: '#ffffff',
+                    onDarkSecondary: '#e0e0e0',
+                },
+                status: {
+                    info: {
+                        background: '#e3f2fd',
+                        border: '#1976d2',
+                        text: '#1565c0',
+                    },
+                    warning: {
+                        background: '#fff3e0',
+                        border: '#f57c00',
+                        text: '#e65100',
+                    },
+                    error: {
+                        background: '#ffebee',
+                        border: '#d32f2f',
+                        text: '#c62828',
+                    },
+                    success: {
+                        background: '#e8f5e8',
+                        border: '#388e3c',
+                        text: '#2e7d32',
+                    },
+                },
+                interactive: {
+                    button: {
+                        command: '#4caf50',
+                        script: '#2196f3',
+                        hover: '#f5f5f5',
+                        disabled: '#e0e0e0',
+                    },
+                    input: {
+                        background: '#ffffff',
+                        border: '#d0d0d0',
+                        focus: '#3f51b5',
+                        text: '#212121',
+                    },
+                    code: {
+                        background: '#f5f5f5',
+                        text: '#333333',
+                        padding: '8px',
+                        borderRadius: 4,
+                        fontSize: '0.875rem',
+                    },
+                },
             },
         },
         components: {
@@ -256,6 +482,78 @@ const themeMap: Record<ThemeKey, Theme> = {
             text: {
                 primary: '#ffffff',
                 secondary: '#b0bec5',
+            },
+        },
+        custom: {
+            colors: {
+                primary: {
+                    black: '#000000',
+                    darkGray: '#2c2c2c',
+                    mediumGray: '#424242',
+                    lightGray: '#616161',
+                },
+                background: {
+                    white: '#ffffff',
+                    lightGray: '#f5f5f5',
+                    mediumGray: '#424242',
+                    overlay: '#383838',
+                },
+                border: {
+                    light: '#616161',
+                    medium: '#757575',
+                    dark: '#424242',
+                    contrast: '#9e9e9e',
+                },
+                text: {
+                    primary: '#ffffff',
+                    secondary: '#b0bec5',
+                    disabled: '#757575',
+                    onDark: '#e0e0e0',
+                    onDarkSecondary: '#b0bec5',
+                },
+                status: {
+                    info: {
+                        background: '#1976d2',
+                        border: '#1565c0',
+                        text: '#ffffff',
+                    },
+                    warning: {
+                        background: '#f57c00',
+                        border: '#e65100',
+                        text: '#ffffff',
+                    },
+                    error: {
+                        background: '#d32f2f',
+                        border: '#c62828',
+                        text: '#ffffff',
+                    },
+                    success: {
+                        background: '#388e3c',
+                        border: '#2e7d32',
+                        text: '#ffffff',
+                    },
+                },
+                interactive: {
+                    button: {
+                        command: '#4caf50',
+                        script: '#2196f3',
+                        hover: '#616161',
+                        disabled: '#424242',
+                    },
+                    input: {
+                        background: '#2c2c2c',
+                        border: '#757575',
+                        focus: '#3f51b5',
+                        text: '#e0e0e0',
+                    },
+                    code: {
+                        background: '#1e1e1e',
+                        text: '#e0e0e0',
+                        padding: '8px',
+                        borderRadius: 4,
+                        fontSize: '0.875rem',
+                    },
+                },
             },
         },
         components: {

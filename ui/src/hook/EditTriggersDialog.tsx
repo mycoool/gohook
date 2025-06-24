@@ -32,6 +32,8 @@ import {
   ToggleButtonGroup,
   Tab,
   Tabs,
+  InputLabel,
+  FormHelperText,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -42,10 +44,89 @@ import {
   AccountTree as TreeIcon,
   Help as HelpIcon,
   Warning as WarningIcon,
+  Info as InfoIcon,
 } from '@mui/icons-material';
 import Grid from '@mui/material/Grid';
 import { IHook, ITriggerRule, IMatchRule, IParameter } from '../types';
-import { colors } from '../theme/colors';
+import { useTheme } from '@mui/material/styles';
+
+// 扩展主题类型定义
+declare module '@mui/material/styles' {
+  interface Theme {
+    custom: {
+      colors: {
+        primary: {
+          black: string;
+          darkGray: string;
+          mediumGray: string;
+          lightGray: string;
+        };
+        background: {
+          white: string;
+          lightGray: string;
+          mediumGray: string;
+          overlay: string;
+        };
+        border: {
+          light: string;
+          medium: string;
+          dark: string;
+          contrast: string;
+        };
+        text: {
+          primary: string;
+          secondary: string;
+          disabled: string;
+          onDark: string;
+          onDarkSecondary: string;
+        };
+        status: {
+          info: {
+            background: string;
+            border: string;
+            text: string;
+          };
+          warning: {
+            background: string;
+            border: string;
+            text: string;
+          };
+          error: {
+            background: string;
+            border: string;
+            text: string;
+          };
+          success: {
+            background: string;
+            border: string;
+            text: string;
+          };
+        };
+        interactive: {
+          button: {
+            command: string;
+            script: string;
+            hover: string;
+            disabled: string;
+          };
+          input: {
+            background: string;
+            border: string;
+            focus: string;
+            text: string;
+          };
+          code: {
+            background: string;
+            text: string;
+            padding: string;
+            borderRadius: number;
+            fontSize: string;
+          };
+        };
+      };
+    };
+  }
+}
 
 interface EditTriggersDialogProps {
   open: boolean;
@@ -100,6 +181,7 @@ interface RuleGroup {
 }
 
 export default function EditTriggersDialog({ open, onClose, hookId, onSave, onGetHookDetails }: EditTriggersDialogProps) {
+  const theme = useTheme();
   const [formData, setFormData] = useState({
     'trigger-rule': null as any,
     'trigger-rule-mismatch-http-response-code': 400,
@@ -215,7 +297,7 @@ export default function EditTriggersDialog({ open, onClose, hookId, onSave, onGe
   };
 
   // 添加简单规则
-  const addSimpleRule = () => {
+  const addSimpleRule = (targetGroupId?: string) => {
     const newRule: SimpleRule = {
       id: `rule_${Date.now()}`,
       type: 'value',
@@ -223,24 +305,66 @@ export default function EditTriggersDialog({ open, onClose, hookId, onSave, onGe
       value: '',
     };
 
-    setRuleBuilder(prev => ({
-      ...prev,
-      rules: [...prev.rules, newRule],
-    }));
+    if (!targetGroupId) {
+      // 如果没有指定目标组，添加到根级别
+      setRuleBuilder(prev => ({
+        ...prev,
+        rules: [...prev.rules, newRule],
+      }));
+    } else {
+      // 添加到指定的规则组
+      const addToGroup = (group: RuleGroup): RuleGroup => {
+        if (group.id === targetGroupId) {
+          return {
+            ...group,
+            rules: [...group.rules, newRule],
+          };
+        }
+        return {
+          ...group,
+          rules: group.rules.map(rule => 
+            'operator' in rule ? addToGroup(rule) : rule
+          ),
+        };
+      };
+
+      setRuleBuilder(prev => addToGroup(prev));
+    }
   };
 
   // 添加规则组
-  const addRuleGroup = () => {
+  const addRuleGroup = (targetGroupId?: string) => {
     const newGroup: RuleGroup = {
       id: `group_${Date.now()}`,
       operator: 'and',
       rules: [],
     };
 
-    setRuleBuilder(prev => ({
-      ...prev,
-      rules: [...prev.rules, newGroup],
-    }));
+    if (!targetGroupId) {
+      // 如果没有指定目标组，添加到根级别
+      setRuleBuilder(prev => ({
+        ...prev,
+        rules: [...prev.rules, newGroup],
+      }));
+    } else {
+      // 添加到指定的规则组
+      const addToGroup = (group: RuleGroup): RuleGroup => {
+        if (group.id === targetGroupId) {
+          return {
+            ...group,
+            rules: [...group.rules, newGroup],
+          };
+        }
+        return {
+          ...group,
+          rules: group.rules.map(rule => 
+            'operator' in rule ? addToGroup(rule) : rule
+          ),
+        };
+      };
+
+      setRuleBuilder(prev => addToGroup(prev));
+    }
   };
 
   // 删除规则
@@ -294,29 +418,29 @@ export default function EditTriggersDialog({ open, onClose, hookId, onSave, onGe
       sx={{ 
         ml: depth * 2, 
         mb: 1,
-        backgroundColor: depth > 0 ? colors.primary.darkGray : colors.background.overlay,
-        border: `1px solid ${colors.border.light}`,
+        backgroundColor: depth > 0 ? theme.custom.colors.primary.darkGray : theme.custom.colors.background.overlay,
+        border: `1px solid ${theme.custom.colors.border.light}`,
       }}
     >
       <CardContent sx={{ py: 2 }}>
         <Grid container spacing={2} alignItems="center">
-          <Grid size={3}>
+          <Grid size={4}>
             <FormControl fullWidth size="small">
               <Select
                 value={rule.type}
                 onChange={(e) => updateRule(rule.id, { type: e.target.value })}
                 sx={{ 
-                  backgroundColor: colors.primary.darkGray,
-                  color: colors.text.onDark,
+                  backgroundColor: theme.custom.colors.primary.darkGray,
+                  color: theme.custom.colors.text.onDark,
                   '& .MuiSelect-select': { 
-                    color: colors.text.onDark,
-                    backgroundColor: colors.primary.darkGray,
+                    color: theme.custom.colors.text.onDark,
+                    backgroundColor: theme.custom.colors.primary.darkGray,
                   },
                   '& .MuiOutlinedInput-notchedOutline': {
-                    borderColor: colors.border.medium,
+                    borderColor: theme.custom.colors.border.medium,
                   },
                   '& .MuiSvgIcon-root': {
-                    color: colors.text.onDark,
+                    color: theme.custom.colors.text.onDark,
                   }
                 }}
               >
@@ -344,17 +468,17 @@ export default function EditTriggersDialog({ open, onClose, hookId, onSave, onGe
                       parameter: { ...rule.parameter, source: e.target.value as any }
                     })}
                     sx={{ 
-                      backgroundColor: colors.primary.darkGray,
-                      color: colors.text.onDark,
+                      backgroundColor: theme.custom.colors.primary.darkGray,
+                      color: theme.custom.colors.text.onDark,
                       '& .MuiSelect-select': { 
-                        color: colors.text.onDark,
-                        backgroundColor: colors.primary.darkGray,
+                        color: theme.custom.colors.text.onDark,
+                        backgroundColor: theme.custom.colors.primary.darkGray,
                       },
                       '& .MuiOutlinedInput-notchedOutline': {
-                        borderColor: colors.border.medium,
+                        borderColor: theme.custom.colors.border.medium,
                       },
                       '& .MuiSvgIcon-root': {
-                        color: colors.text.onDark,
+                        color: theme.custom.colors.text.onDark,
                       }
                     }}
                   >
@@ -367,7 +491,7 @@ export default function EditTriggersDialog({ open, onClose, hookId, onSave, onGe
                 </FormControl>
               </Grid>
 
-              <Grid size={2}>
+              <Grid size={3}>
                 <TextField
                   fullWidth
                   size="small"
@@ -378,14 +502,14 @@ export default function EditTriggersDialog({ open, onClose, hookId, onSave, onGe
                   })}
                   sx={{ 
                     '& .MuiInputBase-root': { 
-                      backgroundColor: colors.primary.darkGray,
-                      color: colors.text.onDark,
+                      backgroundColor: theme.custom.colors.primary.darkGray,
+                      color: theme.custom.colors.text.onDark,
                     },
                     '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: colors.border.medium,
+                      borderColor: theme.custom.colors.border.medium,
                     },
                     '& .MuiInputBase-input::placeholder': {
-                      color: colors.text.onDarkSecondary,
+                      color: theme.custom.colors.text.onDarkSecondary,
                       opacity: 1,
                     }
                   }}
@@ -394,7 +518,7 @@ export default function EditTriggersDialog({ open, onClose, hookId, onSave, onGe
             </>
           )}
 
-          <Grid size={rule.type === 'ip-whitelist' ? 4 : 3}>
+          <Grid size={rule.type === 'ip-whitelist' ? 7 : 2}>
             {rule.type === 'value' && (
               <TextField
                 fullWidth
@@ -404,14 +528,14 @@ export default function EditTriggersDialog({ open, onClose, hookId, onSave, onGe
                 onChange={(e) => updateRule(rule.id, { value: e.target.value })}
                 sx={{ 
                   '& .MuiInputBase-root': { 
-                    backgroundColor: colors.primary.darkGray,
-                    color: colors.text.onDark,
+                    backgroundColor: theme.custom.colors.primary.darkGray,
+                    color: theme.custom.colors.text.onDark,
                   },
                   '& .MuiOutlinedInput-notchedOutline': {
-                    borderColor: colors.border.medium,
+                    borderColor: theme.custom.colors.border.medium,
                   },
                   '& .MuiInputBase-input::placeholder': {
-                    color: colors.text.onDarkSecondary,
+                    color: theme.custom.colors.text.onDarkSecondary,
                     opacity: 1,
                   }
                 }}
@@ -426,14 +550,14 @@ export default function EditTriggersDialog({ open, onClose, hookId, onSave, onGe
                 onChange={(e) => updateRule(rule.id, { regex: e.target.value })}
                 sx={{ 
                   '& .MuiInputBase-root': { 
-                    backgroundColor: colors.primary.darkGray,
-                    color: colors.text.onDark,
+                    backgroundColor: theme.custom.colors.primary.darkGray,
+                    color: theme.custom.colors.text.onDark,
                   },
                   '& .MuiOutlinedInput-notchedOutline': {
-                    borderColor: colors.border.medium,
+                    borderColor: theme.custom.colors.border.medium,
                   },
                   '& .MuiInputBase-input::placeholder': {
-                    color: colors.text.onDarkSecondary,
+                    color: theme.custom.colors.text.onDarkSecondary,
                     opacity: 1,
                   }
                 }}
@@ -449,14 +573,14 @@ export default function EditTriggersDialog({ open, onClose, hookId, onSave, onGe
                 onChange={(e) => updateRule(rule.id, { secret: e.target.value })}
                 sx={{ 
                   '& .MuiInputBase-root': { 
-                    backgroundColor: colors.primary.darkGray,
-                    color: colors.text.onDark,
+                    backgroundColor: theme.custom.colors.primary.darkGray,
+                    color: theme.custom.colors.text.onDark,
                   },
                   '& .MuiOutlinedInput-notchedOutline': {
-                    borderColor: colors.border.medium,
+                    borderColor: theme.custom.colors.border.medium,
                   },
                   '& .MuiInputBase-input::placeholder': {
-                    color: colors.text.onDarkSecondary,
+                    color: theme.custom.colors.text.onDarkSecondary,
                     opacity: 1,
                   }
                 }}
@@ -471,14 +595,14 @@ export default function EditTriggersDialog({ open, onClose, hookId, onSave, onGe
                 onChange={(e) => updateRule(rule.id, { 'ip-range': e.target.value })}
                 sx={{ 
                   '& .MuiInputBase-root': { 
-                    backgroundColor: colors.primary.darkGray,
-                    color: colors.text.onDark,
+                    backgroundColor: theme.custom.colors.primary.darkGray,
+                    color: theme.custom.colors.text.onDark,
                   },
                   '& .MuiOutlinedInput-notchedOutline': {
-                    borderColor: colors.border.medium,
+                    borderColor: theme.custom.colors.border.medium,
                   },
                   '& .MuiInputBase-input::placeholder': {
-                    color: colors.text.onDarkSecondary,
+                    color: theme.custom.colors.text.onDarkSecondary,
                     opacity: 1,
                   }
                 }}
@@ -507,8 +631,8 @@ export default function EditTriggersDialog({ open, onClose, hookId, onSave, onGe
       sx={{ 
         ml: depth * 2, 
         mb: 2,
-        backgroundColor: depth > 0 ? colors.primary.darkGray : colors.background.overlay,
-        border: `2px solid ${colors.border.contrast}`,
+        backgroundColor: depth > 0 ? theme.custom.colors.primary.darkGray : theme.custom.colors.background.overlay,
+        border: `2px solid ${theme.custom.colors.border.contrast}`,
       }}
     >
       <CardContent>
@@ -519,17 +643,17 @@ export default function EditTriggersDialog({ open, onClose, hookId, onSave, onGe
               value={group.operator}
               onChange={(e) => updateRule(group.id, { operator: e.target.value as any })}
               sx={{ 
-                backgroundColor: colors.primary.darkGray,
-                color: colors.text.onDark,
+                backgroundColor: theme.custom.colors.primary.darkGray,
+                color: theme.custom.colors.text.onDark,
                 '& .MuiSelect-select': { 
-                  color: colors.text.onDark,
-                  backgroundColor: colors.primary.darkGray,
+                  color: theme.custom.colors.text.onDark,
+                  backgroundColor: theme.custom.colors.primary.darkGray,
                 },
                 '& .MuiOutlinedInput-notchedOutline': {
-                  borderColor: colors.border.medium,
+                  borderColor: theme.custom.colors.border.medium,
                 },
                 '& .MuiSvgIcon-root': {
-                  color: colors.text.onDark,
+                  color: theme.custom.colors.text.onDark,
                 }
               }}
             >
@@ -573,14 +697,14 @@ export default function EditTriggersDialog({ open, onClose, hookId, onSave, onGe
           <Button
             size="small"
             startIcon={<AddIcon />}
-            onClick={addSimpleRule}
+            onClick={() => addSimpleRule(group.id)}
           >
             添加规则
           </Button>
           <Button
             size="small"
             startIcon={<TreeIcon />}
-            onClick={addRuleGroup}
+            onClick={() => addRuleGroup(group.id)}
           >
             添加规则组
           </Button>
@@ -597,22 +721,22 @@ export default function EditTriggersDialog({ open, onClose, hookId, onSave, onGe
       fullWidth
       PaperProps={{
         sx: { 
-          height: '90vh',
-          backgroundColor: colors.primary.darkGray,
-          color: colors.text.onDark,
+          height: ruleBuilder.rules.length === 0 ? '50vh' : '70vh',
+          backgroundColor: theme.custom.colors.primary.darkGray,
+          color: theme.custom.colors.text.onDark,
         }
       }}
     >
       <DialogTitle>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Typography variant="h6" sx={{ color: colors.text.onDark }}>
+          <Typography variant="h6" sx={{ color: theme.custom.colors.text.onDark }}>
             编辑触发规则 - {hookId}
           </Typography>
           <Tooltip title="查看触发规则文档">
             <IconButton
               size="small"
               onClick={() => window.open('/docs/Hook-Rules.md', '_blank')}
-              sx={{ color: colors.text.onDark }}
+              sx={{ color: theme.custom.colors.text.onDark }}
             >
               <HelpIcon />
             </IconButton>
@@ -620,49 +744,72 @@ export default function EditTriggersDialog({ open, onClose, hookId, onSave, onGe
         </Box>
       </DialogTitle>
       
-      <DialogContent sx={{ p: 0, backgroundColor: colors.primary.darkGray }}>
+      <DialogContent sx={{ 
+        p: 0, 
+        backgroundColor: theme.custom.colors.primary.darkGray,
+        height: ruleBuilder.rules.length === 0 ? 'calc(50vh - 120px)' : 'calc(70vh - 120px)',
+        overflow: 'auto',
+        // 美化滚动条样式
+        '&::-webkit-scrollbar': {
+          width: '8px',
+        },
+        '&::-webkit-scrollbar-track': {
+          backgroundColor: theme.custom.colors.primary.darkGray,
+          borderRadius: '4px',
+        },
+        '&::-webkit-scrollbar-thumb': {
+          backgroundColor: theme.custom.colors.border.medium,
+          borderRadius: '4px',
+          '&:hover': {
+            backgroundColor: theme.custom.colors.border.dark,
+          },
+        },
+        // Firefox滚动条样式
+        scrollbarWidth: 'thin',
+        scrollbarColor: `${theme.custom.colors.border.medium} ${theme.custom.colors.primary.darkGray}`,
+      }}>
         {loading && (
-          <Alert severity="info" sx={{ m: 3, backgroundColor: colors.status.info.background }}>
-            <Typography variant="body2" sx={{ color: colors.status.info.text }}>
+          <Alert severity="info" sx={{ m: 3, backgroundColor: theme.custom.colors.status.info.background }}>
+            <Typography variant="body2" sx={{ color: theme.custom.colors.status.info.text }}>
               正在加载Hook配置数据...
             </Typography>
           </Alert>
         )}
 
-        <Box sx={{ px: 3, pt: 2 }}>
-          <Alert severity="info" sx={{ mb: 3, backgroundColor: colors.status.info.background }}>
-            <Typography variant="body2" sx={{ color: colors.status.info.text }}>
+        <Box sx={{ px: 3, pt: 2, pb: 2 }}>
+          <Alert severity="info" sx={{ mb: 3, backgroundColor: theme.custom.colors.status.info.background }}>
+            <Typography variant="body2" sx={{ color: theme.custom.colors.status.info.text }}>
               使用图形界面构建触发规则。支持多种匹配类型和逻辑组合（AND/OR/NOT）。
               如果不添加任何规则，则所有请求都会执行命令。
             </Typography>
           </Alert>
 
-          <Box sx={{ maxHeight: 'calc(90vh - 250px)', overflow: 'auto' }}>
+          <Box sx={{ mb: 3 }}>
             {ruleBuilder.rules.length === 0 ? (
               <Card sx={{ 
                 textAlign: 'center', 
                 py: 4, 
-                backgroundColor: colors.background.overlay,
-                border: `1px solid ${colors.border.medium}`
+                backgroundColor: theme.custom.colors.background.overlay,
+                border: `1px solid ${theme.custom.colors.border.medium}`
               }}>
-                <Typography variant="h6" sx={{ color: colors.text.secondary }} gutterBottom>
+                <Typography variant="h6" sx={{ color: theme.custom.colors.text.secondary }} gutterBottom>
                   还没有添加任何规则
                 </Typography>
-                <Typography variant="body2" sx={{ color: colors.text.secondary, mb: 3 }}>
+                <Typography variant="body2" sx={{ color: theme.custom.colors.text.secondary, mb: 3 }}>
                   点击下面的按钮开始添加触发规则
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
                   <Button
                     variant="contained"
                     startIcon={<AddIcon />}
-                    onClick={addSimpleRule}
+                    onClick={() => addSimpleRule()}
                   >
                     添加匹配规则
                   </Button>
                   <Button
                     variant="outlined"
                     startIcon={<TreeIcon />}
-                    onClick={addRuleGroup}
+                    onClick={() => addRuleGroup()}
                   >
                     添加规则组
                   </Button>
@@ -675,7 +822,7 @@ export default function EditTriggersDialog({ open, onClose, hookId, onSave, onGe
             )}
           </Box>
 
-          <Card sx={{ mt: 3, backgroundColor: colors.background.overlay }}>
+          <Card sx={{ backgroundColor: theme.custom.colors.background.overlay }}>
             <CardContent>
               <TextField
                 fullWidth
@@ -691,14 +838,14 @@ export default function EditTriggersDialog({ open, onClose, hookId, onSave, onGe
                 size="small"
                 sx={{ 
                   '& .MuiInputBase-root': { 
-                    backgroundColor: colors.primary.darkGray,
-                    color: colors.text.onDark,
+                    backgroundColor: theme.custom.colors.primary.darkGray,
+                    color: theme.custom.colors.text.onDark,
                   },
                   '& .MuiOutlinedInput-notchedOutline': {
-                    borderColor: colors.border.medium,
+                    borderColor: theme.custom.colors.border.medium,
                   },
-                  '& .MuiInputLabel-root': { color: colors.text.onDark },
-                  '& .MuiFormHelperText-root': { color: colors.text.onDarkSecondary }
+                  '& .MuiInputLabel-root': { color: theme.custom.colors.text.onDark },
+                  '& .MuiFormHelperText-root': { color: theme.custom.colors.text.onDarkSecondary }
                 }}
               />
             </CardContent>
@@ -706,8 +853,8 @@ export default function EditTriggersDialog({ open, onClose, hookId, onSave, onGe
         </Box>
       </DialogContent>
 
-      <DialogActions sx={{ px: 3, py: 2, backgroundColor: colors.primary.darkGray }}>
-        <Button onClick={onClose} sx={{ color: colors.text.onDark }}>
+      <DialogActions sx={{ px: 3, py: 2, backgroundColor: theme.custom.colors.primary.darkGray }}>
+        <Button onClick={onClose} sx={{ color: theme.custom.colors.text.onDark }}>
           取消
         </Button>
         <Button 

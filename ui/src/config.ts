@@ -25,5 +25,9 @@ export function set<Key extends keyof IConfig>(key: Key, value: IConfig[Key]): v
 }
 
 export function get<K extends keyof IConfig>(key: K): IConfig[K] {
+    // 在开发模式下，如果url是'unset'，返回空字符串让代理工作
+    if (key === 'url' && config[key] === 'unset') {
+        return '' as IConfig[K];
+    }
     return config[key];
 }

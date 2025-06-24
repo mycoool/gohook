@@ -23,22 +23,100 @@ import {
 import {inject, Stores} from '../inject';
 import {observer} from 'mobx-react';
 import Editor from 'react-simple-code-editor';
-import { colors } from '../theme/colors';
-
-// 代码标签统一样式
-const getCodeStyle = () => ({
-    backgroundColor: colors.interactive.code.background,
-    color: colors.interactive.code.text,
-    padding: colors.interactive.code.padding,
-    borderRadius: colors.interactive.code.borderRadius,
-    fontSize: colors.interactive.code.fontSize,
-});
+import { createTheme } from '@mui/material/styles';
 import Prism from 'prismjs';
 import 'prismjs/components/prism-bash';
 import 'prismjs/components/prism-javascript';
 import 'prismjs/components/prism-python';
 import 'prismjs/themes/prism.css';
 import '../version/EnvFileDialog.css';
+
+// 扩展主题类型定义
+declare module '@mui/material/styles' {
+    interface Theme {
+        custom: {
+            colors: {
+                primary: {
+                    black: string;
+                    darkGray: string;
+                    mediumGray: string;
+                    lightGray: string;
+                };
+                background: {
+                    white: string;
+                    lightGray: string;
+                    mediumGray: string;
+                    overlay: string;
+                };
+                border: {
+                    light: string;
+                    medium: string;
+                    dark: string;
+                    contrast: string;
+                };
+                text: {
+                    primary: string;
+                    secondary: string;
+                    disabled: string;
+                    onDark: string;
+                    onDarkSecondary: string;
+                };
+                status: {
+                    info: {
+                        background: string;
+                        border: string;
+                        text: string;
+                    };
+                    warning: {
+                        background: string;
+                        border: string;
+                        text: string;
+                    };
+                    error: {
+                        background: string;
+                        border: string;
+                        text: string;
+                    };
+                    success: {
+                        background: string;
+                        border: string;
+                        text: string;
+                    };
+                };
+                interactive: {
+                    button: {
+                        command: string;
+                        script: string;
+                        hover: string;
+                        disabled: string;
+                    };
+                    input: {
+                        background: string;
+                        border: string;
+                        focus: string;
+                        text: string;
+                    };
+                    code: {
+                        background: string;
+                        text: string;
+                        padding: string;
+                        borderRadius: number;
+                        fontSize: string;
+                    };
+                };
+            };
+        };
+    }
+}
+
+// 代码标签统一样式
+const getCodeStyle = (theme: any) => ({
+    backgroundColor: theme.custom.colors.interactive.code.background,
+    color: theme.custom.colors.interactive.code.text,
+    padding: theme.custom.colors.interactive.code.padding,
+    borderRadius: theme.custom.colors.interactive.code.borderRadius,
+    fontSize: theme.custom.colors.interactive.code.fontSize,
+});
 
 // 脚本类型定义
 type ScriptType = 'bash' | 'javascript' | 'python';
@@ -330,6 +408,22 @@ interface IState {
 
 @observer
 class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState> {
+    private theme = createTheme({
+        palette: { mode: 'dark' },
+        custom: {
+            colors: {
+                primary: { darkGray: '#2c2c2c' },
+                background: { white: '#424242' },
+                border: { contrast: '#555555', light: '#616161' },
+                text: { onDark: '#e0e0e0' },
+                status: { info: { background: '#2c2c2c', border: '#555555', text: '#e0e0e0' } },
+                interactive: { 
+                    button: { command: '#616161', script: '#424242' },
+                    code: { background: '#2c2c2c', text: '#e0e0e0', padding: '2px 6px', borderRadius: 4, fontSize: '0.875rem' }
+                }
+            }
+        }
+    } as any);
     state: IState = {
         scriptContent: '',
         originalScriptContent: '',
@@ -515,22 +609,22 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
     };
 
     handleDeleteConfirm = async () => {
-        try {
-            await this.props.onDeleteScript(this.props.hookId);
-            this.props.snackManager.snack('脚本文件删除成功');
-            this.setState({
-                scriptContent: '',
-                originalScriptContent: '',
-                hasScript: false,
-                errors: [],
-                scriptType: 'bash',
-                selectedTemplate: 'empty',
-                isEditMode: false,
+            try {
+                await this.props.onDeleteScript(this.props.hookId);
+                this.props.snackManager.snack('脚本文件删除成功');
+                this.setState({
+                    scriptContent: '',
+                    originalScriptContent: '',
+                    hasScript: false,
+                    errors: [],
+                    scriptType: 'bash',
+                    selectedTemplate: 'empty',
+                    isEditMode: false,
                 showDeleteConfirm: false,
-            });
-            this.props.onClose();
-        } catch (error) {
-            this.props.snackManager.snack('删除脚本文件失败');
+                });
+                this.props.onClose();
+            } catch (error) {
+                this.props.snackManager.snack('删除脚本文件失败');
             this.setState({ showDeleteConfirm: false });
         }
     };
@@ -671,11 +765,11 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
         // 根据编辑模式和内容类型确定显示格式
         const getFormatDisplay = () => {
             if (editMode === 'executable') {
-                return { label: '命令', color: colors.interactive.button.command };
+                return { label: '命令', color: this.theme.custom.colors.interactive.button.command };
             } else if (hasScript || scriptContent) {
-                return { label: '脚本', color: colors.interactive.button.script };
+                return { label: '脚本', color: this.theme.custom.colors.interactive.button.script };
             } else {
-                return { label: '脚本', color: colors.interactive.button.script };
+                return { label: '脚本', color: this.theme.custom.colors.interactive.button.script };
             }
         };
         
@@ -707,31 +801,31 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
 
         return (
             <>
-                <Dialog
-                    open={open}
-                    onClose={this.handleClose}
-                    maxWidth="md"
-                    fullWidth
-                    scroll="paper"
-                    PaperProps={{
-                        style: {
-                            maxHeight: '85vh',
-                            height: 'auto',
-                            color: isDarkTheme ? '#ffffff' : '#000000',
-                        },
-                    }}>
-                    <DialogTitle>
-                        <Box display="flex" alignItems="center" justifyContent="space-between">
-                            <span>
+            <Dialog
+                open={open}
+                onClose={this.handleClose}
+                maxWidth="md"
+                fullWidth
+                scroll="paper"
+                PaperProps={{
+                    style: {
+                        maxHeight: '85vh',
+                        height: 'auto',
+                        color: isDarkTheme ? '#ffffff' : '#000000',
+                    },
+                }}>
+                <DialogTitle>
+                    <Box display="flex" alignItems="center" justifyContent="space-between">
+                        <span>
                                 {editMode === 'executable' ? '执行命令配置' : (isEditMode ? '编辑脚本文件' : '创建脚本文件')} - {hookId}
-                            </span>
+                        </span>
                             <Chip
                                 label={formatDisplay.label}
                                 style={{backgroundColor: formatDisplay.color, color: 'white'}}
                                 size="small"
                             />
-                        </Box>
-                    </DialogTitle>
+                    </Box>
+                </DialogTitle>
                 <DialogContent style={{paddingBottom: 0, overflow: 'visible'}}>
 
                     {editMode === 'executable' ? (
@@ -758,33 +852,33 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
                             />
 
                             <Box mb={2} p={2} style={{
-                                backgroundColor: colors.primary.darkGray,
-                                border: `1px solid ${colors.border.contrast}`,
+                                backgroundColor: '#2c2c2c',
+                                border: '1px solid #555555',
                                 borderRadius: 4,
                             }}>
-                                <Typography variant="subtitle2" style={{marginBottom: 8, color: colors.text.onDark}}>
+                                <Typography variant="subtitle2" style={{marginBottom: 8, color: '#e0e0e0'}}>
                                     💡 使用示例：
                                 </Typography>
-                                <Typography variant="body2" style={{marginBottom: 4, fontFamily: 'monospace', color: colors.text.onDark}}>
-                                    • <code style={getCodeStyle()}>/bin/echo &quot;Hello World&quot;</code> - 输出文本
+                                <Typography variant="body2" style={{marginBottom: 4, fontFamily: 'monospace', color: '#e0e0e0'}}>
+                                    • <code style={getCodeStyle(this.theme)}>/bin/echo &quot;Hello World&quot;</code> - 输出文本
                                 </Typography>
-                                <Typography variant="body2" style={{marginBottom: 4, fontFamily: 'monospace', color: colors.text.onDark}}>
-                                    • <code style={getCodeStyle()}>/usr/bin/curl -X POST https://api.example.com/webhook</code> - 发送HTTP请求
+                                <Typography variant="body2" style={{marginBottom: 4, fontFamily: 'monospace', color: '#e0e0e0'}}>
+                                    • <code style={getCodeStyle(this.theme)}>/usr/bin/curl -X POST https://api.example.com/webhook</code> - 发送HTTP请求
                                 </Typography>
-                                <Typography variant="body2" style={{marginBottom: 4, fontFamily: 'monospace', color: colors.text.onDark}}>
-                                    • <code style={getCodeStyle()}>/usr/bin/python3 /path/to/your-script.py</code> - 执行Python脚本
+                                <Typography variant="body2" style={{marginBottom: 4, fontFamily: 'monospace', color: '#e0e0e0'}}>
+                                    • <code style={getCodeStyle(this.theme)}>/usr/bin/python3 /path/to/your-script.py</code> - 执行Python脚本
                                 </Typography>
-                                <Typography variant="body2" style={{fontFamily: 'monospace', color: colors.text.onDark}}>
-                                    • <code style={getCodeStyle()}>/bin/bash /path/to/your-script.sh</code> - 执行Bash脚本
+                                <Typography variant="body2" style={{fontFamily: 'monospace', color: '#e0e0e0'}}>
+                                    • <code style={getCodeStyle(this.theme)}>/bin/bash /path/to/your-script.sh</code> - 执行Bash脚本
                                 </Typography>
                             </Box>
 
                             {message && (
                                 <Box mb={2} p={2} style={{
-                                    backgroundColor: colors.status.info.background,
-                                    border: `1px solid ${colors.status.info.border}`,
+                                    backgroundColor: '#2c2c2c',
+                                    border: '1px solid #555555',
                                     borderRadius: 4,
-                                    color: colors.status.info.text
+                                    color: '#e0e0e0'
                                 }}>
                                     <Typography variant="body2">
                                         <strong>💡 提示:</strong> {message}
@@ -849,17 +943,17 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
 
                                         {/* 预览生成的路径 */}
                                         <Box mt={2} p={1} style={{
-                                            backgroundColor: colors.primary.darkGray,
+                                            backgroundColor: '#2c2c2c',
                                             borderRadius: 4,
-                                            border: `1px solid ${colors.border.contrast}`
+                                            border: '1px solid #555555'
                                         }}>
-                                            <Typography variant="body2" style={{ color: colors.text.onDark }}>
+                                            <Typography variant="body2" style={{ color: '#e0e0e0' }}>
                                                 <strong>生成的文件路径:</strong>
                                             </Typography>
                                             <Typography variant="body2" style={{ 
                                                 fontFamily: 'monospace', 
                                                 marginTop: 4,
-                                                color: colors.text.onDarkSecondary
+                                                color: '#bdbdbd'
                                             }}>
                                                 {this.state.scriptWorkingDirectory}
                                                 {this.state.scriptWorkingDirectory.endsWith('/') ? '' : '/'}
@@ -876,57 +970,57 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
                                         📄 脚本文件编辑
                                     </Typography>
                                     
-                                    {/* 模板选择器 - 仅在创建模式显示 */}
-                                    {!isEditMode && (
-                                        <Box mb={2}>
-                                            <FormControl fullWidth variant="outlined" size="small">
-                                                <InputLabel>选择模板</InputLabel>
-                                                <Select
-                                                    value={selectedTemplate}
-                                                    onChange={this.handleTemplateChange}
-                                                    label="选择模板">
-                                                    <MenuItem value="empty">空白</MenuItem>
-                                                    <MenuItem value="bash_simple">简单 Bash 脚本</MenuItem>
-                                                    <MenuItem value="bash_git_deploy">Git 部署脚本</MenuItem>
-                                                    <MenuItem value="javascript_simple">简单 JavaScript 脚本</MenuItem>
-                                                    <MenuItem value="javascript_webhook_handler">Webhook 处理脚本</MenuItem>
+                    {/* 模板选择器 - 仅在创建模式显示 */}
+                    {!isEditMode && (
+                        <Box mb={2}>
+                            <FormControl fullWidth variant="outlined" size="small">
+                                <InputLabel>选择模板</InputLabel>
+                                <Select
+                                    value={selectedTemplate}
+                                    onChange={this.handleTemplateChange}
+                                    label="选择模板">
+                                    <MenuItem value="empty">空白</MenuItem>
+                                    <MenuItem value="bash_simple">简单 Bash 脚本</MenuItem>
+                                    <MenuItem value="bash_git_deploy">Git 部署脚本</MenuItem>
+                                    <MenuItem value="javascript_simple">简单 JavaScript 脚本</MenuItem>
+                                    <MenuItem value="javascript_webhook_handler">Webhook 处理脚本</MenuItem>
                                                     <MenuItem value="python_simple">简单 Python 脚本</MenuItem>
                                                     <MenuItem value="python_webhook_handler">Python Webhook 处理脚本</MenuItem>
-                                                </Select>
-                                            </FormControl>
-                                            <Typography
-                                                variant="caption"
-                                                color="textSecondary"
-                                                style={{display: 'block', marginTop: '8px'}}>
-                                                选择模板将自动填充内容到编辑器中
-                                            </Typography>
-                                        </Box>
-                                    )}
+                                </Select>
+                            </FormControl>
+                            <Typography
+                                variant="caption"
+                                color="textSecondary"
+                                style={{display: 'block', marginTop: '8px'}}>
+                                选择模板将自动填充内容到编辑器中
+                            </Typography>
+                        </Box>
+                    )}
 
-                                    {/* 语法高亮编辑器 */}
-                                    <Box
-                                        mb={2}
-                                        style={editorContainerStyle}
-                                        className={isDarkTheme ? 'prism-dark' : 'prism-light'}>
-                                        <Editor
-                                            value={scriptContent}
-                                            onValueChange={this.handleContentChange}
-                                            highlight={(code) => highlightScript(code, scriptType, isDarkTheme)}
-                                            padding={16}
-                                            style={editorStyles}
-                                            textareaId="script-editor"
-                                            placeholder={
-                                                !isEditMode
-                                                    ? `# ${formatIndicator} 脚本内容\n\n# 选择上方模板快速开始`
-                                                    : `# ${formatIndicator} 脚本文件`
-                                            }
-                                        />
-                                    </Box>
+                    {/* 语法高亮编辑器 */}
+                    <Box
+                        mb={2}
+                        style={editorContainerStyle}
+                        className={isDarkTheme ? 'prism-dark' : 'prism-light'}>
+                        <Editor
+                            value={scriptContent}
+                            onValueChange={this.handleContentChange}
+                            highlight={(code) => highlightScript(code, scriptType, isDarkTheme)}
+                            padding={16}
+                            style={editorStyles}
+                            textareaId="script-editor"
+                            placeholder={
+                                !isEditMode
+                                    ? `# ${formatIndicator} 脚本内容\n\n# 选择上方模板快速开始`
+                                    : `# ${formatIndicator} 脚本文件`
+                            }
+                        />
+                    </Box>
 
                                     {/* 脚本文件信息 */}
                                     <Box mt={2} mb={1}>
                                         <Typography variant="body2" color="textSecondary">
-                                            脚本文件路径: <code style={getCodeStyle()}>{this.state.scriptPath || '未知路径'}</code>
+                                            脚本文件路径: <code style={{backgroundColor: '#2c2c2c', color: '#e0e0e0', padding: '2px 6px', borderRadius: 4, fontSize: '0.875rem'}}>{this.state.scriptPath || '未知路径'}</code>
                                         </Typography>
                                         {!isEditMode && !scriptContent && (
                                             <Typography variant="body2" color="primary" style={{marginTop: '8px'}}>
@@ -961,16 +1055,16 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
                         onChange={(e, newMode) => newMode && this.handleModeSwitch(newMode)}
                         size="small"
                         style={{
-                            backgroundColor: colors.primary.darkGray,
+                            backgroundColor: '#2c2c2c',
                             borderRadius: 4,
                         }}
                     >
                         <ToggleButton 
                             value="executable"
                             style={{
-                                backgroundColor: editMode === 'executable' ? colors.interactive.button.command : 'transparent',
-                                color: editMode === 'executable' ? colors.background.white : colors.text.onDark,
-                                border: `1px solid ${colors.border.contrast}`,
+                                backgroundColor: editMode === 'executable' ? '#616161' : 'transparent',
+                                color: editMode === 'executable' ? '#ffffff' : '#e0e0e0',
+                                border: '1px solid #555555',
                                 minWidth: '60px'
                             }}>
                             命令
@@ -978,9 +1072,9 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
                         <ToggleButton 
                             value="script"
                             style={{
-                                backgroundColor: editMode === 'script' ? colors.interactive.button.script : 'transparent',
-                                color: editMode === 'script' ? colors.background.white : colors.text.onDark,
-                                border: `1px solid ${colors.border.contrast}`,
+                                backgroundColor: editMode === 'script' ? '#424242' : 'transparent',
+                                color: editMode === 'script' ? '#ffffff' : '#e0e0e0',
+                                border: '1px solid #555555',
                                 minWidth: '60px'
                             }}>
                             脚本
@@ -1039,7 +1133,7 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
                         ) : (
                             <Button onClick={this.handleSave} color="primary" variant="contained">
                                 {isEditMode ? '保存修改' : '创建脚本'}
-                            </Button>
+                        </Button>
                         )
                     )}
                 </DialogActions>
@@ -1060,7 +1154,7 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
                         您确定要删除当前的脚本文件吗？此操作无法撤销。
                         <br />
                         <br />
-                        脚本路径：<code style={getCodeStyle()}>{this.state.scriptPath}</code>
+                        脚本路径：<code style={{backgroundColor: '#2c2c2c', color: '#e0e0e0', padding: '2px 6px', borderRadius: 4, fontSize: '0.875rem'}}>{this.state.scriptPath}</code>
                     </DialogContentText>
                 </DialogContent>
                 <DialogActions>
