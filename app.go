@@ -103,6 +103,7 @@ func main() {
 	// set mode according to mode flag
 	//types.GoHookAppConfig.SetMode(*mode)
 
+	// 恢复默认指定hooks.json文件，但增加自动创建空文件的逻辑
 	if len(hooksFiles) == 0 {
 		hooksFiles = append(hooksFiles, "hooks.json")
 	}
@@ -220,6 +221,17 @@ func main() {
 	for _, hooksFilePath := range hooksFiles {
 		log.Printf("attempting to load hooks from %s\n", hooksFilePath)
 
+		// 如果hooks文件不存在，创建一个空的配置文件
+		if _, err := os.Stat(hooksFilePath); os.IsNotExist(err) {
+			log.Printf("hooks file %s does not exist, creating empty hooks file\n", hooksFilePath)
+			emptyHooks := webhook.Hooks{}
+			if err := emptyHooks.SaveToFile(hooksFilePath); err != nil {
+				log.Printf("failed to create empty hooks file %s: %v\n", hooksFilePath, err)
+			} else {
+				log.Printf("created empty hooks file %s\n", hooksFilePath)
+			}
+		}
+
 		newHooks := webhook.Hooks{}
 
 		err := newHooks.LoadFromFile(hooksFilePath, *asTemplate)
@@ -249,12 +261,14 @@ func main() {
 
 	hooksFiles = newHooksFiles
 
-	if !*verbose && !*noPanic && webhook.HookManager.LenLoadedHooks() == 0 {
-		log.SetOutput(os.Stdout)
-		log.Fatalln("couldn't load any hooks from file!\naborting webhook execution since the -verbose flag is set to false.\nIf, for some reason, you want webhook to start without the hooks, either use -verbose flag, or -nopanic")
+	// 允许零hooks启动，不再强制退出
+	if webhook.HookManager.LenLoadedHooks() == 0 {
+		log.Printf("no hooks loaded, starting with empty configuration")
+		log.Printf("you can add hooks through the web interface after startup")
 	}
 
-	if *hotReload {
+	// 只有在成功加载了hooks文件时才启用热重载
+	if *hotReload && len(hooksFiles) > 0 {
 		var err error
 
 		watcher, err = fsnotify.NewWatcher()

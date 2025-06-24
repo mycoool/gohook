@@ -10,7 +10,7 @@ import Delete from '@mui/icons-material/Delete';
 import PlayArrow from '@mui/icons-material/PlayArrow';
 import Refresh from '@mui/icons-material/Refresh';
 import CloudDownload from '@mui/icons-material/CloudDownload';
-import Edit from '@mui/icons-material/Edit';
+import Code from '@mui/icons-material/Code';
 import Add from '@mui/icons-material/Add';
 import Settings from '@mui/icons-material/Settings';
 import Tune from '@mui/icons-material/Tune';
@@ -441,7 +441,7 @@ const Row: React.FC<IRowProps> = observer(({hook, fTrigger, fEditScript, fEditBa
                     className="edit-script"
                     title="编辑脚本"
                     size="small">
-                    <Edit />
+                    <Code />
                 </IconButton>
                 <IconButton
                     onClick={fEditBasic}

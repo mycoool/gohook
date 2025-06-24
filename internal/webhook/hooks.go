@@ -139,6 +139,7 @@ func convertHookToResponse(h *Hook) types.HookResponse {
 		ArgumentsCount:         argumentsCount,
 		EnvironmentCount:       environmentCount,
 		TriggerRuleDescription: triggerDesc,
+		TriggerRule:            h.TriggerRule,
 		LastUsed:               nil, // TODO: can add actual usage time tracking
 		Status:                 "active",
 	}

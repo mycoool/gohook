@@ -208,15 +208,15 @@ export default function EditTriggersDialog({ open, onClose, hookId, onSave, onGe
             'trigger-rule-mismatch-http-response-code': hook['trigger-rule-mismatch-http-response-code'] || 400,
           });
 
-          // 更新代码编辑器内容
+          // 解析规则到编辑器
           if (triggerRule) {
-            // 尝试解析为简单规则构建器
             parseToSimpleRules(triggerRule);
           } else {
             setRuleBuilder({ id: 'root', operator: 'and', rules: [] });
           }
         } catch (error) {
           console.error('加载Hook数据失败:', error);
+          setRuleBuilder({ id: 'root', operator: 'and', rules: [] });
         } finally {
           setLoading(false);
         }
@@ -228,9 +228,133 @@ export default function EditTriggersDialog({ open, onClose, hookId, onSave, onGe
 
   // 解析触发规则到简单规则构建器
   const parseToSimpleRules = (rule: any) => {
-    // 这里实现复杂规则到简单规则的转换逻辑
-    // 为了简化，当前版本先设置为空
-    setRuleBuilder({ id: 'root', operator: 'and', rules: [] });
+    if (!rule) {
+      setRuleBuilder({ id: 'root', operator: 'and', rules: [] });
+      return;
+    }
+
+    try {
+      const parsedGroup = parseRule(rule, 'root');
+      setRuleBuilder(parsedGroup);
+    } catch (error) {
+      console.error('解析触发规则失败:', error);
+      setRuleBuilder({ id: 'root', operator: 'and', rules: [] });
+    }
+  };
+
+  // 递归解析规则
+  const parseRule = (rule: any, id: string): RuleGroup => {
+    // 处理match规则
+    if (rule.match) {
+      const simpleRule: SimpleRule = {
+        id: `rule_${Date.now()}_${Math.random()}`,
+        type: rule.match.type || 'value',
+        parameter: rule.match.parameter || { source: 'payload', name: '' },
+      };
+
+      // 根据类型设置相应的值
+      switch (rule.match.type) {
+        case 'value':
+          simpleRule.value = rule.match.value || '';
+          break;
+        case 'regex':
+          simpleRule.regex = rule.match.regex || '';
+          break;
+        case 'payload-hmac-sha1':
+        case 'payload-hmac-sha256':
+        case 'payload-hmac-sha512':
+        case 'scalr-signature':
+          simpleRule.secret = rule.match.secret || '';
+          break;
+        case 'ip-whitelist':
+          simpleRule['ip-range'] = rule.match['ip-range'] || '';
+          // IP白名单不需要parameter
+          simpleRule.parameter = { source: 'payload', name: '' };
+          break;
+      }
+
+      return {
+        id,
+        operator: 'and',
+        rules: [simpleRule],
+      };
+    }
+
+    // 处理逻辑操作符规则
+    if (rule.and) {
+      const rules = rule.and.map((childRule: any, index: number) => 
+        parseRuleItem(childRule, `${id}_and_${index}`)
+      );
+      return {
+        id,
+        operator: 'and',
+        rules,
+      };
+    }
+
+    if (rule.or) {
+      const rules = rule.or.map((childRule: any, index: number) => 
+        parseRuleItem(childRule, `${id}_or_${index}`)
+      );
+      return {
+        id,
+        operator: 'or',
+        rules,
+      };
+    }
+
+    if (rule.not) {
+      const childRule = parseRuleItem(rule.not, `${id}_not_0`);
+      return {
+        id,
+        operator: 'not',
+        rules: [childRule],
+      };
+    }
+
+    // 默认返回空的and组
+    return {
+      id,
+      operator: 'and',
+      rules: [],
+    };
+  };
+
+  // 解析单个规则项（可能是match规则或者嵌套的逻辑组）
+  const parseRuleItem = (ruleItem: any, id: string): SimpleRule | RuleGroup => {
+    if (ruleItem.match) {
+      const simpleRule: SimpleRule = {
+        id: `rule_${Date.now()}_${Math.random()}`,
+        type: ruleItem.match.type || 'value',
+        parameter: ruleItem.match.parameter || { source: 'payload', name: '' },
+      };
+
+      // 根据类型设置相应的值
+      switch (ruleItem.match.type) {
+        case 'value':
+          simpleRule.value = ruleItem.match.value || '';
+          break;
+        case 'regex':
+          simpleRule.regex = ruleItem.match.regex || '';
+          break;
+        case 'payload-hmac-sha1':
+        case 'payload-hmac-sha256':
+        case 'payload-hmac-sha512':
+        case 'scalr-signature':
+          simpleRule.secret = ruleItem.match.secret || '';
+          break;
+        case 'ip-whitelist':
+          simpleRule['ip-range'] = ruleItem.match['ip-range'] || '';
+          // IP白名单不需要parameter
+          simpleRule.parameter = { source: 'payload', name: '' };
+          break;
+      }
+
+      return simpleRule;
+    }
+
+    // 如果是嵌套的逻辑组，递归解析
+    return parseRule(ruleItem, id);
   };
 
   // 从简单规则构建器生成触发规则
@@ -239,23 +363,48 @@ export default function EditTriggersDialog({ open, onClose, hookId, onSave, onGe
       return null;
     }
 
+    // 如果只有一个规则
     if (group.rules.length === 1) {
       const rule = group.rules[0];
       if ('operator' in rule) {
-        return buildTriggerRule(rule);
+        // 如果是规则组，递归构建
+        const nestedRule = buildTriggerRule(rule);
+        // 如果根级操作符是'and'且只有一个子规则组，可以直接返回子规则组
+        if (group.id === 'root' && group.operator === 'and') {
+          return nestedRule;
+        }
+        // 否则保持当前组的操作符
+        if (group.operator === 'not') {
+          return { not: nestedRule };
+        }
+        return { [group.operator]: [nestedRule] };
       } else {
-        return buildMatchRule(rule);
+        // 如果是简单规则
+        const matchRule = buildMatchRule(rule);
+        // 如果根级操作符是'and'且只有一个简单规则，直接返回match规则
+        if (group.id === 'root' && group.operator === 'and') {
+          return matchRule;
+        }
+        // 否则包装在对应的操作符中
+        if (group.operator === 'not') {
+          return { not: matchRule };
+        }
+        return { [group.operator]: [matchRule] };
       }
     }
 
+    // 多个规则的情况
     const builtRules = group.rules.map(rule => {
       if ('operator' in rule) {
+        // 嵌套的规则组
         return buildTriggerRule(rule);
       } else {
-        return { match: buildMatchRule(rule).match };
+        // 简单规则，直接返回match对象
+        return buildMatchRule(rule);
       }
     }).filter(Boolean);
 
+    // NOT操作符只能有一个子规则
     if (group.operator === 'not' && builtRules.length > 0) {
       return { not: builtRules[0] };
     }

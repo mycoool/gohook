@@ -328,7 +328,7 @@ class Logs extends Component<LogsProps, LogsState> {
                                 <Typography variant="subtitle2">
                                     {this.props.t('logs.filterByType')}
                                 </Typography>
-                                <Typography variant="body2">
+                                <Typography variant="body2" component="div">
                                     {this.getTypeChip(selectedLog.type)}
                                 </Typography>
                             </Box>
@@ -582,9 +582,11 @@ class Logs extends Component<LogsProps, LogsState> {
                         </Typography>
                         <Box sx={{display: 'flex', gap: 1}}>
                             <Tooltip title={this.props.t('logs.refreshLogs')}>
-                                <IconButton onClick={this.handleRefresh} disabled={loading}>
-                                    <RefreshIcon />
-                                </IconButton>
+                                <span>
+                                    <IconButton onClick={this.handleRefresh} disabled={loading}>
+                                        <RefreshIcon />
+                                    </IconButton>
+                                </span>
                             </Tooltip>
                             <Tooltip title={this.props.t('logs.exportLogs')}>
                                 <IconButton onClick={this.handleExport}>
@@ -617,7 +619,7 @@ class Logs extends Component<LogsProps, LogsState> {
                             </TableHead>
                             <TableBody>
                                 {logs.map((log) => (
-                                    <TableRow key={log.id} hover>
+                                    <TableRow key={`${log.type}-${log.id}-${log.timestamp}`} hover>
                                         <TableCell>{log.id}</TableCell>
                                         <TableCell>
                                             <Tooltip

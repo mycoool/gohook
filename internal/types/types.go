@@ -167,17 +167,18 @@ type ClientResponse struct {
 
 // HookResponse Hook response structure
 type HookResponse struct {
-	ID                     string   `json:"id"`
-	Name                   string   `json:"name"`
-	ExecuteCommand         string   `json:"executeCommand"`
-	WorkingDirectory       string   `json:"workingDirectory"`
-	ResponseMessage        string   `json:"responseMessage"`
-	HTTPMethods            []string `json:"httpMethods"`
-	ArgumentsCount         int      `json:"argumentsCount"`
-	EnvironmentCount       int      `json:"environmentCount"`
-	TriggerRuleDescription string   `json:"triggerRuleDescription"`
-	LastUsed               *string  `json:"lastUsed"`
-	Status                 string   `json:"status"` // active, inactive
+	ID                     string      `json:"id"`
+	Name                   string      `json:"name"`
+	ExecuteCommand         string      `json:"executeCommand"`
+	WorkingDirectory       string      `json:"workingDirectory"`
+	ResponseMessage        string      `json:"responseMessage"`
+	HTTPMethods            []string    `json:"httpMethods"`
+	ArgumentsCount         int         `json:"argumentsCount"`
+	EnvironmentCount       int         `json:"environmentCount"`
+	TriggerRuleDescription string      `json:"triggerRuleDescription"`
+	TriggerRule            interface{} `json:"trigger-rule,omitempty"`
+	LastUsed               *string     `json:"lastUsed"`
+	Status                 string      `json:"status"` // active, inactive
 }
 
 func (c *AppConfig) SetMode(mode string) {
