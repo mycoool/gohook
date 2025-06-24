@@ -47,6 +47,47 @@ func HandleGetAllHooks(c *gin.Context) {
 	c.JSON(http.StatusOK, hooks)
 }
 
+// HandleGetHook 获取单个Hook的详细信息
+func HandleGetHook(c *gin.Context) {
+	hookID := c.Param("id")
+	if hookID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Hook ID is required"})
+		return
+	}
+
+	// 查找Hook
+	hook := HookManager.MatchLoadedHook(hookID)
+	if hook == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Hook not found"})
+		return
+	}
+
+	// 转换Hook为前端需要的格式
+	hookResponse := map[string]interface{}{
+		"id":                                          hook.ID,
+		"execute-command":                             hook.ExecuteCommand,
+		"command-working-directory":                   hook.CommandWorkingDirectory,
+		"response-message":                            hook.ResponseMessage,
+		"http-methods":                                hook.HTTPMethods,
+		"pass-arguments-to-command":                   hook.PassArgumentsToCommand,
+		"pass-environment-to-command":                 hook.PassEnvironmentToCommand,
+		"parse-parameters-as-json":                    hook.JSONStringParameters,
+		"trigger-rule":                                hook.TriggerRule,
+		"trigger-rule-mismatch-http-response-code":    hook.TriggerRuleMismatchHttpResponseCode,
+		"include-command-output-in-response":          hook.CaptureCommandOutput,
+		"include-command-output-in-response-on-error": hook.CaptureCommandOutputOnError,
+	}
+
+	// 转换ResponseHeaders为前端期望的map格式
+	responseHeaders := make(map[string]string)
+	for _, header := range hook.ResponseHeaders {
+		responseHeaders[header.Name] = header.Value
+	}
+	hookResponse["response-headers"] = responseHeaders
+
+	c.JSON(http.StatusOK, hookResponse)
+}
+
 // GetHookByID get Hook by ID
 func GetHookByID(id string) *types.HookResponse {
 	if LoadedHooksFromFiles == nil {
@@ -264,6 +305,46 @@ func (hm *hookManager) GetAllHooks() []Hook {
 	}
 
 	return allHooks
+}
+
+// FindHookFile 查找指定Hook所在的配置文件路径
+func (hm *hookManager) FindHookFile(hookID string) string {
+	if hm.LoadedHooksFromFiles == nil {
+		return ""
+	}
+
+	for filePath, hooks := range *hm.LoadedHooksFromFiles {
+		for _, hook := range hooks {
+			if hook.ID == hookID {
+				return filePath
+			}
+		}
+	}
+	return ""
+}
+
+// SaveHooksToFile 保存指定文件的hooks配置
+func (hm *hookManager) SaveHooksToFile(filePath string) error {
+	if hm.LoadedHooksFromFiles == nil {
+		return fmt.Errorf("no hooks loaded")
+	}
+
+	hooks, exists := (*hm.LoadedHooksFromFiles)[filePath]
+	if !exists {
+		return fmt.Errorf("hooks file %s not found in loaded hooks", filePath)
+	}
+
+	return hooks.SaveToFile(filePath)
+}
+
+// SaveHookChanges 保存Hook的更改到对应的配置文件
+func (hm *hookManager) SaveHookChanges(hookID string) error {
+	filePath := hm.FindHookFile(hookID)
+	if filePath == "" {
+		return fmt.Errorf("hook %s not found in any loaded files", hookID)
+	}
+
+	return hm.SaveHooksToFile(filePath)
 }
 
 func ReloadAllHooks(hooksFiles []string, asTemplate bool) {
@@ -707,6 +788,74 @@ func HandleReloadHooksConfig(c *gin.Context) {
 	})
 }
 
+// isExecutableFile 检查路径是否指向系统可执行文件
+func isExecutableFile(path string) bool {
+	// 如果路径包含空格或参数，提取第一个单词作为命令名
+	commandParts := strings.Fields(path)
+	if len(commandParts) == 0 {
+		return false
+	}
+
+	commandName := commandParts[0]
+
+	// 检查是否为绝对路径且在标准系统目录中
+	if strings.HasPrefix(commandName, "/bin/") ||
+		strings.HasPrefix(commandName, "/usr/bin/") ||
+		strings.HasPrefix(commandName, "/usr/local/bin/") ||
+		strings.HasPrefix(commandName, "/sbin/") ||
+		strings.HasPrefix(commandName, "/usr/sbin/") {
+		return true
+	}
+
+	// 如果是脚本文件扩展名，很可能是脚本文件
+	if strings.Contains(commandName, ".sh") ||
+		strings.Contains(commandName, ".py") ||
+		strings.Contains(commandName, ".js") ||
+		strings.Contains(commandName, ".pl") ||
+		strings.Contains(commandName, ".rb") {
+		return false
+	}
+
+	// 如果命令名包含路径分隔符，提取文件名
+	if strings.Contains(commandName, "/") {
+		commandName = filepath.Base(commandName)
+	}
+
+	// 检查是否为常见的系统命令（只检查纯命令名，不包含参数）
+	commonCommands := []string{
+		"echo", "cat", "ls", "cp", "mv", "rm", "mkdir", "rmdir",
+		"chmod", "chown", "grep", "sed", "awk", "cut", "sort",
+		"tar", "gzip", "curl", "wget", "git", "npm", "yarn",
+		"node", "python", "python3", "php", "ruby", "java",
+		"docker", "kubectl", "systemctl", "service",
+	}
+
+	for _, cmd := range commonCommands {
+		if commandName == cmd {
+			return true
+		}
+	}
+
+	return false
+}
+
+// isBinaryFile 检查文件是否为二进制文件
+func isBinaryFile(content []byte) bool {
+	// 检查文件前512字节中是否包含空字节
+	checkBytes := content
+	if len(content) > 512 {
+		checkBytes = content[:512]
+	}
+
+	for _, b := range checkBytes {
+		if b == 0 {
+			return true
+		}
+	}
+
+	return false
+}
+
 // 脚本文件管理 - 获取脚本内容
 func HandleGetHookScript(c *gin.Context) {
 	hookID := c.Param("id")
@@ -725,12 +874,40 @@ func HandleGetHookScript(c *gin.Context) {
 		return
 	}
 
-	// 检查文件是否存在
-	if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
+	// 检查是否为系统可执行文件
+	if isExecutableFile(scriptPath) {
 		c.JSON(http.StatusOK, gin.H{
-			"content": "",
-			"exists":  false,
-			"path":    scriptPath,
+			"content":      "",
+			"exists":       true,
+			"path":         scriptPath,
+			"isExecutable": true,
+			"editable":     false,
+			"message":      "这是一个系统可执行文件，不可编辑",
+			"suggestion":   "如需使用脚本，请在基本信息中将执行命令修改为脚本文件路径，例如：/path/to/your-script.sh",
+		})
+		return
+	}
+
+	// 检查文件是否存在
+	fileInfo, err := os.Stat(scriptPath)
+	if os.IsNotExist(err) {
+		c.JSON(http.StatusOK, gin.H{
+			"content":      "",
+			"exists":       false,
+			"path":         scriptPath,
+			"isExecutable": false,
+			"editable":     true,
+		})
+		return
+	}
+
+	// 检查是否为目录
+	if fileInfo.IsDir() {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":      "指定的路径是一个目录，不是文件",
+			"path":       scriptPath,
+			"editable":   false,
+			"suggestion": "请在基本信息中修改执行命令为具体的脚本文件路径",
 		})
 		return
 	}
@@ -742,10 +919,26 @@ func HandleGetHookScript(c *gin.Context) {
 		return
 	}
 
+	// 检查是否为二进制文件
+	if isBinaryFile(content) {
+		c.JSON(http.StatusOK, gin.H{
+			"content":      "",
+			"exists":       true,
+			"path":         scriptPath,
+			"isExecutable": true,
+			"editable":     false,
+			"message":      "这是一个二进制可执行文件，不可编辑",
+			"suggestion":   "如需使用脚本，请在基本信息中将执行命令修改为脚本文件路径，例如：/path/to/your-script.sh",
+		})
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{
-		"content": string(content),
-		"exists":  true,
-		"path":    scriptPath,
+		"content":      string(content),
+		"exists":       true,
+		"path":         scriptPath,
+		"isExecutable": false,
+		"editable":     true,
 	})
 }
 
@@ -760,19 +953,25 @@ func HandleSaveHookScript(c *gin.Context) {
 		return
 	}
 
-	// 使用hook配置中的execute-command作为脚本路径
-	scriptPath := hook.ExecuteCommand
-	if scriptPath == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Hook has no execute-command configured"})
-		return
-	}
-
 	var req struct {
 		Content string `json:"content"`
+		Path    string `json:"path,omitempty"` // 允许前端指定脚本路径
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request parameters"})
 		return
+	}
+
+	// 确定脚本路径：优先使用前端指定的路径，否则使用execute-command
+	var scriptPath string
+	if req.Path != "" {
+		scriptPath = req.Path
+	} else {
+		scriptPath = hook.ExecuteCommand
+		if scriptPath == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Hook has no execute-command configured and no path provided"})
+			return
+		}
 	}
 
 	// 确保脚本文件所在目录存在
@@ -832,62 +1031,288 @@ func HandleDeleteHookScript(c *gin.Context) {
 	})
 }
 
-// HandleSaveHookConfig 保存Hook配置
-func HandleSaveHookConfig(c *gin.Context) {
-	hookID := c.Param("id")
+// HandleCreateHook 创建新的Hook
+func HandleCreateHook(c *gin.Context) {
+	var request struct {
+		ID                      string `json:"id" binding:"required"`
+		ExecuteCommand          string `json:"execute-command" binding:"required"`
+		CommandWorkingDirectory string `json:"command-working-directory,omitempty"`
+		ResponseMessage         string `json:"response-message,omitempty"`
+	}
 
-	// 检查 hook 是否存在
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request parameters: " + err.Error()})
+		return
+	}
+
+	// 检查Hook ID是否已存在
+	if HookManager.MatchLoadedHook(request.ID) != nil {
+		c.JSON(http.StatusConflict, gin.H{"error": "Hook with this ID already exists"})
+		return
+	}
+
+	// 创建新的Hook，使用默认值
+	newHook := Hook{
+		ID:                                  request.ID,
+		ExecuteCommand:                      request.ExecuteCommand,
+		CommandWorkingDirectory:             request.CommandWorkingDirectory,
+		ResponseMessage:                     request.ResponseMessage,
+		HTTPMethods:                         []string{"POST"},  // 默认方法
+		CaptureCommandOutput:                false,             // 默认不包含输出
+		CaptureCommandOutputOnError:         false,             // 默认不包含错误输出
+		PassArgumentsToCommand:              []Argument{},      // 默认无参数
+		PassEnvironmentToCommand:            []Argument{},      // 默认无环境变量
+		JSONStringParameters:                []Argument{},      // 默认无JSON参数
+		TriggerRule:                         nil,               // 默认无触发规则
+		TriggerRuleMismatchHttpResponseCode: 400,               // 默认错误码
+		ResponseHeaders:                     ResponseHeaders{}, // 默认无响应头
+	}
+
+	// 添加到内存中的第一个配置文件
+	var targetFilePath string
+	if LoadedHooksFromFiles != nil {
+		for filePath, hooks := range *LoadedHooksFromFiles {
+			updatedHooks := append(hooks, newHook)
+			(*LoadedHooksFromFiles)[filePath] = updatedHooks
+			targetFilePath = filePath
+			break
+		}
+	}
+
+	// 保存到配置文件
+	if targetFilePath != "" {
+		if err := HookManager.SaveHooksToFile(targetFilePath); err != nil {
+			// 如果保存失败，从内存中移除刚添加的Hook
+			if LoadedHooksFromFiles != nil {
+				if hooks, exists := (*LoadedHooksFromFiles)[targetFilePath]; exists {
+					// 移除最后添加的Hook
+					if len(hooks) > 0 {
+						(*LoadedHooksFromFiles)[targetFilePath] = hooks[:len(hooks)-1]
+					}
+				}
+			}
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save hook to file: " + err.Error()})
+			return
+		}
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"message": "Hook创建成功",
+		"hookId":  request.ID,
+	})
+}
+
+// HandleUpdateHookBasic 更新Hook基本信息
+func HandleUpdateHookBasic(c *gin.Context) {
+	hookID := c.Param("id")
 	existingHook := HookManager.MatchLoadedHook(hookID)
 	if existingHook == nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Hook not found"})
 		return
 	}
 
-	// 解析请求体中的Hook配置 - 使用兼容前端的数据结构
-	var hookConfigRequest struct {
-		ID                                    string            `json:"id"`
-		ExecuteCommand                        string            `json:"execute-command"`
-		CommandWorkingDirectory               string            `json:"command-working-directory,omitempty"`
-		ResponseMessage                       string            `json:"response-message,omitempty"`
-		HTTPMethods                           []string          `json:"http-methods"`
-		ResponseHeaders                       map[string]string `json:"response-headers,omitempty"`
-		PassArgumentsToCommand                []Argument        `json:"pass-arguments-to-command,omitempty"`
-		PassEnvironmentToCommand              []Argument        `json:"pass-environment-to-command,omitempty"`
-		TriggerRule                           *Rules            `json:"trigger-rule,omitempty"`
-		IncludeCommandOutputInResponse        bool              `json:"include-command-output-in-response,omitempty"`
-		IncludeCommandOutputInResponseOnError bool              `json:"include-command-output-in-response-on-error,omitempty"`
-		ParseParametersAsJSON                 []Argument        `json:"parse-parameters-as-json,omitempty"`
-		TriggerRuleMismatchHTTPResponseCode   int               `json:"trigger-rule-mismatch-http-response-code,omitempty"`
+	var request struct {
+		ExecuteCommand          string `json:"execute-command" binding:"required"`
+		CommandWorkingDirectory string `json:"command-working-directory,omitempty"`
+		ResponseMessage         string `json:"response-message,omitempty"`
 	}
 
-	if err := c.ShouldBindJSON(&hookConfigRequest); err != nil {
+	if err := c.ShouldBindJSON(&request); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request parameters: " + err.Error()})
 		return
 	}
 
-	// 验证必要字段
-	if hookConfigRequest.ID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Hook ID cannot be empty"})
+	// 备份原值，以便保存失败时恢复
+	originalExecuteCommand := existingHook.ExecuteCommand
+	originalCommandWorkingDirectory := existingHook.CommandWorkingDirectory
+	originalResponseMessage := existingHook.ResponseMessage
+
+	// 更新基本信息
+	existingHook.ExecuteCommand = request.ExecuteCommand
+	existingHook.CommandWorkingDirectory = request.CommandWorkingDirectory
+	existingHook.ResponseMessage = request.ResponseMessage
+
+	// 保存到配置文件
+	if err := HookManager.SaveHookChanges(hookID); err != nil {
+		// 保存失败，恢复原值
+		existingHook.ExecuteCommand = originalExecuteCommand
+		existingHook.CommandWorkingDirectory = originalCommandWorkingDirectory
+		existingHook.ResponseMessage = originalResponseMessage
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save hook changes: " + err.Error()})
 		return
 	}
 
-	if hookConfigRequest.ExecuteCommand == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Execute command cannot be empty"})
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Hook基本信息更新成功",
+		"hookId":  hookID,
+	})
+}
+
+// HandleUpdateHookParameters 更新Hook参数配置
+func HandleUpdateHookParameters(c *gin.Context) {
+	hookID := c.Param("id")
+	existingHook := HookManager.MatchLoadedHook(hookID)
+	if existingHook == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Hook not found"})
 		return
 	}
 
-	// 更新现有Hook的配置
-	// 注意：这里只是在内存中更新，实际项目可能需要持久化到配置文件
-	existingHook.ID = hookConfigRequest.ID
-	existingHook.ExecuteCommand = hookConfigRequest.ExecuteCommand
-	existingHook.CommandWorkingDirectory = hookConfigRequest.CommandWorkingDirectory
-	existingHook.ResponseMessage = hookConfigRequest.ResponseMessage
-	existingHook.HTTPMethods = hookConfigRequest.HTTPMethods
+	var request struct {
+		PassArgumentsToCommand   []Argument `json:"pass-arguments-to-command,omitempty"`
+		PassEnvironmentToCommand []Argument `json:"pass-environment-to-command,omitempty"`
+		ParseParametersAsJSON    []Argument `json:"parse-parameters-as-json,omitempty"`
+	}
+
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request parameters: " + err.Error()})
+		return
+	}
+
+	// 验证参数配置
+	for i, arg := range request.PassArgumentsToCommand {
+		if arg.Name == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("参数%d的名称不能为空", i+1)})
+			return
+		}
+		if arg.Source == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("参数%d的来源不能为空", i+1)})
+			return
+		}
+	}
+
+	for i, env := range request.PassEnvironmentToCommand {
+		if env.Name == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("环境变量%d的名称不能为空", i+1)})
+			return
+		}
+		if env.Source == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("环境变量%d的来源不能为空", i+1)})
+			return
+		}
+	}
+
+	// 备份原值，以便保存失败时恢复
+	originalPassArgumentsToCommand := existingHook.PassArgumentsToCommand
+	originalPassEnvironmentToCommand := existingHook.PassEnvironmentToCommand
+	originalJSONStringParameters := existingHook.JSONStringParameters
+
+	// 更新参数配置
+	existingHook.PassArgumentsToCommand = request.PassArgumentsToCommand
+	existingHook.PassEnvironmentToCommand = request.PassEnvironmentToCommand
+	existingHook.JSONStringParameters = request.ParseParametersAsJSON
+
+	// 保存到配置文件
+	if err := HookManager.SaveHookChanges(hookID); err != nil {
+		// 保存失败，恢复原值
+		existingHook.PassArgumentsToCommand = originalPassArgumentsToCommand
+		existingHook.PassEnvironmentToCommand = originalPassEnvironmentToCommand
+		existingHook.JSONStringParameters = originalJSONStringParameters
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save hook changes: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Hook参数配置更新成功",
+		"hookId":  hookID,
+	})
+}
+
+// HandleUpdateHookTriggers 更新Hook触发规则
+func HandleUpdateHookTriggers(c *gin.Context) {
+	hookID := c.Param("id")
+	existingHook := HookManager.MatchLoadedHook(hookID)
+	if existingHook == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Hook not found"})
+		return
+	}
+
+	var request struct {
+		TriggerRule                         *Rules `json:"trigger-rule,omitempty"`
+		TriggerRuleMismatchHTTPResponseCode int    `json:"trigger-rule-mismatch-http-response-code,omitempty"`
+	}
+
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request parameters: " + err.Error()})
+		return
+	}
+
+	// 验证触发规则
+	if request.TriggerRuleMismatchHTTPResponseCode != 0 &&
+		(request.TriggerRuleMismatchHTTPResponseCode < 200 || request.TriggerRuleMismatchHTTPResponseCode > 599) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "HTTP响应码必须在200-599范围内"})
+		return
+	}
+
+	// 备份原值，以便保存失败时恢复
+	originalTriggerRule := existingHook.TriggerRule
+	originalTriggerRuleMismatchHttpResponseCode := existingHook.TriggerRuleMismatchHttpResponseCode
+
+	// 更新触发规则
+	existingHook.TriggerRule = request.TriggerRule
+	if request.TriggerRuleMismatchHTTPResponseCode > 0 {
+		existingHook.TriggerRuleMismatchHttpResponseCode = request.TriggerRuleMismatchHTTPResponseCode
+	}
+
+	// 保存到配置文件
+	if err := HookManager.SaveHookChanges(hookID); err != nil {
+		// 保存失败，恢复原值
+		existingHook.TriggerRule = originalTriggerRule
+		existingHook.TriggerRuleMismatchHttpResponseCode = originalTriggerRuleMismatchHttpResponseCode
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save hook changes: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Hook触发规则更新成功",
+		"hookId":  hookID,
+	})
+}
+
+// HandleUpdateHookResponse 更新Hook响应配置
+func HandleUpdateHookResponse(c *gin.Context) {
+	hookID := c.Param("id")
+	existingHook := HookManager.MatchLoadedHook(hookID)
+	if existingHook == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Hook not found"})
+		return
+	}
+
+	var request struct {
+		HTTPMethods                           []string          `json:"http-methods,omitempty"`
+		ResponseHeaders                       map[string]string `json:"response-headers,omitempty"`
+		IncludeCommandOutputInResponse        bool              `json:"include-command-output-in-response,omitempty"`
+		IncludeCommandOutputInResponseOnError bool              `json:"include-command-output-in-response-on-error,omitempty"`
+	}
+
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request parameters: " + err.Error()})
+		return
+	}
+
+	// 验证HTTP方法
+	validMethods := map[string]bool{"GET": true, "POST": true, "PUT": true, "DELETE": true, "PATCH": true}
+	for _, method := range request.HTTPMethods {
+		if !validMethods[strings.ToUpper(method)] {
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("无效的HTTP方法: %s", method)})
+			return
+		}
+	}
+
+	// 备份原值，以便保存失败时恢复
+	originalHTTPMethods := existingHook.HTTPMethods
+	originalResponseHeaders := existingHook.ResponseHeaders
+	originalCaptureCommandOutput := existingHook.CaptureCommandOutput
+	originalCaptureCommandOutputOnError := existingHook.CaptureCommandOutputOnError
+
+	// 更新响应配置
+	if len(request.HTTPMethods) > 0 {
+		existingHook.HTTPMethods = request.HTTPMethods
+	}
 
 	// 转换ResponseHeaders格式
-	if hookConfigRequest.ResponseHeaders != nil {
-		existingHook.ResponseHeaders = make(ResponseHeaders, 0, len(hookConfigRequest.ResponseHeaders))
-		for name, value := range hookConfigRequest.ResponseHeaders {
+	if request.ResponseHeaders != nil {
+		existingHook.ResponseHeaders = make(ResponseHeaders, 0, len(request.ResponseHeaders))
+		for name, value := range request.ResponseHeaders {
 			existingHook.ResponseHeaders = append(existingHook.ResponseHeaders, Header{
 				Name:  name,
 				Value: value,
@@ -895,19 +1320,60 @@ func HandleSaveHookConfig(c *gin.Context) {
 		}
 	}
 
-	existingHook.PassArgumentsToCommand = hookConfigRequest.PassArgumentsToCommand
-	existingHook.PassEnvironmentToCommand = hookConfigRequest.PassEnvironmentToCommand
-	existingHook.TriggerRule = hookConfigRequest.TriggerRule
-	existingHook.CaptureCommandOutput = hookConfigRequest.IncludeCommandOutputInResponse
-	existingHook.CaptureCommandOutputOnError = hookConfigRequest.IncludeCommandOutputInResponseOnError
-	existingHook.JSONStringParameters = hookConfigRequest.ParseParametersAsJSON
-	existingHook.TriggerRuleMismatchHttpResponseCode = hookConfigRequest.TriggerRuleMismatchHTTPResponseCode
+	existingHook.CaptureCommandOutput = request.IncludeCommandOutputInResponse
+	existingHook.CaptureCommandOutputOnError = request.IncludeCommandOutputInResponseOnError
 
-	// TODO: 这里应该将更新后的配置持久化到配置文件
-	// 目前只是在内存中更新，重启后会丢失
+	// 保存到配置文件
+	if err := HookManager.SaveHookChanges(hookID); err != nil {
+		// 保存失败，恢复原值
+		existingHook.HTTPMethods = originalHTTPMethods
+		existingHook.ResponseHeaders = originalResponseHeaders
+		existingHook.CaptureCommandOutput = originalCaptureCommandOutput
+		existingHook.CaptureCommandOutputOnError = originalCaptureCommandOutputOnError
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save hook changes: " + err.Error()})
+		return
+	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Hook配置保存成功",
+		"message": "Hook响应配置更新成功",
+		"hookId":  hookID,
+	})
+}
+
+// HandleUpdateHookExecuteCommand 更新Hook的执行命令
+func HandleUpdateHookExecuteCommand(c *gin.Context) {
+	hookID := c.Param("id")
+	existingHook := HookManager.MatchLoadedHook(hookID)
+	if existingHook == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Hook not found"})
+		return
+	}
+
+	var request struct {
+		ExecuteCommand string `json:"execute-command" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request parameters: " + err.Error()})
+		return
+	}
+
+	// 备份原值，以便保存失败时恢复
+	originalExecuteCommand := existingHook.ExecuteCommand
+
+	// 更新执行命令
+	existingHook.ExecuteCommand = request.ExecuteCommand
+
+	// 保存到配置文件
+	if err := HookManager.SaveHookChanges(hookID); err != nil {
+		// 保存失败，恢复原值
+		existingHook.ExecuteCommand = originalExecuteCommand
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save hook changes: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Hook执行命令更新成功",
 		"hookId":  hookID,
 	})
 }

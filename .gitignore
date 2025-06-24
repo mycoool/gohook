@@ -22,6 +22,8 @@ yarn-error.log*
 /version.yaml
 /user.yaml.bak
 /version.yaml.bak
+*.bak
+*.yaml
 
 # Binary
 gohook

@@ -146,8 +146,8 @@ func InitRouter() *gin.Engine {
 		// get all hooks
 		hookAPI.GET("", webhook.HandleGetAllHooks)
 
-		// get single hook detail
-		hookAPI.GET("/:id", webhook.HandleGetHookByID)
+		// get single hook details (for editing)
+		hookAPI.GET("/:id", webhook.HandleGetHook)
 
 		// trigger hook (test interface)
 		hookAPI.POST("/:id/trigger", webhook.HandleTriggerHook)
@@ -155,13 +155,18 @@ func InitRouter() *gin.Engine {
 		// reload hooks config interface
 		hookAPI.POST("/reload-config", webhook.HandleReloadHooksConfig)
 
-		// save hook config
-		hookAPI.POST("/:id/config", webhook.HandleSaveHookConfig)
+		// hook configuration management - split into multiple endpoints
+		hookAPI.POST("", webhook.HandleCreateHook)                         // create new hook
+		hookAPI.PUT("/:id/basic", webhook.HandleUpdateHookBasic)           // update basic info
+		hookAPI.PUT("/:id/parameters", webhook.HandleUpdateHookParameters) // update parameters
+		hookAPI.PUT("/:id/triggers", webhook.HandleUpdateHookTriggers)     // update trigger rules
+		hookAPI.PUT("/:id/response", webhook.HandleUpdateHookResponse)     // update response config
 
 		// script management
 		hookAPI.GET("/:id/script", webhook.HandleGetHookScript)
 		hookAPI.POST("/:id/script", webhook.HandleSaveHookScript)
 		hookAPI.DELETE("/:id/script", webhook.HandleDeleteHookScript)
+		hookAPI.PUT("/:id/execute-command", webhook.HandleUpdateHookExecuteCommand)
 	}
 
 	// add websocket

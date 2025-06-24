@@ -113,10 +113,20 @@ export class HookStore {
 
     @action
     public getHookDetails = async (id: string): Promise<IHook> => {
-        const response = await axios.get<IHook>(`${config.get('url')}hook/${id}`, {
-            headers: {'X-GoHook-Key': this.tokenProvider()},
-        });
-        return response.data;
+        try {
+            const response = await axios.get<IHook>(`${config.get('url')}hook/${id}`, {
+                headers: {'X-GoHook-Key': this.tokenProvider()},
+            });
+            return response.data;
+        } catch (error: unknown) {
+            const errorMessage =
+                error instanceof Error
+                    ? error.message
+                    : (error as {response?: {data?: {error?: string}}})?.response?.data?.error ??
+                      '获取Hook详情失败';
+            this.snack('获取Hook详情失败: ' + errorMessage);
+            throw new Error(errorMessage);
+        }
     };
 
     public getName = (id: string): string => {
@@ -143,34 +153,153 @@ export class HookStore {
     };
 
     @action
-    public saveHook = async (hook: IHook): Promise<void> => {
+    public createHook = async (hookData: {
+        id: string;
+        'execute-command': string;
+        'command-working-directory': string;
+        'response-message': string;
+    }): Promise<void> => {
         try {
             const response = await axios.post(
-                `${config.get('url')}hook/${hook.id}/config`,
-                hook,
+                `${config.get('url')}hook`,
+                hookData,
                 {
                     headers: {'X-GoHook-Key': this.tokenProvider()},
                 }
             );
-            this.snack(response.data.message || 'Hook配置保存成功');
+            this.snack(response.data.message || 'Hook创建成功');
         } catch (error: unknown) {
             const errorMessage =
                 error instanceof Error
                     ? error.message
                     : (error as {response?: {data?: {error?: string}}})?.response?.data?.error ??
-                      '保存Hook配置失败';
-            this.snack('保存Hook配置失败: ' + errorMessage);
+                      '创建Hook失败';
+            this.snack('创建Hook失败: ' + errorMessage);
             throw new Error(errorMessage);
         }
     };
+
+    @action
+    public updateHookBasic = async (hookId: string, basicData: {
+        'execute-command': string;
+        'command-working-directory': string;
+        'response-message': string;
+    }): Promise<void> => {
+        try {
+            const response = await axios.put(
+                `${config.get('url')}hook/${hookId}/basic`,
+                basicData,
+                {
+                    headers: {'X-GoHook-Key': this.tokenProvider()},
+                }
+            );
+            this.snack(response.data.message || 'Hook基本信息更新成功');
+        } catch (error: unknown) {
+            const errorMessage =
+                error instanceof Error
+                    ? error.message
+                    : (error as {response?: {data?: {error?: string}}})?.response?.data?.error ??
+                      '更新Hook基本信息失败';
+            this.snack('更新Hook基本信息失败: ' + errorMessage);
+            throw new Error(errorMessage);
+        }
+    };
+
+    @action
+    public updateHookParameters = async (hookId: string, parametersData: {
+        'pass-arguments-to-command': {source: string; name: string}[];
+        'pass-environment-to-command': {name: string; source: string}[];
+        'parse-parameters-as-json': string[];
+    }): Promise<void> => {
+        try {
+            const response = await axios.put(
+                `${config.get('url')}hook/${hookId}/parameters`,
+                parametersData,
+                {
+                    headers: {'X-GoHook-Key': this.tokenProvider()},
+                }
+            );
+            this.snack(response.data.message || 'Hook参数配置更新成功');
+        } catch (error: unknown) {
+            const errorMessage =
+                error instanceof Error
+                    ? error.message
+                    : (error as {response?: {data?: {error?: string}}})?.response?.data?.error ??
+                      '更新Hook参数配置失败';
+            this.snack('更新Hook参数配置失败: ' + errorMessage);
+            throw new Error(errorMessage);
+        }
+    };
+
+    @action
+    public updateHookTriggers = async (hookId: string, triggersData: {
+        'trigger-rule': any;
+        'trigger-rule-mismatch-http-response-code': number;
+    }): Promise<void> => {
+        try {
+            const response = await axios.put(
+                `${config.get('url')}hook/${hookId}/triggers`,
+                triggersData,
+                {
+                    headers: {'X-GoHook-Key': this.tokenProvider()},
+                }
+            );
+            this.snack(response.data.message || 'Hook触发规则更新成功');
+        } catch (error: unknown) {
+            const errorMessage =
+                error instanceof Error
+                    ? error.message
+                    : (error as {response?: {data?: {error?: string}}})?.response?.data?.error ??
+                      '更新Hook触发规则失败';
+            this.snack('更新Hook触发规则失败: ' + errorMessage);
+            throw new Error(errorMessage);
+        }
+    };
+
+    @action
+    public updateHookResponse = async (hookId: string, responseData: {
+        'http-methods': string[];
+        'response-headers': {[key: string]: string};
+        'include-command-output-in-response': boolean;
+        'include-command-output-in-response-on-error': boolean;
+    }): Promise<void> => {
+        try {
+            const response = await axios.put(
+                `${config.get('url')}hook/${hookId}/response`,
+                responseData,
+                {
+                    headers: {'X-GoHook-Key': this.tokenProvider()},
+                }
+            );
+            this.snack(response.data.message || 'Hook响应配置更新成功');
+        } catch (error: unknown) {
+            const errorMessage =
+                error instanceof Error
+                    ? error.message
+                    : (error as {response?: {data?: {error?: string}}})?.response?.data?.error ??
+                      '更新Hook响应配置失败';
+            this.snack('更新Hook响应配置失败: ' + errorMessage);
+            throw new Error(errorMessage);
+        }
+    };
+
+
 
     // 脚本文件管理方法
 
     public getScript = async (
         hookId: string
-    ): Promise<{content: string; exists: boolean; path: string}> => {
+    ): Promise<{content: string; exists: boolean; path: string; isExecutable?: boolean; editable?: boolean; message?: string; suggestion?: string}> => {
         try {
-            const response = await axios.get<{content: string; exists: boolean; path: string}>(
+            const response = await axios.get<{
+                content: string; 
+                exists: boolean; 
+                path: string; 
+                isExecutable?: boolean; 
+                editable?: boolean; 
+                message?: string; 
+                suggestion?: string
+            }>(
                 `${config.get('url')}hook/${hookId}/script`,
                 {
                     headers: {'X-GoHook-Key': this.tokenProvider()},
@@ -188,13 +317,16 @@ export class HookStore {
         }
     };
 
-    public saveScript = async (hookId: string, content: string): Promise<void> => {
+    public saveScript = async (hookId: string, content: string, path?: string): Promise<void> => {
         try {
+            const requestData: { content: string; path?: string } = { content };
+            if (path) {
+                requestData.path = path;
+            }
+
             const response = await axios.post(
                 `${config.get('url')}hook/${hookId}/script`,
-                {
-                    content: content,
-                },
+                requestData,
                 {
                     headers: {'X-GoHook-Key': this.tokenProvider()},
                 }
@@ -241,6 +373,29 @@ export class HookStore {
                     : (error as {response?: {data?: {error?: string}}})?.response?.data?.error ??
                       '删除脚本文件失败';
             this.snack('删除脚本文件失败: ' + errorMessage);
+            throw new Error(errorMessage);
+        }
+    };
+
+    public updateExecuteCommand = async (hookId: string, executeCommand: string): Promise<void> => {
+        try {
+            const response = await axios.put(
+                `${config.get('url')}hook/${hookId}/execute-command`,
+                {
+                    'execute-command': executeCommand,
+                },
+                {
+                    headers: {'X-GoHook-Key': this.tokenProvider()},
+                }
+            );
+            this.snack(response.data.message || '执行命令更新成功');
+        } catch (error: unknown) {
+            const errorMessage =
+                error instanceof Error
+                    ? error.message
+                    : (error as {response?: {data?: {error?: string}}})?.response?.data?.error ??
+                      '更新执行命令失败';
+            this.snack('更新执行命令失败: ' + errorMessage);
             throw new Error(errorMessage);
         }
     };

@@ -13,6 +13,9 @@ import CloudDownload from '@mui/icons-material/CloudDownload';
 import Edit from '@mui/icons-material/Edit';
 import Add from '@mui/icons-material/Add';
 import Settings from '@mui/icons-material/Settings';
+import Tune from '@mui/icons-material/Tune';
+import FilterAlt from '@mui/icons-material/FilterAlt';
+import Http from '@mui/icons-material/Http';
 import ButtonGroup from '@mui/material/ButtonGroup';
 import React, {Component} from 'react';
 import ConfirmDialog from '../common/ConfirmDialog';
@@ -23,15 +26,17 @@ import {observer} from 'mobx-react';
 import {observable} from 'mobx';
 import {inject, Stores} from '../inject';
 import {IHook} from '../types';
-import {LastUsedCell} from '../common/LastUsedCell';
 import useTranslation from '../i18n/useTranslation';
 import {Theme} from '@mui/material/styles';
 import ScriptEditDialog from './ScriptEditDialog';
-import HookConfigDialog from './HookConfigDialog';
+import AddHookDialog from './AddHookDialog';
+import EditBasicDialog from './EditBasicDialog';
+import EditParametersDialog from './EditParametersDialog';
+import EditTriggersDialog from './EditTriggersDialog';
+import EditResponseDialog from './EditResponseDialog';
 
 // 创建一个注入了依赖的包装组件
 const ScriptEditDialogWrapper = inject('snackManager')(ScriptEditDialog);
-const HookConfigDialogWrapper = inject('snackManager')(HookConfigDialog);
 
 import {WithStyles} from '@mui/styles';
 import withStyles from '@mui/styles/withStyles';
@@ -67,10 +72,15 @@ class Hooks extends Component<Stores<'hookStore' | 'snackManager'>> {
     @observable
     private editingScriptId: string | false = false;
     @observable
-    private configDialog: {open: boolean; hookId?: string; isEdit: boolean} = {
-        open: false,
-        isEdit: false,
-    };
+    private addDialog = false;
+    @observable
+    private editBasicDialog: {open: boolean; hookId?: string} = {open: false};
+    @observable
+    private editParametersDialog: {open: boolean; hookId?: string} = {open: false};
+    @observable
+    private editTriggersDialog: {open: boolean; hookId?: string} = {open: false};
+    @observable
+    private editResponseDialog: {open: boolean; hookId?: string} = {open: false};
 
     public componentDidMount = () => this.props.hookStore.refresh();
 
@@ -78,7 +88,11 @@ class Hooks extends Component<Stores<'hookStore' | 'snackManager'>> {
         const {
             deleteId,
             editingScriptId,
-            configDialog,
+            addDialog,
+            editBasicDialog,
+            editParametersDialog,
+            editTriggersDialog,
+            editResponseDialog,
             props: {hookStore},
         } = this;
         const hooks = hookStore.getItems();
@@ -90,14 +104,13 @@ class Hooks extends Component<Stores<'hookStore' | 'snackManager'>> {
                     editingScriptId={editingScriptId}
                     onRefresh={this.refreshHooks}
                     onReloadConfig={this.reloadConfig}
-                    onAddHook={() =>
-                        (this.configDialog = {open: true, isEdit: false})
-                    }
+                    onAddHook={() => (this.addDialog = true)}
                     onTriggerHook={this.triggerHook}
                     onEditScript={(id) => (this.editingScriptId = id)}
-                    onEditConfig={(id) =>
-                        (this.configDialog = {open: true, hookId: id, isEdit: true})
-                    }
+                    onEditBasic={(hook) => (this.editBasicDialog = {open: true, hookId: hook.id})}
+                    onEditParameters={(hook) => (this.editParametersDialog = {open: true, hookId: hook.id})}
+                    onEditTriggers={(hook) => (this.editTriggersDialog = {open: true, hookId: hook.id})}
+                    onEditResponse={(hook) => (this.editResponseDialog = {open: true, hookId: hook.id})}
                     onDeleteHook={(id) => (this.deleteId = id)}
                     onCancelDelete={() => (this.deleteId = false)}
                     onConfirmDelete={() => hookStore.remove(deleteId as string)}
@@ -112,34 +125,98 @@ class Hooks extends Component<Stores<'hookStore' | 'snackManager'>> {
                         onGetScript={hookStore.getScript}
                         onSaveScript={hookStore.saveScript}
                         onDeleteScript={hookStore.deleteScript}
+                        onUpdateExecuteCommand={hookStore.updateExecuteCommand}
+                        onGetHookDetails={hookStore.getHookDetails}
                     />
                 )}
-                {configDialog.open && (
-                    <HookConfigDialogWrapper
-                        open={true}
-                        hook={
-                            configDialog.hookId
-                                ? hookStore.getByID(configDialog.hookId)
-                                : undefined
-                        }
-                        onClose={() => (this.configDialog = {open: false, isEdit: false})}
-                        onSave={this.saveHookConfig}
-                    />
-                )}
+                <AddHookDialog
+                    open={addDialog}
+                    onClose={() => (this.addDialog = false)}
+                    onSave={this.createHook}
+                />
+                <EditBasicDialog
+                    open={editBasicDialog.open}
+                    hookId={editBasicDialog.hookId}
+                    onClose={() => (this.editBasicDialog = {open: false})}
+                    onSave={this.updateHookBasic}
+                    onGetHookDetails={this.props.hookStore.getHookDetails}
+                />
+                <EditParametersDialog
+                    open={editParametersDialog.open}
+                    hookId={editParametersDialog.hookId}
+                    onClose={() => (this.editParametersDialog = {open: false})}
+                    onSave={this.updateHookParameters}
+                    onGetHookDetails={this.props.hookStore.getHookDetails}
+                />
+                <EditTriggersDialog
+                    open={editTriggersDialog.open}
+                    hookId={editTriggersDialog.hookId}
+                    onClose={() => (this.editTriggersDialog = {open: false})}
+                    onSave={this.updateHookTriggers}
+                    onGetHookDetails={this.props.hookStore.getHookDetails}
+                />
+                <EditResponseDialog
+                    open={editResponseDialog.open}
+                    hookId={editResponseDialog.hookId}
+                    onClose={() => (this.editResponseDialog = {open: false})}
+                    onSave={this.updateHookResponse}
+                    onGetHookDetails={this.props.hookStore.getHookDetails}
+                />
             </>
         );
     }
 
-    private saveHookConfig = async (hook: IHook) => {
+    private createHook = async (hookData: {
+        id: string;
+        'execute-command': string;
+        'command-working-directory': string;
+        'response-message': string;
+    }) => {
         try {
-            // 这里需要实现保存Hook配置的逻辑
-            // 可能需要调用新的API来保存完整的hook配置
-            await this.props.hookStore.saveHook(hook);
-            this.props.snackManager.snack('Hook配置保存成功');
-            this.configDialog = {open: false, isEdit: false};
+            await this.props.hookStore.createHook(hookData);
             this.props.hookStore.refresh();
         } catch (error) {
-            this.props.snackManager.snack('Hook配置保存失败: ' + (error as Error).message);
+            // 错误已在store中处理
+        }
+    };
+
+    private updateHookBasic = async (hookId: string, basicData: {
+        'execute-command': string;
+        'command-working-directory': string;
+        'response-message': string;
+    }) => {
+        try {
+            await this.props.hookStore.updateHookBasic(hookId, basicData);
+            this.props.hookStore.refresh();
+        } catch (error) {
+            // 错误已在store中处理
+        }
+    };
+
+    private updateHookParameters = async (hookId: string, parametersData: any) => {
+        try {
+            await this.props.hookStore.updateHookParameters(hookId, parametersData);
+            this.props.hookStore.refresh();
+        } catch (error) {
+            // 错误已在store中处理
+        }
+    };
+
+    private updateHookTriggers = async (hookId: string, triggersData: any) => {
+        try {
+            await this.props.hookStore.updateHookTriggers(hookId, triggersData);
+            this.props.hookStore.refresh();
+        } catch (error) {
+            // 错误已在store中处理
+        }
+    };
+
+    private updateHookResponse = async (hookId: string, responseData: any) => {
+        try {
+            await this.props.hookStore.updateHookResponse(hookId, responseData);
+            this.props.hookStore.refresh();
+        } catch (error) {
+            // 错误已在store中处理
         }
     };
 
@@ -166,7 +243,10 @@ const HooksContainer: React.FC<{
     onAddHook: () => void;
     onTriggerHook: (id: string) => void;
     onEditScript: (id: string) => void;
-    onEditConfig: (id: string) => void;
+    onEditBasic: (hook: IHook) => void;
+    onEditParameters: (hook: IHook) => void;
+    onEditTriggers: (hook: IHook) => void;
+    onEditResponse: (hook: IHook) => void;
     onDeleteHook: (id: string) => void;
     onCancelDelete: () => void;
     onConfirmDelete: () => void;
@@ -181,7 +261,10 @@ const HooksContainer: React.FC<{
     onAddHook,
     onTriggerHook,
     onEditScript,
-    onEditConfig,
+    onEditBasic,
+    onEditParameters,
+    onEditTriggers,
+    onEditResponse,
     onDeleteHook,
     onCancelDelete,
     onConfirmDelete,
@@ -219,9 +302,8 @@ const HooksContainer: React.FC<{
                                 <TableCell>{t('hook.command')}</TableCell>
                                 <TableCell>{t('hook.httpMethods')}</TableCell>
                                 <TableCell>{t('hook.parameters')}</TableCell>
-                                <TableCell>{t('hook.triggerRule')}</TableCell>
+                                <TableCell>触发规则</TableCell>
                                 <TableCell>{t('hook.status')}</TableCell>
-                                <TableCell>{t('hook.lastUsed')}</TableCell>
                                 <TableCell align="center">{t('common.actions')}</TableCell>
                             </TableRow>
                         </TableHead>
@@ -232,7 +314,10 @@ const HooksContainer: React.FC<{
                                     hook={hook}
                                     fTrigger={() => onTriggerHook(hook.id)}
                                     fEditScript={() => onEditScript(hook.id)}
-                                    fEditConfig={() => onEditConfig(hook.id)}
+                                    fEditBasic={() => onEditBasic(hook)}
+                                    fEditParameters={() => onEditParameters(hook)}
+                                    fEditTriggers={() => onEditTriggers(hook)}
+                                    fEditResponse={() => onEditResponse(hook)}
                                     fDelete={() => onDeleteHook(hook.id)}
                                 />
                             ))}
@@ -257,11 +342,14 @@ interface IRowProps extends WithStyles<typeof styles> {
     hook: IHook;
     fTrigger: VoidFunction;
     fEditScript: VoidFunction;
-    fEditConfig: VoidFunction;
+    fEditBasic: VoidFunction;
+    fEditParameters: VoidFunction;
+    fEditTriggers: VoidFunction;
+    fEditResponse: VoidFunction;
     fDelete: VoidFunction;
 }
 
-const Row: React.FC<IRowProps> = observer(({hook, fTrigger, fEditScript, fEditConfig, fDelete, classes}) => {
+const Row: React.FC<IRowProps> = observer(({hook, fTrigger, fEditScript, fEditBasic, fEditParameters, fEditTriggers, fEditResponse, fDelete, classes}) => {
     const {t} = useTranslation();
 
     return (
@@ -319,8 +407,16 @@ const Row: React.FC<IRowProps> = observer(({hook, fTrigger, fEditScript, fEditCo
                     }}
                 />
             </TableCell>
-            <TableCell style={{maxWidth: 150, wordWrap: 'break-word', fontSize: '0.85em'}}>
-                {hook.triggerRuleDescription}
+            <TableCell>
+                <Chip
+                    label={`规则: ${countTriggerRules(hook['trigger-rule'])}`}
+                    size="small"
+                    style={{
+                        backgroundColor: countTriggerRules(hook['trigger-rule']) > 0 ? '#ff9800' : '#9e9e9e',
+                        color: 'white',
+                        fontSize: '0.7em',
+                    }}
+                />
             </TableCell>
             <TableCell>
                 <Chip
@@ -331,9 +427,6 @@ const Row: React.FC<IRowProps> = observer(({hook, fTrigger, fEditScript, fEditCo
                         color: 'white',
                     }}
                 />
-            </TableCell>
-            <TableCell>
-                <LastUsedCell lastUsed={hook.lastUsed} />
             </TableCell>
             <TableCell align="center" padding="none">
                 <IconButton
@@ -351,11 +444,32 @@ const Row: React.FC<IRowProps> = observer(({hook, fTrigger, fEditScript, fEditCo
                     <Edit />
                 </IconButton>
                 <IconButton
-                    onClick={fEditConfig}
-                    className="edit-config"
-                    title="编辑配置"
+                    onClick={fEditBasic}
+                    className="edit-basic"
+                    title="编辑基本信息"
                     size="small">
                     <Settings />
+                </IconButton>
+                <IconButton
+                    onClick={fEditParameters}
+                    className="edit-parameters"
+                    title="编辑参数配置"
+                    size="small">
+                    <Tune />
+                </IconButton>
+                <IconButton
+                    onClick={fEditTriggers}
+                    className="edit-triggers"
+                    title="编辑触发规则"
+                    size="small">
+                    <FilterAlt />
+                </IconButton>
+                <IconButton
+                    onClick={fEditResponse}
+                    className="edit-response"
+                    title="编辑响应配置"
+                    size="small">
+                    <Http />
                 </IconButton>
                 <IconButton
                     onClick={fDelete}
@@ -368,6 +482,41 @@ const Row: React.FC<IRowProps> = observer(({hook, fTrigger, fEditScript, fEditCo
         </TableRow>
     );
 });
+
+// 计算触发规则条数
+function countTriggerRules(triggerRule: any): number {
+    if (!triggerRule) {
+        return 0;
+    }
+    
+    let count = 0;
+    
+    // 如果有直接的match规则
+    if (triggerRule.match) {
+        count++;
+    }
+    
+    // 递归计算and规则
+    if (triggerRule.and && Array.isArray(triggerRule.and)) {
+        triggerRule.and.forEach((rule: any) => {
+            count += countTriggerRules(rule);
+        });
+    }
+    
+    // 递归计算or规则
+    if (triggerRule.or && Array.isArray(triggerRule.or)) {
+        triggerRule.or.forEach((rule: any) => {
+            count += countTriggerRules(rule);
+        });
+    }
+    
+    // 递归计算not规则
+    if (triggerRule.not) {
+        count += countTriggerRules(triggerRule.not);
+    }
+    
+    return count;
+}
 
 // 根据HTTP方法返回对应的颜色
 function getMethodColor(method: string): string {

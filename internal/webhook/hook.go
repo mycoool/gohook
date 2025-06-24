@@ -19,6 +19,7 @@ import (
 	"net/textproto"
 	"os"
 	"path"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -783,6 +784,66 @@ func (h *Hooks) LoadFromFile(path string, asTemplate bool) error {
 	}
 
 	return yaml.Unmarshal(file, h)
+}
+
+// SaveToFile saves hooks to the specified file in the appropriate format (JSON or YAML based on file extension)
+func (h *Hooks) SaveToFile(path string) error {
+	if path == "" {
+		return fmt.Errorf("file path is empty")
+	}
+
+	// 备份原文件
+	if _, err := os.Stat(path); err == nil {
+		backupPath := path + ".bak"
+		if err := os.Rename(path, backupPath); err != nil {
+			log.Printf("Warning: failed to backup hooks file: %v", err)
+		} else {
+			log.Printf("Backed up hooks file to %s", backupPath)
+		}
+	}
+
+	// 根据文件扩展名决定使用的格式
+	var data []byte
+	var err error
+	var format string
+
+	ext := strings.ToLower(filepath.Ext(path))
+	if ext == ".json" {
+		// 序列化为JSON
+		data, err = json.MarshalIndent(h, "", "  ")
+		format = "JSON"
+	} else {
+		// 默认序列化为YAML (支持 .yaml, .yml 以及其他扩展名)
+		data, err = yaml.Marshal(h)
+		format = "YAML"
+	}
+
+	if err != nil {
+		return fmt.Errorf("failed to marshal hooks to %s: %v", format, err)
+	}
+
+	// 确保目录存在
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("failed to create directory %s: %v", dir, err)
+	}
+
+	// 写入文件
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		// 如果保存失败，尝试恢复备份
+		backupPath := path + ".bak"
+		if _, backupErr := os.Stat(backupPath); backupErr == nil {
+			if restoreErr := os.Rename(backupPath, path); restoreErr != nil {
+				log.Printf("Error: failed to restore backup hooks file: %v", restoreErr)
+			} else {
+				log.Printf("Restored backup hooks file")
+			}
+		}
+		return fmt.Errorf("failed to write hooks file: %v", err)
+	}
+
+	log.Printf("Successfully saved hooks to %s in %s format", path, format)
+	return nil
 }
 
 // Append appends hooks unless the new hooks contain a hook with an ID that already exists
