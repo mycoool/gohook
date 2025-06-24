@@ -154,6 +154,14 @@ func InitRouter() *gin.Engine {
 
 		// reload hooks config interface
 		hookAPI.POST("/reload-config", webhook.HandleReloadHooksConfig)
+
+		// save hook config
+		hookAPI.POST("/:id/config", webhook.HandleSaveHookConfig)
+
+		// script management
+		hookAPI.GET("/:id/script", webhook.HandleGetHookScript)
+		hookAPI.POST("/:id/script", webhook.HandleSaveHookScript)
+		hookAPI.DELETE("/:id/script", webhook.HandleDeleteHookScript)
 	}
 
 	// add websocket

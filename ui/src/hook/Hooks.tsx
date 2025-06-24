@@ -10,6 +10,9 @@ import Delete from '@mui/icons-material/Delete';
 import PlayArrow from '@mui/icons-material/PlayArrow';
 import Refresh from '@mui/icons-material/Refresh';
 import CloudDownload from '@mui/icons-material/CloudDownload';
+import Edit from '@mui/icons-material/Edit';
+import Add from '@mui/icons-material/Add';
+import Settings from '@mui/icons-material/Settings';
 import ButtonGroup from '@mui/material/ButtonGroup';
 import React, {Component} from 'react';
 import ConfirmDialog from '../common/ConfirmDialog';
@@ -23,6 +26,12 @@ import {IHook} from '../types';
 import {LastUsedCell} from '../common/LastUsedCell';
 import useTranslation from '../i18n/useTranslation';
 import {Theme} from '@mui/material/styles';
+import ScriptEditDialog from './ScriptEditDialog';
+import HookConfigDialog from './HookConfigDialog';
+
+// 创建一个注入了依赖的包装组件
+const ScriptEditDialogWrapper = inject('snackManager')(ScriptEditDialog);
+const HookConfigDialogWrapper = inject('snackManager')(HookConfigDialog);
 
 import {WithStyles} from '@mui/styles';
 import withStyles from '@mui/styles/withStyles';
@@ -50,34 +59,89 @@ const styles = () =>
     });
 
 @observer
-class Hooks extends Component<Stores<'hookStore'>> {
+class Hooks extends Component<Stores<'hookStore' | 'snackManager'>> {
     @observable
     private deleteId: string | false = false;
     @observable
     private triggerDialog = false;
+    @observable
+    private editingScriptId: string | false = false;
+    @observable
+    private configDialog: {open: boolean; hookId?: string; isEdit: boolean} = {
+        open: false,
+        isEdit: false,
+    };
 
     public componentDidMount = () => this.props.hookStore.refresh();
 
     public render() {
         const {
             deleteId,
+            editingScriptId,
+            configDialog,
             props: {hookStore},
         } = this;
         const hooks = hookStore.getItems();
         return (
-            <HooksContainer
-                hooks={hooks}
-                deleteId={deleteId}
-                onRefresh={this.refreshHooks}
-                onReloadConfig={this.reloadConfig}
-                onTriggerHook={this.triggerHook}
-                onDeleteHook={(id) => (this.deleteId = id)}
-                onCancelDelete={() => (this.deleteId = false)}
-                onConfirmDelete={() => hookStore.remove(deleteId as string)}
-                hookStore={hookStore}
-            />
+            <>
+                <HooksContainer
+                    hooks={hooks}
+                    deleteId={deleteId}
+                    editingScriptId={editingScriptId}
+                    onRefresh={this.refreshHooks}
+                    onReloadConfig={this.reloadConfig}
+                    onAddHook={() =>
+                        (this.configDialog = {open: true, isEdit: false})
+                    }
+                    onTriggerHook={this.triggerHook}
+                    onEditScript={(id) => (this.editingScriptId = id)}
+                    onEditConfig={(id) =>
+                        (this.configDialog = {open: true, hookId: id, isEdit: true})
+                    }
+                    onDeleteHook={(id) => (this.deleteId = id)}
+                    onCancelDelete={() => (this.deleteId = false)}
+                    onConfirmDelete={() => hookStore.remove(deleteId as string)}
+                    onCloseScriptEditor={() => (this.editingScriptId = false)}
+                    hookStore={hookStore}
+                />
+                {editingScriptId !== false && (
+                    <ScriptEditDialogWrapper
+                        open={true}
+                        hookId={editingScriptId}
+                        onClose={() => (this.editingScriptId = false)}
+                        onGetScript={hookStore.getScript}
+                        onSaveScript={hookStore.saveScript}
+                        onDeleteScript={hookStore.deleteScript}
+                    />
+                )}
+                {configDialog.open && (
+                    <HookConfigDialogWrapper
+                        open={true}
+                        hook={
+                            configDialog.hookId
+                                ? hookStore.getByID(configDialog.hookId)
+                                : undefined
+                        }
+                        onClose={() => (this.configDialog = {open: false, isEdit: false})}
+                        onSave={this.saveHookConfig}
+                    />
+                )}
+            </>
         );
     }
+
+    private saveHookConfig = async (hook: IHook) => {
+        try {
+            // 这里需要实现保存Hook配置的逻辑
+            // 可能需要调用新的API来保存完整的hook配置
+            await this.props.hookStore.saveHook(hook);
+            this.props.snackManager.snack('Hook配置保存成功');
+            this.configDialog = {open: false, isEdit: false};
+            this.props.hookStore.refresh();
+        } catch (error) {
+            this.props.snackManager.snack('Hook配置保存失败: ' + (error as Error).message);
+        }
+    };
 
     private refreshHooks = () => {
         this.props.hookStore.refresh();
@@ -96,22 +160,32 @@ class Hooks extends Component<Stores<'hookStore'>> {
 const HooksContainer: React.FC<{
     hooks: IHook[];
     deleteId: string | false;
+    editingScriptId: string | false;
     onRefresh: () => void;
     onReloadConfig: () => void;
+    onAddHook: () => void;
     onTriggerHook: (id: string) => void;
+    onEditScript: (id: string) => void;
+    onEditConfig: (id: string) => void;
     onDeleteHook: (id: string) => void;
     onCancelDelete: () => void;
     onConfirmDelete: () => void;
+    onCloseScriptEditor: () => void;
     hookStore: {getByID: (id: string) => IHook};
 }> = ({
     hooks,
     deleteId,
+    editingScriptId,
     onRefresh,
     onReloadConfig,
+    onAddHook,
     onTriggerHook,
+    onEditScript,
+    onEditConfig,
     onDeleteHook,
     onCancelDelete,
     onConfirmDelete,
+    onCloseScriptEditor,
     hookStore,
 }) => {
     const {t} = useTranslation();
@@ -121,6 +195,9 @@ const HooksContainer: React.FC<{
             title={t('hook.title')}
             rightControl={
                 <ButtonGroup variant="contained" color="primary">
+                    <Button id="add-hook" startIcon={<Add />} onClick={onAddHook}>
+                        添加Hook
+                    </Button>
                     <Button id="refresh-hooks" startIcon={<Refresh />} onClick={onRefresh}>
                         {t('common.refresh')}
                     </Button>
@@ -139,9 +216,9 @@ const HooksContainer: React.FC<{
                         <TableHead>
                             <TableRow>
                                 <TableCell>{t('hook.name')}</TableCell>
-                                <TableCell>{t('hook.description')}</TableCell>
                                 <TableCell>{t('hook.command')}</TableCell>
                                 <TableCell>{t('hook.httpMethods')}</TableCell>
+                                <TableCell>{t('hook.parameters')}</TableCell>
                                 <TableCell>{t('hook.triggerRule')}</TableCell>
                                 <TableCell>{t('hook.status')}</TableCell>
                                 <TableCell>{t('hook.lastUsed')}</TableCell>
@@ -154,6 +231,8 @@ const HooksContainer: React.FC<{
                                     key={hook.id}
                                     hook={hook}
                                     fTrigger={() => onTriggerHook(hook.id)}
+                                    fEditScript={() => onEditScript(hook.id)}
+                                    fEditConfig={() => onEditConfig(hook.id)}
                                     fDelete={() => onDeleteHook(hook.id)}
                                 />
                             ))}
@@ -177,10 +256,12 @@ const HooksContainer: React.FC<{
 interface IRowProps extends WithStyles<typeof styles> {
     hook: IHook;
     fTrigger: VoidFunction;
+    fEditScript: VoidFunction;
+    fEditConfig: VoidFunction;
     fDelete: VoidFunction;
 }
 
-const Row: React.FC<IRowProps> = observer(({hook, fTrigger, fDelete, classes}) => {
+const Row: React.FC<IRowProps> = observer(({hook, fTrigger, fEditScript, fEditConfig, fDelete, classes}) => {
     const {t} = useTranslation();
 
     return (
@@ -189,9 +270,6 @@ const Row: React.FC<IRowProps> = observer(({hook, fTrigger, fDelete, classes}) =
                 <strong>{hook.name}</strong>
                 <br />
                 <small style={{color: '#666'}}>ID: {hook.id}</small>
-            </TableCell>
-            <TableCell style={{maxWidth: 200, wordWrap: 'break-word'}}>
-                {hook.description}
             </TableCell>
             <TableCell>
                 <code className={classes.codeBlock}>{hook.executeCommand}</code>
@@ -217,6 +295,30 @@ const Row: React.FC<IRowProps> = observer(({hook, fTrigger, fDelete, classes}) =
                     />
                 ))}
             </TableCell>
+            <TableCell>
+                <Chip
+                    label={`参数: ${hook.argumentsCount || 0}`}
+                    size="small"
+                    style={{
+                        marginRight: '4px',
+                        marginBottom: '2px',
+                        backgroundColor: '#2196f3',
+                        color: 'white',
+                        fontSize: '0.7em',
+                    }}
+                />
+                <Chip
+                    label={`环境变量: ${hook.environmentCount || 0}`}
+                    size="small"
+                    style={{
+                        marginRight: '4px',
+                        marginBottom: '2px',
+                        backgroundColor: '#4caf50',
+                        color: 'white',
+                        fontSize: '0.7em',
+                    }}
+                />
+            </TableCell>
             <TableCell style={{maxWidth: 150, wordWrap: 'break-word', fontSize: '0.85em'}}>
                 {hook.triggerRuleDescription}
             </TableCell>
@@ -240,6 +342,20 @@ const Row: React.FC<IRowProps> = observer(({hook, fTrigger, fDelete, classes}) =
                     title={t('hook.triggerHook')}
                     size="small">
                     <PlayArrow />
+                </IconButton>
+                <IconButton
+                    onClick={fEditScript}
+                    className="edit-script"
+                    title="编辑脚本"
+                    size="small">
+                    <Edit />
+                </IconButton>
+                <IconButton
+                    onClick={fEditConfig}
+                    className="edit-config"
+                    title="编辑配置"
+                    size="small">
+                    <Settings />
                 </IconButton>
                 <IconButton
                     onClick={fDelete}
@@ -274,4 +390,4 @@ function getMethodColor(method: string): string {
 // 使用 withStyles 包装 Row 组件
 const StyledRow = withStyles(styles)(Row);
 
-export default inject('hookStore')(Hooks);
+export default inject('hookStore', 'snackManager')(Hooks);

@@ -169,11 +169,12 @@ type ClientResponse struct {
 type HookResponse struct {
 	ID                     string   `json:"id"`
 	Name                   string   `json:"name"`
-	Description            string   `json:"description"`
 	ExecuteCommand         string   `json:"executeCommand"`
 	WorkingDirectory       string   `json:"workingDirectory"`
 	ResponseMessage        string   `json:"responseMessage"`
 	HTTPMethods            []string `json:"httpMethods"`
+	ArgumentsCount         int      `json:"argumentsCount"`
+	EnvironmentCount       int      `json:"environmentCount"`
 	TriggerRuleDescription string   `json:"triggerRuleDescription"`
 	LastUsed               *string  `json:"lastUsed"`
 	Status                 string   `json:"status"` // active, inactive

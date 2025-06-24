@@ -99,9 +99,10 @@ func tryGitHook(project *types.ProjectConfig, payload map[string]interface{}) (G
 
 		// 记录跳过的项目活动日志
 		var actionType string
-		if refType == "branch" {
+		switch refType {
+		case "branch":
 			actionType = database.ProjectActionBranchSwitch
-		} else {
+		default:
 			actionType = "switch-tag"
 		}
 
@@ -190,13 +191,14 @@ func tryGitHook(project *types.ProjectConfig, payload map[string]interface{}) (G
 	var currentPosition string
 	var commitHash string
 
-	if refType == "branch" {
+	switch refType {
+	case "branch":
 		if gitStatus, err := getGitStatus(project.Path); err == nil {
 			currentPosition = fmt.Sprintf("分支:%s", gitStatus.CurrentBranch)
 		} else {
 			currentPosition = "未知位置"
 		}
-	} else if refType == "tag" {
+	case "tag":
 		// 获取当前标签
 		if cmd := exec.Command("git", "-C", project.Path, "describe", "--tags", "--exact-match", "HEAD"); cmd != nil {
 			if output, err := cmd.Output(); err == nil {
@@ -222,11 +224,12 @@ func tryGitHook(project *types.ProjectConfig, payload map[string]interface{}) (G
 		var newValue string
 		var description string
 
-		if refType == "branch" {
+		switch refType {
+		case "branch":
 			actionType = database.ProjectActionBranchSwitch
 			newValue = targetRef
 			description = fmt.Sprintf("GitHook分支切换失败：从 %s 切换到分支 %s 时出错: %s", currentPosition, targetRef, err.Error())
-		} else {
+		default:
 			actionType = "switch-tag"
 			newValue = fmt.Sprintf("标签:%s", targetRef)
 			description = fmt.Sprintf("GitHook标签切换失败：从 %s 切换到标签 %s 时出错: %s", currentPosition, targetRef, err.Error())
@@ -270,11 +273,12 @@ func tryGitHook(project *types.ProjectConfig, payload map[string]interface{}) (G
 	var newValue string
 	var description string
 
-	if refType == "branch" {
+	switch refType {
+	case "branch":
 		actionType = database.ProjectActionBranchSwitch
 		newValue = targetRef
 		description = fmt.Sprintf("GitHook分支切换成功：从 %s 切换到分支 %s (提交: %s)", currentPosition, targetRef, commitHash)
-	} else {
+	default:
 		actionType = "switch-tag"
 		newValue = fmt.Sprintf("标签:%s", targetRef)
 		description = fmt.Sprintf("GitHook标签切换成功：从 %s 切换到标签 %s (提交: %s)", currentPosition, targetRef, commitHash)
@@ -297,10 +301,11 @@ func tryGitHook(project *types.ProjectConfig, payload map[string]interface{}) (G
 
 	var actionName string
 	var message string
-	if refType == "branch" {
+	switch refType {
+	case "branch":
 		actionName = "switch-branch"
 		message = fmt.Sprintf("成功切换到分支 %s", targetRef)
-	} else {
+	default:
 		actionName = "switch-tag"
 		message = fmt.Sprintf("成功切换到标签 %s", targetRef)
 	}

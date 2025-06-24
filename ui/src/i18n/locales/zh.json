@@ -138,6 +138,7 @@
     "command": "执行命令",
     "workingDir": "工作目录",
     "httpMethods": "HTTP方法",
+    "parameters": "参数配置",
     "triggerRule": "触发规则",
     "lastUsed": "最后使用",
     "status": "状态",

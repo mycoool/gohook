@@ -7,15 +7,59 @@ export interface IClient {
 
 export interface IHook {
     id: string;
+    'execute-command': string;
+    'command-working-directory'?: string;
+    'response-message'?: string;
+    'http-methods': string[];
+    'response-headers'?: { [key: string]: string };
+    'pass-arguments-to-command': IParameter[];
+    'pass-environment-to-command': IEnvironmentVariable[];
+    'trigger-rule'?: ITriggerRule;
+    'include-command-output-in-response'?: boolean;
+    'include-command-output-in-response-on-error'?: boolean;
+    'parse-parameters-as-json'?: string[];
+    'trigger-rule-mismatch-http-response-code'?: number;
+    success: boolean;
+    'last-execution': string;
+    argumentsCount: number;
+    environmentCount: number;
+    
+    // UI字段（用于显示）
+    name?: string;
+    executeCommand?: string;
+    workingDirectory?: string;
+    responseMessage?: string;
+    httpMethods?: string[];
+    triggerRuleDescription?: string;
+    lastUsed?: string | null;
+    status?: string;
+}
+
+export interface IParameter {
+    source: 'payload' | 'header' | 'query' | 'string';
     name: string;
-    description: string;
-    executeCommand: string;
-    workingDirectory: string;
-    responseMessage: string;
-    httpMethods: string[];
-    triggerRuleDescription: string;
-    lastUsed: string | null;
-    status: string;
+}
+
+export interface IEnvironmentVariable {
+    name: string;
+    source: 'payload' | 'header' | 'query' | 'string';
+}
+
+// 触发规则类型定义
+export interface IMatchRule {
+    type: 'value' | 'regex' | 'payload-hmac-sha1' | 'payload-hmac-sha256' | 'payload-hmac-sha512' | 'ip-whitelist' | 'scalr-signature';
+    parameter?: IParameter;
+    value?: string;
+    regex?: string;
+    secret?: string;
+    'ip-range'?: string;
+}
+
+export interface ITriggerRule {
+    match?: IMatchRule;
+    and?: ITriggerRule[];
+    or?: ITriggerRule[];
+    not?: ITriggerRule;
 }
 
 export interface IVersion {
