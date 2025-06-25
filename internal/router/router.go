@@ -313,6 +313,10 @@ func InitRouter() *gin.Engine {
 		logAPI.DELETE("/cleanup", HandleCleanupLogs)
 	}
 
+	// 系统配置管理API组
+	systemRouter := NewSystemRouter()
+	systemRouter.RegisterSystemRoutes(&g.RouterGroup)
+
 	// client list API (get all sessions for current user)
 	g.GET("/client", middleware.AuthMiddleware(), client.HandleGetClientSessions)
 

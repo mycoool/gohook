@@ -19,7 +19,8 @@
     "retry": "Retry",
     "status": "Status",
     "actions": "Actions",
-    "close": "Close"
+    "close": "Close",
+    "saving": "Saving..."
   },
   "nav": {
     "versions": "Versions",
@@ -28,6 +29,7 @@
     "logs": "Logs",
     "users": "Users",
     "settings": "Settings",
+    "systemSettings": "Settings",
     "logout": "Logout",
     "menu": "Menu"
   },
@@ -147,7 +149,8 @@
     "confirmDeleteText": "Are you sure you want to delete hook \"{{name}}\"?",
     "hookTriggered": "Hook triggered successfully",
     "hookFailed": "Hook execution failed",
-    "reloadConfig": "Reload Config"
+    "reloadConfig": "Reload Config",
+    "parameters": "Parameters"
   },
   "message": {
     "title": "Real-time Messages",
@@ -371,5 +374,19 @@
     "startDate": "Start Date",
     "endDate": "End Date",
     "clearFilters": "Clear Filters"
+  },
+  "settings": {
+    "systemSettings": "Settings",
+    "jwtSecret": "JWT Secret",
+    "jwtSecretHelp": "Secret key for generating JWT tokens, leave empty to keep current secret",
+    "jwtSecretPlaceholder": "Leave empty to keep current secret",
+    "jwtExpiryDuration": "JWT Expiry Duration (Hours)",
+    "jwtExpiryDurationHelp": "JWT token validity period in hours",
+    "mode": "Runtime Mode",
+    "modeDev": "Development",
+    "modeTest": "Testing",
+    "modeProd": "Production",
+    "configSaved": "Configuration saved successfully",
+    "configSaveFailed": "Failed to save configuration"
   }
 } 

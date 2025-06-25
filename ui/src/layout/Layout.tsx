@@ -169,6 +169,7 @@ import LoadingSpinner from '../common/LoadingSpinner';
 import Navigation from './Navigation';
 import ScrollUpButton from '../common/ScrollUpButton';
 import SettingsDialog from '../common/SettingsDialog';
+import SystemSettingsDialogWrapper from '../common/SystemSettingsDialogWrapper';
 import SnackBarHandler from '../snack/SnackBarHandler';
 import * as config from '../config';
 import Versions from '../version/Versions';
@@ -787,6 +788,10 @@ class Layout extends React.Component<Stores<'currentUser' | 'snackManager'>> {
     private currentTheme: ThemeKey = 'dark';
     @observable
     private showSettings = false;
+
+    @observable
+    private showSystemSettings = false;
+
     @observable
     private navOpen = false;
 
@@ -804,7 +809,7 @@ class Layout extends React.Component<Stores<'currentUser' | 'snackManager'>> {
     }
 
     public render() {
-        const {showSettings, currentTheme} = this;
+        const {showSettings, showSystemSettings, currentTheme} = this;
         const {
             currentUser: {
                 loggedIn,
@@ -879,6 +884,7 @@ class Layout extends React.Component<Stores<'currentUser' | 'snackManager'>> {
                                         loggedIn={loggedIn}
                                         toggleTheme={this.toggleTheme.bind(this)}
                                         showSettings={() => (this.showSettings = true)}
+                                        showSystemSettings={() => (this.showSystemSettings = true)}
                                         logout={logout}
                                         setNavOpen={this.setNavOpen.bind(this)}
                                     />
@@ -971,6 +977,13 @@ class Layout extends React.Component<Stores<'currentUser' | 'snackManager'>> {
                                     {showSettings && (
                                         <SettingsDialog
                                             fClose={() => (this.showSettings = false)}
+                                        />
+                                    )}
+                                    {showSystemSettings && admin && (
+                                        <SystemSettingsDialogWrapper
+                                            open={showSystemSettings}
+                                            onClose={() => (this.showSystemSettings = false)}
+                                            token={this.props.currentUser.token()}
                                         />
                                     )}
                                     <ScrollUpButton />

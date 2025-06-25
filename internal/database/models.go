@@ -111,6 +111,10 @@ const (
 	UserActionUpdateHookParameters = "UPDATE_HOOK_PARAMETERS"
 	UserActionUpdateHookTriggers   = "UPDATE_HOOK_TRIGGERS"
 	UserActionSaveHookScript       = "SAVE_HOOK_SCRIPT"
+
+	// 系统配置管理操作
+	UserActionViewSystemConfig   = "VIEW_SYSTEM_CONFIG"
+	UserActionUpdateSystemConfig = "UPDATE_SYSTEM_CONFIG"
 )
 
 // ProjectAction 项目操作常量

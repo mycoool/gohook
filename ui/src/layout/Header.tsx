@@ -13,6 +13,7 @@ import MenuIcon from '@mui/icons-material/Menu';
 import Apps from '@mui/icons-material/Apps';
 import SupervisorAccount from '@mui/icons-material/SupervisorAccount';
 import Link from '@mui/icons-material/Link';
+import Settings from '@mui/icons-material/Settings';
 
 import AccountTree from '@mui/icons-material/AccountTree';
 import History from '@mui/icons-material/History';
@@ -111,6 +112,7 @@ interface IProps {
     version: string;
     toggleTheme: VoidFunction;
     showSettings: VoidFunction;
+    showSystemSettings: VoidFunction;
     logout: VoidFunction;
     style: CSSProperties;
     width: Breakpoint;
@@ -184,7 +186,7 @@ class Header extends Component<IProps> {
         width: Breakpoint,
         setNavOpen: (open: boolean) => void
     ) {
-        const {showSettings} = this.props;
+        const {showSettings, showSystemSettings} = this.props;
         return (
             <MenuButtons>
                 {width === 'xs' && (
@@ -248,6 +250,17 @@ class Header extends Component<IProps> {
                             color="inherit"
                         />
                     </StyledLink>
+                )}
+                {admin && (
+                    <ResponsiveButtonWithTranslation
+                        icon={<Settings />}
+                        translationKey="nav.systemSettings"
+                        fallbackLabel="System Settings"
+                        onClick={showSystemSettings}
+                        id="system-settings"
+                        width={width}
+                        color="inherit"
+                    />
                 )}
                 <ResponsiveButtonWithTranslation
                     icon={<AccountCircle />}

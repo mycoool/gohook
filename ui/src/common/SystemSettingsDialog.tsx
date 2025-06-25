@@ -1,0 +1,235 @@
+import React, {Component} from 'react';
+import {
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    Button,
+    TextField,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem,
+    Box,
+    Typography,
+    Alert,
+    CircularProgress,
+} from '@mui/material';
+import {observer} from 'mobx-react';
+import axios from 'axios';
+import * as config from '../config';
+
+interface SystemConfig {
+    jwt_secret: string;
+    jwt_expiry_duration: number;
+    mode: string;
+}
+
+interface SystemSettingsDialogProps {
+    open: boolean;
+    onClose: () => void;
+    token: string;
+    t: (key: string, params?: Record<string, string | number>) => string;
+}
+
+interface SystemSettingsDialogState {
+    loading: boolean;
+    saving: boolean;
+    error: string | null;
+    config: SystemConfig;
+    originalConfig: SystemConfig;
+}
+
+@observer
+class SystemSettingsDialog extends Component<SystemSettingsDialogProps, SystemSettingsDialogState> {
+    constructor(props: SystemSettingsDialogProps) {
+        super(props);
+        this.state = {
+            loading: false,
+            saving: false,
+            error: null,
+            config: {
+                jwt_secret: '',
+                jwt_expiry_duration: 24,
+                mode: 'dev',
+            },
+            originalConfig: {
+                jwt_secret: '',
+                jwt_expiry_duration: 24,
+                mode: 'dev',
+            },
+        };
+    }
+
+    componentDidUpdate(prevProps: SystemSettingsDialogProps) {
+        if (this.props.open && !prevProps.open) {
+            this.loadConfig();
+        }
+    }
+
+    loadConfig = async () => {
+        this.setState({loading: true, error: null});
+        try {
+            const response = await axios.get(config.get('url') + 'api/v1/system/config', {
+                headers: {'X-GoHook-Key': this.props.token},
+            });
+            const configData = response.data;
+            // 将JWT密钥设为空字符串，表示不修改
+            const displayConfig = {
+                ...configData,
+                jwt_secret: '', // 前端显示为空，表示不修改
+            };
+            this.setState({
+                config: displayConfig,
+                originalConfig: {...configData}, // 保存真实的原始配置
+                loading: false,
+            });
+        } catch (error: any) {
+            this.setState({
+                error: error.response?.data?.error || '加载配置失败',
+                loading: false,
+            });
+        }
+    };
+
+    saveConfig = async () => {
+        this.setState({saving: true, error: null});
+        try {
+            // 准备发送的配置数据
+            const configToSave = {...this.state.config};
+            
+            // 如果JWT密钥为空，则使用原始配置中的JWT密钥（表示不修改）
+            if (!configToSave.jwt_secret.trim()) {
+                configToSave.jwt_secret = this.state.originalConfig.jwt_secret;
+            }
+            
+
+            
+            await axios.put(
+                config.get('url') + 'api/v1/system/config',
+                configToSave,
+                {
+                    headers: {'X-GoHook-Key': this.props.token},
+                }
+            );
+            this.setState({
+                saving: false,
+                originalConfig: {...configToSave}, // 更新原始配置
+            });
+            this.props.onClose();
+        } catch (error: any) {
+
+            this.setState({
+                error: error.response?.data?.error || '保存配置失败',
+                saving: false,
+            });
+        }
+    };
+
+    handleConfigChange = (field: keyof SystemConfig, value: string | number) => {
+        this.setState(prevState => ({
+            config: {
+                ...prevState.config,
+                [field]: value,
+            },
+        }));
+    };
+
+    hasChanges = () => {
+        const {config, originalConfig} = this.state;
+        return (
+            (config.jwt_secret.trim() !== '' && config.jwt_secret !== originalConfig.jwt_secret) ||
+            config.jwt_expiry_duration !== originalConfig.jwt_expiry_duration ||
+            config.mode !== originalConfig.mode
+        );
+    };
+
+    handleClose = () => {
+        // 直接关闭弹窗并重置配置，无需确认弹窗
+        this.setState({
+            config: {
+                ...this.state.originalConfig,
+                jwt_secret: '', // 重置JWT密钥为空，表示不修改
+            },
+        });
+        this.props.onClose();
+    };
+
+    render() {
+        const {open, t} = this.props;
+        const {loading, saving, error, config} = this.state;
+
+        return (
+            <Dialog open={open} onClose={this.handleClose} maxWidth="sm" fullWidth>
+                <DialogTitle>
+                    <Typography variant="h6">{t('settings.systemSettings')}</Typography>
+                </DialogTitle>
+                <DialogContent>
+                    {loading ? (
+                        <Box display="flex" justifyContent="center" p={3}>
+                            <CircularProgress />
+                        </Box>
+                    ) : (
+                        <Box sx={{pt: 2}}>
+                            {error && (
+                                <Alert severity="error" sx={{mb: 2}}>
+                                    {error}
+                                </Alert>
+                            )}
+
+                            <TextField
+                                fullWidth
+                                label={t('settings.jwtSecret')}
+                                value={config.jwt_secret}
+                                onChange={(e) => this.handleConfigChange('jwt_secret', e.target.value)}
+                                margin="normal"
+                                helperText={t('settings.jwtSecretHelp')}
+                                type="password"
+                                placeholder={t('settings.jwtSecretPlaceholder')}
+                            />
+
+                            <TextField
+                                fullWidth
+                                label={t('settings.jwtExpiryDuration')}
+                                value={config.jwt_expiry_duration}
+                                onChange={(e) => 
+                                    this.handleConfigChange('jwt_expiry_duration', parseInt(e.target.value) || 24)
+                                }
+                                margin="normal"
+                                type="number"
+                                helperText={t('settings.jwtExpiryDurationHelp')}
+                                inputProps={{min: 1, max: 8760}} // 1小时到1年
+                            />
+
+                            <FormControl fullWidth margin="normal">
+                                <InputLabel>{t('settings.mode')}</InputLabel>
+                                <Select
+                                    value={config.mode}
+                                    onChange={(e) => this.handleConfigChange('mode', e.target.value)}
+                                    label={t('settings.mode')}>
+                                    <MenuItem value="dev">{t('settings.modeDev')}</MenuItem>
+                                    <MenuItem value="test">{t('settings.modeTest')}</MenuItem>
+                                    <MenuItem value="prod">{t('settings.modeProd')}</MenuItem>
+                                </Select>
+                            </FormControl>
+                        </Box>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={this.handleClose} disabled={saving}>
+                        {t('common.cancel')}
+                    </Button>
+                    <Button
+                        onClick={this.saveConfig}
+                        variant="contained"
+                        disabled={loading || saving || !this.hasChanges()}
+                        startIcon={saving ? <CircularProgress size={16} /> : null}>
+                        {saving ? t('common.saving') : t('common.save')}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+        );
+    }
+}
+
+export default SystemSettingsDialog; 
