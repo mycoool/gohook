@@ -397,10 +397,10 @@
     "jwtSecretPlaceholder": "留空表示不修改当前密钥",
     "jwtExpiryDuration": "JWT过期时间（小时）",
     "jwtExpiryDurationHelp": "JWT令牌的有效期，单位为小时",
-    "mode": "运行模式",
-    "modeDev": "开发模式",
-    "modeTest": "测试模式",
-    "modeProd": "生产模式",
+    "mode": "运行环境",
+    "modeDev": "开发环境",
+    "modeTest": "测试环境",
+    "modeProd": "生产环境",
     "configSaved": "配置保存成功",
     "configSaveFailed": "配置保存失败"
   }

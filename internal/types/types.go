@@ -1,6 +1,7 @@
 package types
 
 import (
+	"reflect"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -187,4 +188,30 @@ func (c *AppConfig) SetMode(mode string) {
 		mode = "test"
 	}
 	c.Mode = mode
+}
+
+// UpdateAppConfig 更新内存中的应用配置
+func UpdateAppConfig(systemConfig interface{}) {
+	if GoHookAppConfig == nil {
+		GoHookAppConfig = &AppConfig{}
+	}
+
+	// 使用反射来获取字段值，避免类型断言问题
+	configValue := reflect.ValueOf(systemConfig)
+	if configValue.Kind() == reflect.Struct {
+		// 获取 JWTSecret 字段
+		if jwtSecretField := configValue.FieldByName("JWTSecret"); jwtSecretField.IsValid() {
+			GoHookAppConfig.JWTSecret = jwtSecretField.String()
+		}
+
+		// 获取 JWTExpiryDuration 字段
+		if jwtExpiryField := configValue.FieldByName("JWTExpiryDuration"); jwtExpiryField.IsValid() {
+			GoHookAppConfig.JWTExpiryDuration = int(jwtExpiryField.Int())
+		}
+
+		// 获取 Mode 字段
+		if modeField := configValue.FieldByName("Mode"); modeField.IsValid() {
+			GoHookAppConfig.Mode = modeField.String()
+		}
+	}
 }

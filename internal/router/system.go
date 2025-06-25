@@ -6,6 +6,7 @@ import (
 	"github.com/mycoool/gohook/internal/config"
 	"github.com/mycoool/gohook/internal/database"
 	"github.com/mycoool/gohook/internal/middleware"
+	"github.com/mycoool/gohook/internal/types"
 
 	"github.com/gin-gonic/gin"
 )
@@ -20,7 +21,7 @@ func NewSystemRouter() *SystemRouter {
 
 // RegisterSystemRoutes 注册系统配置路由
 func (sr *SystemRouter) RegisterSystemRoutes(rg *gin.RouterGroup) {
-	systemGroup := rg.Group("/api/v1/system")
+	systemGroup := rg.Group("/system")
 	systemGroup.Use(middleware.AuthMiddleware(), middleware.AdminMiddleware(), middleware.DisableLogMiddleware())
 	{
 		systemGroup.GET("/config", sr.GetSystemConfig)
@@ -131,6 +132,9 @@ func (sr *SystemRouter) UpdateSystemConfig(c *gin.Context) {
 			"new_config": newConfig,
 		},
 	)
+
+	// 同时更新内存中的 types.GoHookAppConfig
+	types.UpdateAppConfig(newConfig)
 
 	c.JSON(http.StatusOK, gin.H{"message": "配置更新成功"})
 }

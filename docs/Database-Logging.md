@@ -324,25 +324,25 @@ curl -X DELETE -H "Authorization: Bearer YOUR_JWT_TOKEN" \
 ### 查看最近的Hook执行记录
 ```bash
 curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  "http://localhost:9000/api/v1/logs/hooks?page=1&page_size=10" | jq '.'
+  "http://localhost:9000/logs/hooks?page=1&page_size=10" | jq '.'
 ```
 
 ### 查看失败的Hook执行
 ```bash
 curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  "http://localhost:9000/api/v1/logs/hooks?success=false" | jq '.'
+  "http://localhost:9000/logs/hooks?success=false" | jq '.'
 ```
 
 ### 查看特定时间范围的系统日志
 ```bash
 curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  "http://localhost:9000/api/v1/logs/system?start_time=2023-12-01T00:00:00Z&end_time=2023-12-02T00:00:00Z" | jq '.'
+  "http://localhost:9000/logs/system?start_time=2023-12-01T00:00:00Z&end_time=2023-12-02T00:00:00Z" | jq '.'
 ```
 
 ### 获取Hook执行统计
 ```bash
 curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  "http://localhost:9000/api/v1/logs/hooks/stats" | jq '.'
+  "http://localhost:9000/logs/hooks/stats" | jq '.'
 ```
 
 ## 注意事项

@@ -382,10 +382,10 @@
     "jwtSecretPlaceholder": "Leave empty to keep current secret",
     "jwtExpiryDuration": "JWT Expiry Duration (Hours)",
     "jwtExpiryDurationHelp": "JWT token validity period in hours",
-    "mode": "Runtime Mode",
-    "modeDev": "Development",
-    "modeTest": "Testing",
-    "modeProd": "Production",
+    "mode": "Runtime Environment",
+    "modeDev": "Development Environment",
+    "modeTest": "Testing Environment",
+    "modeProd": "Production Environment",
     "configSaved": "Configuration saved successfully",
     "configSaveFailed": "Failed to save configuration"
   }

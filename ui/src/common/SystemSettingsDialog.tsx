@@ -30,6 +30,7 @@ interface SystemSettingsDialogProps {
     onClose: () => void;
     token: string;
     t: (key: string, params?: Record<string, string | number>) => string;
+    onConfigSaved?: () => void;
 }
 
 interface SystemSettingsDialogState {
@@ -67,18 +68,27 @@ class SystemSettingsDialog extends Component<SystemSettingsDialogProps, SystemSe
         }
     }
 
+    componentDidMount() {
+        if (this.props.open) {
+            this.loadConfig();
+        }
+    }
+
     loadConfig = async () => {
         this.setState({loading: true, error: null});
         try {
-            const response = await axios.get(config.get('url') + 'api/v1/system/config', {
+            const response = await axios.get(config.get('url') + 'system/config', {
                 headers: {'X-GoHook-Key': this.props.token},
             });
             const configData = response.data;
-            // 将JWT密钥设为空字符串，表示不修改
+            
+            // 设置显示配置：保持所有字段与后端一致，但JWT密钥显示为空
             const displayConfig = {
-                ...configData,
                 jwt_secret: '', // 前端显示为空，表示不修改
+                jwt_expiry_duration: configData.jwt_expiry_duration || 24,
+                mode: configData.mode || 'dev',
             };
+            
             this.setState({
                 config: displayConfig,
                 originalConfig: {...configData}, // 保存真实的原始配置
@@ -102,23 +112,29 @@ class SystemSettingsDialog extends Component<SystemSettingsDialogProps, SystemSe
             if (!configToSave.jwt_secret.trim()) {
                 configToSave.jwt_secret = this.state.originalConfig.jwt_secret;
             }
-            
 
-            
             await axios.put(
-                config.get('url') + 'api/v1/system/config',
+                config.get('url') + 'system/config',
                 configToSave,
                 {
                     headers: {'X-GoHook-Key': this.props.token},
                 }
             );
-            this.setState({
-                saving: false,
-                originalConfig: {...configToSave}, // 更新原始配置
-            });
-            this.props.onClose();
-        } catch (error: any) {
 
+            // 保存成功后，用保存的配置（除了jwt_secret）更新原始配置
+            this.setState(prevState => ({
+                saving: false,
+                originalConfig: {
+                    ...prevState.originalConfig,
+                    ...configToSave,
+                    jwt_secret: prevState.originalConfig.jwt_secret, // 保持原始secret不变
+                },
+            }));
+            this.props.onClose();
+            if (this.props.onConfigSaved) {
+                this.props.onConfigSaved();
+            }
+        } catch (error: any) {
             this.setState({
                 error: error.response?.data?.error || '保存配置失败',
                 saving: false,
@@ -137,8 +153,12 @@ class SystemSettingsDialog extends Component<SystemSettingsDialogProps, SystemSe
 
     hasChanges = () => {
         const {config, originalConfig} = this.state;
+        // 如果jwt_secret有输入值，则认为有更改
+        if (config.jwt_secret.trim() !== '') {
+            return true;
+        }
+        // 比较其他字段是否有更改
         return (
-            (config.jwt_secret.trim() !== '' && config.jwt_secret !== originalConfig.jwt_secret) ||
             config.jwt_expiry_duration !== originalConfig.jwt_expiry_duration ||
             config.mode !== originalConfig.mode
         );
@@ -146,12 +166,6 @@ class SystemSettingsDialog extends Component<SystemSettingsDialogProps, SystemSe
 
     handleClose = () => {
         // 直接关闭弹窗并重置配置，无需确认弹窗
-        this.setState({
-            config: {
-                ...this.state.originalConfig,
-                jwt_secret: '', // 重置JWT密钥为空，表示不修改
-            },
-        });
         this.props.onClose();
     };
 
@@ -162,7 +176,7 @@ class SystemSettingsDialog extends Component<SystemSettingsDialogProps, SystemSe
         return (
             <Dialog open={open} onClose={this.handleClose} maxWidth="sm" fullWidth>
                 <DialogTitle>
-                    <Typography variant="h6">{t('settings.systemSettings')}</Typography>
+                    {t('settings.systemSettings')}
                 </DialogTitle>
                 <DialogContent>
                     {loading ? (
