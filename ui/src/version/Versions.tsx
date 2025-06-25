@@ -71,9 +71,14 @@ class Versions extends Component<RouteComponentProps & Stores<'versionStore' | '
         }
     }
 
-    public componentDidUpdate(prevProps: RouteComponentProps & Stores<'versionStore' | 'currentUser'>) {
+    public componentDidUpdate(
+        prevProps: RouteComponentProps & Stores<'versionStore' | 'currentUser'>
+    ) {
         // 当用户登录状态改变时，重新加载数据
-        if (prevProps.currentUser.loggedIn !== this.props.currentUser.loggedIn && this.props.currentUser.loggedIn) {
+        if (
+            prevProps.currentUser.loggedIn !== this.props.currentUser.loggedIn &&
+            this.props.currentUser.loggedIn
+        ) {
             this.props.versionStore.refreshProjects();
         }
     }

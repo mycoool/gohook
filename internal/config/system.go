@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"gopkg.in/yaml.v2"
@@ -28,7 +27,7 @@ func LoadSystemConfig() (*SystemConfig, error) {
 		}, nil
 	}
 
-	data, err := ioutil.ReadFile(configFilePath)
+	data, err := os.ReadFile(configFilePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config file: %v", err)
 	}
@@ -69,7 +68,7 @@ func SaveSystemConfig(config *SystemConfig) error {
 	// 读取现有的完整配置文件
 	var existingConfig map[string]interface{}
 	if _, err := os.Stat(configFilePath); err == nil {
-		data, err := ioutil.ReadFile(configFilePath)
+		data, err := os.ReadFile(configFilePath)
 		if err != nil {
 			return fmt.Errorf("failed to read existing config file: %v", err)
 		}
@@ -105,7 +104,7 @@ func SaveSystemConfig(config *SystemConfig) error {
 		}
 	}
 
-	err = ioutil.WriteFile(configFilePath, data, 0644)
+	err = os.WriteFile(configFilePath, data, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to write config file: %v", err)
 	}
@@ -115,9 +114,9 @@ func SaveSystemConfig(config *SystemConfig) error {
 
 // copyFile 复制文件
 func copyFile(src, dst string) error {
-	data, err := ioutil.ReadFile(src)
+	data, err := os.ReadFile(src)
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(dst, data, 0644)
+	return os.WriteFile(dst, data, 0644)
 }

@@ -81,14 +81,14 @@ class SystemSettingsDialog extends Component<SystemSettingsDialogProps, SystemSe
                 headers: {'X-GoHook-Key': this.props.token},
             });
             const configData = response.data;
-            
+
             // 设置显示配置：保持所有字段与后端一致，但JWT密钥显示为空
             const displayConfig = {
                 jwt_secret: '', // 前端显示为空，表示不修改
                 jwt_expiry_duration: configData.jwt_expiry_duration || 24,
                 mode: configData.mode || 'dev',
             };
-            
+
             this.setState({
                 config: displayConfig,
                 originalConfig: {...configData}, // 保存真实的原始配置
@@ -107,25 +107,21 @@ class SystemSettingsDialog extends Component<SystemSettingsDialogProps, SystemSe
         try {
             // 准备发送的配置数据
             const configToSave = {...this.state.config};
-            
+
             // 检查是否修改了 JWT 密钥
             const isJwtSecretChanged = configToSave.jwt_secret.trim() !== '';
-            
+
             // 如果JWT密钥为空，则使用原始配置中的JWT密钥（表示不修改）
             if (!configToSave.jwt_secret.trim()) {
                 configToSave.jwt_secret = this.state.originalConfig.jwt_secret;
             }
 
-            await axios.put(
-                config.get('url') + 'system/config',
-                configToSave,
-                {
-                    headers: {'X-GoHook-Key': this.props.token},
-                }
-            );
+            await axios.put(config.get('url') + 'system/config', configToSave, {
+                headers: {'X-GoHook-Key': this.props.token},
+            });
 
             // 保存成功后，用保存的配置（除了jwt_secret）更新原始配置
-            this.setState(prevState => ({
+            this.setState((prevState) => ({
                 saving: false,
                 originalConfig: {
                     ...prevState.originalConfig,
@@ -133,12 +129,12 @@ class SystemSettingsDialog extends Component<SystemSettingsDialogProps, SystemSe
                     jwt_secret: prevState.originalConfig.jwt_secret, // 保持原始secret不变
                 },
             }));
-            
+
             this.props.onClose();
             if (this.props.onConfigSaved) {
                 this.props.onConfigSaved();
             }
-            
+
             // 如果修改了 JWT 密钥，立即清理本地状态并跳转到登录页面
             if (isJwtSecretChanged) {
                 // 延迟一下，让用户看到保存成功的提示
@@ -158,7 +154,7 @@ class SystemSettingsDialog extends Component<SystemSettingsDialogProps, SystemSe
     };
 
     handleConfigChange = (field: keyof SystemConfig, value: string | number) => {
-        this.setState(prevState => ({
+        this.setState((prevState) => ({
             config: {
                 ...prevState.config,
                 [field]: value,
@@ -190,9 +186,7 @@ class SystemSettingsDialog extends Component<SystemSettingsDialogProps, SystemSe
 
         return (
             <Dialog open={open} onClose={this.handleClose} maxWidth="sm" fullWidth>
-                <DialogTitle>
-                    {t('settings.systemSettings')}
-                </DialogTitle>
+                <DialogTitle>{t('settings.systemSettings')}</DialogTitle>
                 <DialogContent>
                     {loading ? (
                         <Box display="flex" justifyContent="center" p={3}>
@@ -210,7 +204,9 @@ class SystemSettingsDialog extends Component<SystemSettingsDialogProps, SystemSe
                                 fullWidth
                                 label={t('settings.jwtSecret')}
                                 value={config.jwt_secret}
-                                onChange={(e) => this.handleConfigChange('jwt_secret', e.target.value)}
+                                onChange={(e) =>
+                                    this.handleConfigChange('jwt_secret', e.target.value)
+                                }
                                 margin="normal"
                                 helperText={t('settings.jwtSecretHelp')}
                                 type="password"
@@ -221,8 +217,11 @@ class SystemSettingsDialog extends Component<SystemSettingsDialogProps, SystemSe
                                 fullWidth
                                 label={t('settings.jwtExpiryDuration')}
                                 value={config.jwt_expiry_duration}
-                                onChange={(e) => 
-                                    this.handleConfigChange('jwt_expiry_duration', parseInt(e.target.value) || 24)
+                                onChange={(e) =>
+                                    this.handleConfigChange(
+                                        'jwt_expiry_duration',
+                                        parseInt(e.target.value) || 24
+                                    )
                                 }
                                 margin="normal"
                                 type="number"
@@ -234,7 +233,9 @@ class SystemSettingsDialog extends Component<SystemSettingsDialogProps, SystemSe
                                 <InputLabel>{t('settings.mode')}</InputLabel>
                                 <Select
                                     value={config.mode}
-                                    onChange={(e) => this.handleConfigChange('mode', e.target.value)}
+                                    onChange={(e) =>
+                                        this.handleConfigChange('mode', e.target.value)
+                                    }
                                     label={t('settings.mode')}>
                                     <MenuItem value="dev">{t('settings.modeDev')}</MenuItem>
                                     <MenuItem value="test">{t('settings.modeTest')}</MenuItem>
@@ -261,4 +262,4 @@ class SystemSettingsDialog extends Component<SystemSettingsDialogProps, SystemSe
     }
 }
 
-export default SystemSettingsDialog; 
+export default SystemSettingsDialog;

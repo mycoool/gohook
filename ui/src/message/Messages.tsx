@@ -54,7 +54,10 @@ class Messages extends Component<IProps & Stores<'messagesStore' | 'currentUser'
         if (prevProps.match.params.id !== this.props.match.params.id) {
             this.updateAllWithProps(this.props);
         }
-        if (prevProps.currentUser.loggedIn !== this.props.currentUser.loggedIn && this.props.currentUser.loggedIn) {
+        if (
+            prevProps.currentUser.loggedIn !== this.props.currentUser.loggedIn &&
+            this.props.currentUser.loggedIn
+        ) {
             this.updateAll();
         }
     }

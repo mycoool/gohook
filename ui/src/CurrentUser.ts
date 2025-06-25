@@ -152,7 +152,11 @@ export class CurrentUser {
                     this.connectionErrorMessage = null;
 
                     // 401 错误由 axios 拦截器统一处理，这里只处理其他 4xx 错误
-                    if (error.response.status >= 400 && error.response.status < 500 && error.response.status !== 401) {
+                    if (
+                        error.response.status >= 400 &&
+                        error.response.status < 500 &&
+                        error.response.status !== 401
+                    ) {
                         this.logout();
                     }
                     return Promise.reject(error);

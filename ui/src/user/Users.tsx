@@ -72,7 +72,10 @@ class Users extends Component<Stores<'userStore' | 'currentUser'>> {
 
     public componentDidUpdate(prevProps: Stores<'userStore' | 'currentUser'>) {
         // 当用户登录状态改变时，重新加载数据
-        if (prevProps.currentUser.loggedIn !== this.props.currentUser.loggedIn && this.props.currentUser.loggedIn) {
+        if (
+            prevProps.currentUser.loggedIn !== this.props.currentUser.loggedIn &&
+            this.props.currentUser.loggedIn
+        ) {
             this.props.userStore.refresh();
         }
     }
