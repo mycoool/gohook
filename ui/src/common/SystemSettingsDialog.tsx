@@ -14,6 +14,8 @@ import {
     Typography,
     Alert,
     CircularProgress,
+    InputAdornment,
+    IconButton,
 } from '@mui/material';
 import {observer} from 'mobx-react';
 import axios from 'axios';
@@ -209,8 +211,10 @@ class SystemSettingsDialog extends Component<SystemSettingsDialogProps, SystemSe
                                 }
                                 margin="normal"
                                 helperText={t('settings.jwtSecretHelp')}
-                                type="password"
+                                type="text"
                                 placeholder={t('settings.jwtSecretPlaceholder')}
+                                autoComplete="off"
+                                name="jwt-config-secret"
                             />
 
                             <TextField

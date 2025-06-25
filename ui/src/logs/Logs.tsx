@@ -280,6 +280,8 @@ class Logs extends Component<LogsProps, LogsState> {
                                     this.logStore.setFilters({search: newSearch});
                                 }}
                                 placeholder={this.props.t('logs.searchPlaceholder')}
+                                autoComplete="off"
+                                name="log-search-filter"
                                 InputProps={{
                                     endAdornment: (
                                         <InputAdornment position="end">
