@@ -42,7 +42,7 @@ import {withRouter, RouteComponentProps} from 'react-router-dom';
 import useTranslation from '../i18n/useTranslation';
 
 @observer
-class Versions extends Component<RouteComponentProps & Stores<'versionStore'>> {
+class Versions extends Component<RouteComponentProps & Stores<'versionStore' | 'currentUser'>> {
     @observable
     private showAddDialog = false;
     @observable
@@ -64,7 +64,19 @@ class Versions extends Component<RouteComponentProps & Stores<'versionStore'>> {
     @observable
     private editProjectDialog: IVersion | null = null;
 
-    public componentDidMount = () => this.props.versionStore.refreshProjects();
+    public componentDidMount() {
+        // 只在用户已登录时才进行 API 调用
+        if (this.props.currentUser.loggedIn) {
+            this.props.versionStore.refreshProjects();
+        }
+    }
+
+    public componentDidUpdate(prevProps: RouteComponentProps & Stores<'versionStore' | 'currentUser'>) {
+        // 当用户登录状态改变时，重新加载数据
+        if (prevProps.currentUser.loggedIn !== this.props.currentUser.loggedIn && this.props.currentUser.loggedIn) {
+            this.props.versionStore.refreshProjects();
+        }
+    }
 
     public render() {
         const {versionStore} = this.props;
@@ -704,4 +716,4 @@ const VersionsContainer: React.FC<{
     );
 };
 
-export default (withRouter as any)((inject as any)('versionStore')(Versions));
+export default (withRouter as any)((inject as any)('versionStore', 'currentUser')(Versions));

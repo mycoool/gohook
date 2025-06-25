@@ -65,7 +65,7 @@ const EnvironmentIndicatorInner: React.FC<{mode: string}> = ({mode}) => {
 };
 
 @observer
-class EnvironmentIndicator extends Component<Stores<'appConfigStore'>, IState> {
+class EnvironmentIndicator extends Component<Stores<'appConfigStore' | 'currentUser'>, IState> {
     public state: IState = {
         initialized: false,
     };
@@ -74,8 +74,17 @@ class EnvironmentIndicator extends Component<Stores<'appConfigStore'>, IState> {
         this.initializeConfig();
     }
 
+    public componentDidUpdate(prevProps: Stores<'appConfigStore' | 'currentUser'>) {
+        // 当用户登录状态改变时，重新初始化配置
+        if (prevProps.currentUser.loggedIn !== this.props.currentUser.loggedIn) {
+            this.setState({initialized: false});
+            this.initializeConfig();
+        }
+    }
+
     private async initializeConfig() {
-        if (!this.state.initialized) {
+        // 只在用户已登录时才进行 API 调用
+        if (!this.state.initialized && this.props.currentUser.loggedIn) {
             await this.props.appConfigStore.fetchAppConfig();
             this.setState({initialized: true});
         }
@@ -89,4 +98,4 @@ class EnvironmentIndicator extends Component<Stores<'appConfigStore'>, IState> {
     }
 }
 
-export default inject('appConfigStore')(EnvironmentIndicator);
+export default inject('appConfigStore', 'currentUser')(EnvironmentIndicator);

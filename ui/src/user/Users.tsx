@@ -55,7 +55,7 @@ const UserRow: React.FC<IRowProps> = ({name, admin, fDelete, fEdit}) => {
 };
 
 @observer
-class Users extends Component<Stores<'userStore'>> {
+class Users extends Component<Stores<'userStore' | 'currentUser'>> {
     @observable
     private createDialog = false;
     @observable
@@ -63,7 +63,19 @@ class Users extends Component<Stores<'userStore'>> {
     @observable
     private editId: number | false = false;
 
-    public componentDidMount = () => this.props.userStore.refresh();
+    public componentDidMount() {
+        // 只在用户已登录时才进行 API 调用
+        if (this.props.currentUser.loggedIn) {
+            this.props.userStore.refresh();
+        }
+    }
+
+    public componentDidUpdate(prevProps: Stores<'userStore' | 'currentUser'>) {
+        // 当用户登录状态改变时，重新加载数据
+        if (prevProps.currentUser.loggedIn !== this.props.currentUser.loggedIn && this.props.currentUser.loggedIn) {
+            this.props.userStore.refresh();
+        }
+    }
 
     public render() {
         const {userStore} = this.props;
@@ -180,4 +192,4 @@ const UsersContainer: React.FC<{
     );
 };
 
-export default inject('userStore')(Users);
+export default inject('userStore', 'currentUser')(Users);

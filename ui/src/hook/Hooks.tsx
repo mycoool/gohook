@@ -70,7 +70,7 @@ const styles = (theme: Theme) =>
     });
 
 @observer
-class Hooks extends Component<Stores<'hookStore' | 'snackManager'>> {
+class Hooks extends Component<Stores<'hookStore' | 'snackManager' | 'currentUser'>> {
     @observable
     private deleteId: string | false = false;
     @observable
@@ -88,7 +88,19 @@ class Hooks extends Component<Stores<'hookStore' | 'snackManager'>> {
     @observable
     private editResponseDialog: {open: boolean; hookId?: string} = {open: false};
 
-    public componentDidMount = () => this.props.hookStore.refresh();
+    public componentDidMount() {
+        // 只在用户已登录时才进行 API 调用
+        if (this.props.currentUser.loggedIn) {
+            this.props.hookStore.refresh();
+        }
+    }
+
+    public componentDidUpdate(prevProps: Stores<'hookStore' | 'snackManager' | 'currentUser'>) {
+        // 当用户登录状态改变时，重新加载数据
+        if (prevProps.currentUser.loggedIn !== this.props.currentUser.loggedIn && this.props.currentUser.loggedIn) {
+            this.props.hookStore.refresh();
+        }
+    }
 
     public render() {
         const {
@@ -608,4 +620,4 @@ function getMethodColor(method: string): string {
 // 使用 withStyles 包装 Row 组件
 const StyledRow = withStyles(styles)(Row);
 
-export default inject('hookStore', 'snackManager')(Hooks);
+export default inject('hookStore', 'snackManager', 'currentUser')(Hooks);

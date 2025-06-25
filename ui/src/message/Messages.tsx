@@ -21,16 +21,13 @@ interface IState {
 }
 
 @observer
-class Messages extends Component<IProps & Stores<'messagesStore'>, IState> {
+class Messages extends Component<IProps & Stores<'messagesStore' | 'currentUser'>, IState> {
     @observable
     private heights: Record<string, number> = {};
     @observable
     private deleteAll = false;
 
     private static appId(props: IProps) {
-        if (props === undefined) {
-            return -1;
-        }
         const {match} = props;
         return match.params.id !== undefined ? parseInt(match.params.id, 10) : -1;
     }
@@ -48,12 +45,17 @@ class Messages extends Component<IProps & Stores<'messagesStore'>, IState> {
                 this.checkIfLoadMore();
             }
         };
-        this.updateAll();
+        if (this.props.currentUser.loggedIn) {
+            this.updateAll();
+        }
     }
 
-    public componentDidUpdate(prevProps: IProps & Stores<'messagesStore'>) {
+    public componentDidUpdate(prevProps: IProps & Stores<'messagesStore' | 'currentUser'>) {
         if (prevProps.match.params.id !== this.props.match.params.id) {
             this.updateAllWithProps(this.props);
+        }
+        if (prevProps.currentUser.loggedIn !== this.props.currentUser.loggedIn && this.props.currentUser.loggedIn) {
+            this.updateAll();
         }
     }
 
@@ -85,7 +87,7 @@ class Messages extends Component<IProps & Stores<'messagesStore'>, IState> {
         );
     }
 
-    private updateAllWithProps = (props: IProps & Stores<'messagesStore'>) => {
+    private updateAllWithProps = (props: IProps & Stores<'messagesStore' | 'currentUser'>) => {
         const appId = Messages.appId(props);
         this.setState({appId});
         if (!props.messagesStore.exists()) {
@@ -229,4 +231,4 @@ const MessagesContainer: React.FC<{
     );
 };
 
-export default inject('messagesStore')(Messages);
+export default inject('messagesStore', 'currentUser')(Messages);

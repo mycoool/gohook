@@ -108,6 +108,9 @@ class SystemSettingsDialog extends Component<SystemSettingsDialogProps, SystemSe
             // 准备发送的配置数据
             const configToSave = {...this.state.config};
             
+            // 检查是否修改了 JWT 密钥
+            const isJwtSecretChanged = configToSave.jwt_secret.trim() !== '';
+            
             // 如果JWT密钥为空，则使用原始配置中的JWT密钥（表示不修改）
             if (!configToSave.jwt_secret.trim()) {
                 configToSave.jwt_secret = this.state.originalConfig.jwt_secret;
@@ -130,9 +133,21 @@ class SystemSettingsDialog extends Component<SystemSettingsDialogProps, SystemSe
                     jwt_secret: prevState.originalConfig.jwt_secret, // 保持原始secret不变
                 },
             }));
+            
             this.props.onClose();
             if (this.props.onConfigSaved) {
                 this.props.onConfigSaved();
+            }
+            
+            // 如果修改了 JWT 密钥，立即清理本地状态并跳转到登录页面
+            if (isJwtSecretChanged) {
+                // 延迟一下，让用户看到保存成功的提示
+                setTimeout(() => {
+                    // 清理本地存储的 token
+                    window.localStorage.removeItem('gohook-login-key');
+                    // 刷新页面，强制跳转到登录页面
+                    window.location.reload();
+                }, 1000);
             }
         } catch (error: any) {
             this.setState({

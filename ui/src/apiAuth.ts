@@ -17,10 +17,12 @@ export const initAxios = (currentUser: CurrentUser, snack: SnackReporter) => {
         const status = error.response.status;
 
         if (status === 401) {
-            currentUser.tryAuthenticate().then(() => snack('Could not complete request.'));
-        }
-
-        if (status === 400 || status === 403 || status === 500) {
+            window.localStorage.removeItem('gohook-login-key');
+            snack('登录已过期，请重新登录');
+            setTimeout(() => {
+                window.location.href = '/#/login';
+            }, 1500);
+        } else if (status === 400 || status === 403 || status === 500) {
             snack(error.response.data.error + ': ' + error.response.data.errorDescription);
         }
 
