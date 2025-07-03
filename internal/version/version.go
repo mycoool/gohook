@@ -886,8 +886,9 @@ func HandleGetBranches(c *gin.Context) {
 func HandleGetTags(c *gin.Context) {
 	projectName := c.Param("name")
 
-	// get filter parameter
+	// get filter parameters
 	filter := c.Query("filter")
+	messageFilter := c.Query("messageFilter")
 
 	// get pagination parameter
 	page := 1
@@ -925,9 +926,15 @@ func HandleGetTags(c *gin.Context) {
 
 	// if there is filter condition, filter tags
 	var filteredTags []types.TagResponse
-	if filter != "" {
+	if filter != "" || messageFilter != "" {
 		for _, tag := range allTags {
-			if strings.HasPrefix(tag.Name, filter) {
+			// 检查标签名称筛选
+			nameMatch := filter == "" || strings.HasPrefix(tag.Name, filter)
+			// 检查说明内容筛选（不区分大小写的包含匹配）
+			messageMatch := messageFilter == "" || strings.Contains(strings.ToLower(tag.Message), strings.ToLower(messageFilter))
+
+			// 只有当两个条件都满足时才添加到结果中
+			if nameMatch && messageMatch {
 				filteredTags = append(filteredTags, tag)
 			}
 		}

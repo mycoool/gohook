@@ -85,6 +85,9 @@ class Tags extends Component<TagsProps> {
     private filterText = '';
 
     @observable
+    private messageFilterText = '';
+
+    @observable
     private filterTimeout: NodeJS.Timeout | null = null;
 
     public componentDidMount = () => {
@@ -140,32 +143,60 @@ class Tags extends Component<TagsProps> {
                 maxWidth={1200}>
                 <Grid size={12}>
                     <Paper elevation={2} className={classes.filterContainer}>
-                        <TextField
-                            className={classes.filterInput}
-                            label="筛选标签"
-                            placeholder="输入标签前缀，如 v0.1, v1.0 等"
-                            value={this.filterText}
-                            onChange={this.handleFilterChange}
-                            variant="outlined"
-                            size="small"
-                            InputProps={{
-                                startAdornment: (
-                                    <InputAdornment position="start">
-                                        <Search />
-                                    </InputAdornment>
-                                ),
-                                endAdornment: this.filterText ? (
-                                    <InputAdornment position="end">
-                                        <IconButton
-                                            size="small"
-                                            onClick={this.clearFilter}
-                                            title="清除筛选">
-                                            <Clear />
-                                        </IconButton>
-                                    </InputAdornment>
-                                ) : null,
-                            }}
-                        />
+                        <div style={{display: 'flex', gap: '16px', flexWrap: 'wrap'}}>
+                            <TextField
+                                className={classes.filterInput}
+                                label="筛选标签名称"
+                                placeholder="输入标签前缀，如 v0.1, v1.0 等"
+                                value={this.filterText}
+                                onChange={this.handleFilterChange}
+                                variant="outlined"
+                                size="small"
+                                InputProps={{
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <Search />
+                                        </InputAdornment>
+                                    ),
+                                    endAdornment: this.filterText ? (
+                                        <InputAdornment position="end">
+                                            <IconButton
+                                                size="small"
+                                                onClick={this.clearFilter}
+                                                title="清除筛选">
+                                                <Clear />
+                                            </IconButton>
+                                        </InputAdornment>
+                                    ) : null,
+                                }}
+                            />
+                            <TextField
+                                className={classes.filterInput}
+                                label="筛选标签说明"
+                                placeholder="输入说明内容关键词"
+                                value={this.messageFilterText}
+                                onChange={this.handleMessageFilterChange}
+                                variant="outlined"
+                                size="small"
+                                InputProps={{
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <Search />
+                                        </InputAdornment>
+                                    ),
+                                    endAdornment: this.messageFilterText ? (
+                                        <InputAdornment position="end">
+                                            <IconButton
+                                                size="small"
+                                                onClick={this.clearMessageFilter}
+                                                title="清除说明筛选">
+                                                <Clear />
+                                            </IconButton>
+                                        </InputAdornment>
+                                    ) : null,
+                                }}
+                            />
+                        </div>
                     </Paper>
                 </Grid>
                 <Grid size={12}>
@@ -175,9 +206,12 @@ class Tags extends Component<TagsProps> {
                             <Typography variant="body2" color="textSecondary">
                                 共 {tagsTotal} 个标签，已显示 {tags.length} 个
                             </Typography>
-                            {this.filterText && (
+                            {(this.filterText || this.messageFilterText) && (
                                 <Typography variant="body2" color="textSecondary">
-                                    筛选条件: &quot;{this.filterText}&quot;
+                                    筛选条件: 
+                                    {this.filterText && ` 标签名称包含"${this.filterText}"`}
+                                    {this.filterText && this.messageFilterText && ', '}
+                                    {this.messageFilterText && ` 说明包含"${this.messageFilterText}"`}
                                 </Typography>
                             )}
                         </div>
@@ -230,7 +264,7 @@ class Tags extends Component<TagsProps> {
                         {!tagsLoading && tags.length === 0 && (
                             <div className={classes.loadingContainer}>
                                 <Typography variant="body2" color="textSecondary">
-                                    {this.filterText ? '没有找到匹配的标签' : '暂无标签'}
+                                    {(this.filterText || this.messageFilterText) ? '没有找到匹配的标签' : '暂无标签'}
                                 </Typography>
                             </div>
                         )}
@@ -258,7 +292,7 @@ class Tags extends Component<TagsProps> {
 
     private refreshTags = () => {
         const projectName = this.props.match.params.projectName;
-        this.props.versionStore.refreshTags(projectName, this.filterText || undefined);
+        this.props.versionStore.refreshTags(projectName, this.filterText || undefined, this.messageFilterText || undefined);
     };
 
     private syncTags = () => {
@@ -282,7 +316,7 @@ class Tags extends Component<TagsProps> {
         // 设置新的定时器，延迟500ms后执行筛选
         this.filterTimeout = setTimeout(() => {
             const projectName = this.props.match.params.projectName;
-            this.props.versionStore.refreshTags(projectName, value || undefined);
+            this.props.versionStore.refreshTags(projectName, value || undefined, this.messageFilterText || undefined);
         }, 500);
     };
 
@@ -292,7 +326,32 @@ class Tags extends Component<TagsProps> {
             clearTimeout(this.filterTimeout);
         }
         const projectName = this.props.match.params.projectName;
-        this.props.versionStore.refreshTags(projectName);
+        this.props.versionStore.refreshTags(projectName, undefined, this.messageFilterText || undefined);
+    };
+
+    private handleMessageFilterChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const value = event.target.value;
+        this.messageFilterText = value;
+
+        // 清除之前的定时器
+        if (this.filterTimeout) {
+            clearTimeout(this.filterTimeout);
+        }
+
+        // 设置新的定时器，延迟500ms后执行筛选
+        this.filterTimeout = setTimeout(() => {
+            const projectName = this.props.match.params.projectName;
+            this.props.versionStore.refreshTags(projectName, this.filterText || undefined, value || undefined);
+        }, 500);
+    };
+
+    private clearMessageFilter = () => {
+        this.messageFilterText = '';
+        if (this.filterTimeout) {
+            clearTimeout(this.filterTimeout);
+        }
+        const projectName = this.props.match.params.projectName;
+        this.props.versionStore.refreshTags(projectName, this.filterText || undefined, undefined);
     };
 
     private handleScroll = () => {
@@ -304,7 +363,7 @@ class Tags extends Component<TagsProps> {
         // 当滚动到距离底部100px时开始加载
         if (scrollTop + windowHeight >= documentHeight - 100) {
             const projectName = this.props.match.params.projectName;
-            this.props.versionStore.loadMoreTags(projectName, this.filterText || undefined);
+            this.props.versionStore.loadMoreTags(projectName, this.filterText || undefined, this.messageFilterText || undefined);
         }
     };
 

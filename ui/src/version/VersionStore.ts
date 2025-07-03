@@ -52,6 +52,7 @@ export class VersionStore {
     protected requestTags = (
         projectName: string,
         filter?: string,
+        messageFilter?: string,
         page = 1
     ): Promise<ITagsResponse> =>
         axios
@@ -61,6 +62,7 @@ export class VersionStore {
                     page: page.toString(),
                     limit: '20',
                     ...(filter ? {filter} : {}),
+                    ...(messageFilter ? {messageFilter} : {}),
                 },
             })
             .then((response) => response.data);
@@ -381,13 +383,13 @@ export class VersionStore {
     };
 
     @action
-    public refreshTags = async (projectName: string, filter?: string): Promise<void> => {
+    public refreshTags = async (projectName: string, filter?: string, messageFilter?: string): Promise<void> => {
         this.currentProject = projectName;
         this.tagsLoading = true;
         this.tagsPage = 1;
 
         try {
-            const response = await this.requestTags(projectName, filter, 1);
+            const response = await this.requestTags(projectName, filter, messageFilter, 1);
             this.tags = response.tags || [];
             this.tagsTotal = response.total;
             this.tagsPage = response.page;
@@ -402,7 +404,7 @@ export class VersionStore {
     };
 
     @action
-    public loadMoreTags = async (projectName: string, filter?: string): Promise<void> => {
+    public loadMoreTags = async (projectName: string, filter?: string, messageFilter?: string): Promise<void> => {
         if (this.tagsLoading || !this.tagsHasMore) {
             return;
         }
@@ -411,7 +413,7 @@ export class VersionStore {
         const nextPage = this.tagsPage + 1;
 
         try {
-            const response = await this.requestTags(projectName, filter, nextPage);
+            const response = await this.requestTags(projectName, filter, messageFilter, nextPage);
             this.tags = [...this.tags, ...(response.tags || [])];
             this.tagsTotal = response.total;
             this.tagsPage = response.page;
