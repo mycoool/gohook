@@ -86,9 +86,11 @@ export class CurrentUser {
 
         this.renewalPromise = (async () => {
             try {
-                const resp = await axios.create().post(config.get('url') + 'client/renew', undefined, {
-                    headers: {'X-GoHook-Key': this.token()},
-                });
+                const resp = await axios
+                    .create()
+                    .post(config.get('url') + 'client/renew', undefined, {
+                        headers: {'X-GoHook-Key': this.token()},
+                    });
                 this.setToken(resp.data.token);
                 this.snack('会话已自动续期');
             } catch (e) {
