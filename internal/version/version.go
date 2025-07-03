@@ -788,14 +788,14 @@ func HandleAddProject(c *gin.Context) {
 		return
 	}
 
-	// 异步执行Git状态检查，以便主动触发safe.directory等修复
+	// execute git status check in background to trigger safe.directory etc.
 	go func(p types.ProjectConfig) {
-		log.Printf("项目 '%s' 添加成功，开始进行后台Git状态检查...", p.Name)
+		log.Printf("project '%s' added successfully, starting background git status check...", p.Name)
 		_, err := getGitStatus(p.Path)
 		if err != nil {
-			log.Printf("项目 '%s' 的后台Git状态检查失败: %v", p.Name, err)
+			log.Printf("background git status check failed for project '%s': %v", p.Name, err)
 		} else {
-			log.Printf("项目 '%s' 的后台Git状态检查成功完成。", p.Name)
+			log.Printf("background git status check completed for project '%s'", p.Name)
 		}
 	}(newProject)
 
