@@ -11,15 +11,15 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// SystemRouter 系统配置路由
+// SystemRouter system config router
 type SystemRouter struct{}
 
-// NewSystemRouter 创建系统配置路由实例
+// NewSystemRouter create system config router instance
 func NewSystemRouter() *SystemRouter {
 	return &SystemRouter{}
 }
 
-// RegisterSystemRoutes 注册系统配置路由
+// RegisterSystemRoutes register system config router
 func (sr *SystemRouter) RegisterSystemRoutes(rg *gin.RouterGroup) {
 	systemGroup := rg.Group("/system")
 	systemGroup.Use(middleware.AuthMiddleware(), middleware.AdminMiddleware(), middleware.DisableLogMiddleware())
@@ -29,72 +29,72 @@ func (sr *SystemRouter) RegisterSystemRoutes(rg *gin.RouterGroup) {
 	}
 }
 
-// GetSystemConfig 获取系统配置
+// GetSystemConfig get system config
 func (sr *SystemRouter) GetSystemConfig(c *gin.Context) {
-	// 检查管理员权限
+	// check admin permission
 	_, exists := c.Get("username")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "未授权访问"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized access"})
 		return
 	}
 
 	role, exists := c.Get("role")
 	if !exists || role != "admin" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "需要管理员权限"})
+		c.JSON(http.StatusForbidden, gin.H{"error": "need admin permission"})
 		return
 	}
 
 	systemConfig, err := config.LoadSystemConfig()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "加载配置失败: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "load config failed: " + err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, systemConfig)
 }
 
-// UpdateSystemConfig 更新系统配置
+// UpdateSystemConfig update system config
 func (sr *SystemRouter) UpdateSystemConfig(c *gin.Context) {
-	// 检查管理员权限
+	// check admin permission
 	username, exists := c.Get("username")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "未授权访问"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized access"})
 		return
 	}
 
 	role, exists := c.Get("role")
 	if !exists || role != "admin" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "需要管理员权限"})
+		c.JSON(http.StatusForbidden, gin.H{"error": "need admin permission"})
 		return
 	}
 
 	var newConfig config.SystemConfig
 	if err := c.ShouldBindJSON(&newConfig); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的请求数据: " + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request data: " + err.Error()})
 		return
 	}
 
-	// 获取原配置用于记录变更
+	// load original config for record change
 	oldConfig, err := config.LoadSystemConfig()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "加载原配置失败: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "load original config failed: " + err.Error()})
 		return
 	}
 
-	// 如果JWT密钥为空，表示不修改，使用原配置的JWT密钥
+	// if JWT secret is empty, use original config's JWT secret
 	if newConfig.JWTSecret == "" {
 		newConfig.JWTSecret = oldConfig.JWTSecret
 	}
 
-	// 保存新配置
+	// save new config
 	if err := config.SaveSystemConfig(&newConfig); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "保存配置失败: " + err.Error()})
-		// 记录失败日志
+		c.JSON(http.StatusBadRequest, gin.H{"error": "save config failed: " + err.Error()})
+		// record failed log
 		database.LogUserAction(
 			username.(string),
 			"UPDATE_SYSTEM_CONFIG",
 			"system_config",
-			"更新系统配置失败",
+			"update system config failed",
 			c.ClientIP(),
 			c.GetHeader("User-Agent"),
 			false,
@@ -106,12 +106,12 @@ func (sr *SystemRouter) UpdateSystemConfig(c *gin.Context) {
 		return
 	}
 
-	// 记录成功日志
+	// record success log
 	database.LogUserAction(
 		username.(string),
 		"UPDATE_SYSTEM_CONFIG",
 		"system_config",
-		"更新系统配置成功",
+		"update system config success",
 		c.ClientIP(),
 		c.GetHeader("User-Agent"),
 		true,
@@ -121,8 +121,8 @@ func (sr *SystemRouter) UpdateSystemConfig(c *gin.Context) {
 		},
 	)
 
-	// 同时更新内存中的 types.GoHookAppConfig
+	// update types.GoHookAppConfig in memory
 	types.UpdateAppConfig(newConfig)
 
-	c.JSON(http.StatusOK, gin.H{"message": "配置更新成功"})
+	c.JSON(http.StatusOK, gin.H{"message": "config updated successfully"})
 }

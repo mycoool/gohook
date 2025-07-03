@@ -28,15 +28,15 @@ type AppConfig struct {
 	Database          DatabaseConfig `yaml:"database"`
 }
 
-// DatabaseConfig 数据库配置
+// DatabaseConfig database config
 type DatabaseConfig struct {
 	Type             string `yaml:"type"`     // sqlite, mysql, postgres
-	Database         string `yaml:"database"` // 数据库名称或文件路径
+	Database         string `yaml:"database"` // database name or file path
 	Host             string `yaml:"host,omitempty"`
 	Port             int    `yaml:"port,omitempty"`
 	Username         string `yaml:"username,omitempty"`
 	Password         string `yaml:"password,omitempty"`
-	LogRetentionDays int    `yaml:"log_retention_days"` // 日志保留天数
+	LogRetentionDays int    `yaml:"log_retention_days"` // log retention days
 }
 
 // Claims JWT claim structure
@@ -190,26 +190,26 @@ func (c *AppConfig) SetMode(mode string) {
 	c.Mode = mode
 }
 
-// UpdateAppConfig 更新内存中的应用配置
+// UpdateAppConfig update app config in memory
 func UpdateAppConfig(systemConfig interface{}) {
 	if GoHookAppConfig == nil {
 		GoHookAppConfig = &AppConfig{}
 	}
 
-	// 使用反射来获取字段值，避免类型断言问题
+	// use reflection to get field values, avoid type assertion problem
 	configValue := reflect.ValueOf(systemConfig)
 	if configValue.Kind() == reflect.Struct {
-		// 获取 JWTSecret 字段
+		// get JWTSecret field
 		if jwtSecretField := configValue.FieldByName("JWTSecret"); jwtSecretField.IsValid() {
 			GoHookAppConfig.JWTSecret = jwtSecretField.String()
 		}
 
-		// 获取 JWTExpiryDuration 字段
+		// get JWTExpiryDuration field
 		if jwtExpiryField := configValue.FieldByName("JWTExpiryDuration"); jwtExpiryField.IsValid() {
 			GoHookAppConfig.JWTExpiryDuration = int(jwtExpiryField.Int())
 		}
 
-		// 获取 Mode 字段
+		// get Mode field
 		if modeField := configValue.FieldByName("Mode"); modeField.IsValid() {
 			GoHookAppConfig.Mode = modeField.String()
 		}

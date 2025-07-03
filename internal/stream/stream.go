@@ -44,9 +44,9 @@ type HookTriggeredMessage struct {
 type HookManageMessage struct {
 	Action   string `json:"action"`          // "create" | "update_basic" | "update_parameters" | "update_triggers" | "update_response" | "delete" | "update_script"
 	HookID   string `json:"hookId"`          // Hook ID
-	HookName string `json:"hookName"`        // Hook名称
-	Success  bool   `json:"success"`         // 是否成功
-	Error    string `json:"error,omitempty"` // 错误信息
+	HookName string `json:"hookName"`        // Hook name
+	Success  bool   `json:"success"`         // success or not
+	Error    string `json:"error,omitempty"` // error message
 }
 
 // version switch message
@@ -74,8 +74,8 @@ type GitHookTriggeredMessage struct {
 	Target      string `json:"target"` // branch name or tag name
 	Success     bool   `json:"success"`
 	Error       string `json:"error,omitempty"`
-	Skipped     bool   `json:"skipped,omitempty"` // 是否跳过操作
-	Message     string `json:"message,omitempty"` // 详细消息
+	Skipped     bool   `json:"skipped,omitempty"` // skip operation
+	Message     string `json:"message,omitempty"` // detailed message
 }
 
 // WebSocket upgrader
@@ -83,7 +83,7 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		return true // allow cross-origin
 	},
-	Subprotocols: []string{"Authorization"}, // 支持Authorization子协议用于认证
+	Subprotocols: []string{"Authorization"}, // support Authorization subprotocol for authentication
 }
 
 // add WebSocket connection

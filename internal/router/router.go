@@ -16,18 +16,18 @@ import (
 )
 
 func InitRouter() *gin.Engine {
-	// 创建不带默认中间件的engine
+	// create engine without default middleware
 	g := gin.New()
 
-	// 添加自定义的日志中间件，跳过标记为"disable_log"的请求
+	// use custom logger middleware, skip requests with "disable_log" tag
 	g.Use(gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
-		// 如果上下文中有"disable_log"标记，不记录日志
+		// if context has "disable_log" tag, skip logging
 		if param.Keys != nil {
 			if noLog, exists := param.Keys["disable_log"]; exists && noLog == true {
 				return ""
 			}
 		}
-		// 否则使用默认格式记录日志
+		// otherwise use default format to record log
 		return fmt.Sprintf("[GoHook] %v | %3d | %13v | %15s | %-7s %#v\n%s",
 			param.TimeStamp.Format("2006/01/02 - 15:04:05"),
 			param.StatusCode,
@@ -39,10 +39,10 @@ func InitRouter() *gin.Engine {
 		)
 	}))
 
-	// 添加Recovery中间件
+	// use Recovery middleware
 	g.Use(gin.Recovery())
 
-	// 添加IP中间件，支持代理环境下的真实IP获取
+	// use IP middleware, support real IP in proxy environment
 	g.Use(middleware.IPMiddleware())
 
 	// load version config file
@@ -307,21 +307,21 @@ func InitRouter() *gin.Engine {
 		})
 	}
 
-	// 日志管理API组
+	// log management API group
 	logAPI := g.Group("/api/logs")
-	logAPI.Use(middleware.AuthMiddleware(), middleware.DisableLogMiddleware()) // 添加认证中间件
+	logAPI.Use(middleware.AuthMiddleware(), middleware.DisableLogMiddleware()) // add authentication middleware
 	{
-		// 获取日志列表
+		// get log list
 		logAPI.GET("", HandleGetLogs)
 
-		// 导出日志
+		// export log
 		logAPI.GET("/export", HandleExportLogs)
 
-		// 清理日志
+		// clean old logs
 		logAPI.DELETE("/cleanup", HandleCleanupLogs)
 	}
 
-	// 系统配置管理API组
+	// system configuration management API group
 	systemRouter := NewSystemRouter()
 	systemRouter.RegisterSystemRoutes(&g.RouterGroup)
 
