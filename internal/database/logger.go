@@ -7,12 +7,12 @@ import (
 
 var globalLogService *LogService
 
-// InitLogService 初始化全局日志服务
+// InitLogService initialize global log service
 func InitLogService() {
 	globalLogService = NewLogService()
 }
 
-// LogHookExecution 记录Hook执行日志（全局函数）
+// LogHookExecution log hook execution log (global function)
 func LogHookExecution(hookID, hookName, hookType, method, remoteAddr string,
 	headers map[string][]string, body string, success bool, output, error string,
 	duration int64, userAgent string, queryParams map[string][]string) {
@@ -30,7 +30,7 @@ func LogHookExecution(hookID, hookName, hookType, method, remoteAddr string,
 	}
 }
 
-// LogSystemEvent 记录系统事件日志（全局函数）
+// LogSystemEvent log system event log (global function)
 func LogSystemEvent(level, category, message string, details interface{},
 	userID, ipAddress, userAgent string) {
 
@@ -47,7 +47,7 @@ func LogSystemEvent(level, category, message string, details interface{},
 	}
 }
 
-// LogUserAction 记录用户活动（全局函数）
+// LogUserAction log user activity (global function)
 func LogUserAction(username, action, resource, description,
 	ipAddress, userAgent string, success bool, details interface{}) {
 
@@ -64,7 +64,7 @@ func LogUserAction(username, action, resource, description,
 	}
 }
 
-// LogProjectAction 记录项目活动（全局函数）
+// LogProjectAction log project activity (global function)
 func LogProjectAction(projectName, action, oldValue, newValue,
 	username string, success bool, error, commitHash, description, ipAddress string) {
 

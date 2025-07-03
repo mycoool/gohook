@@ -7,7 +7,7 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-// SystemConfig 系统配置结构
+// SystemConfig system config struct
 type SystemConfig struct {
 	JWTSecret         string `yaml:"jwt_secret" json:"jwt_secret"`
 	JWTExpiryDuration int    `yaml:"jwt_expiry_duration" json:"jwt_expiry_duration"`
@@ -16,9 +16,9 @@ type SystemConfig struct {
 
 const configFilePath = "app.yaml"
 
-// LoadSystemConfig 加载系统配置
+// LoadSystemConfig load system config
 func LoadSystemConfig() (*SystemConfig, error) {
-	// 如果文件不存在，返回默认配置
+	// if file not exist, return default config
 	if _, err := os.Stat(configFilePath); os.IsNotExist(err) {
 		return &SystemConfig{
 			JWTSecret:         "gohook-secret-key-change-in-production",
@@ -38,7 +38,7 @@ func LoadSystemConfig() (*SystemConfig, error) {
 		return nil, fmt.Errorf("failed to unmarshal config: %v", err)
 	}
 
-	// 设置默认值
+	// set default value
 	if config.JWTSecret == "" {
 		config.JWTSecret = "gohook-secret-key-change-in-production"
 	}

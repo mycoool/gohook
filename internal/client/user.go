@@ -87,7 +87,7 @@ func Login(c *gin.Context) {
 	// get Basic authentication info from Authorization header
 	authHeader := c.GetHeader("Authorization")
 	if authHeader == "" {
-		// 记录失败的登录尝试
+		// log failed login attempt
 		database.LogUserAction(
 			"unknown",
 			database.UserActionLogin,
@@ -104,7 +104,7 @@ func Login(c *gin.Context) {
 
 	// check if it is Basic authentication
 	if !strings.HasPrefix(authHeader, "Basic ") {
-		// 记录失败的登录尝试
+		// log failed login attempt
 		database.LogUserAction(
 			"unknown",
 			database.UserActionLogin,
@@ -123,7 +123,7 @@ func Login(c *gin.Context) {
 	encoded := strings.TrimPrefix(authHeader, "Basic ")
 	decoded, err := base64.StdEncoding.DecodeString(encoded)
 	if err != nil {
-		// 记录失败的登录尝试
+		// log failed login attempt
 		database.LogUserAction(
 			"unknown",
 			database.UserActionLogin,
@@ -141,7 +141,7 @@ func Login(c *gin.Context) {
 	// split username and password
 	credentials := strings.SplitN(string(decoded), ":", 2)
 	if len(credentials) != 2 {
-		// 记录失败的登录尝试
+		// log failed login attempt
 		database.LogUserAction(
 			"unknown",
 			database.UserActionLogin,
@@ -162,7 +162,7 @@ func Login(c *gin.Context) {
 	// find user
 	user := FindUser(username)
 	if user == nil {
-		// 记录失败的登录尝试
+		// log failed login attempt
 		database.LogUserAction(
 			username,
 			database.UserActionLogin,
@@ -179,7 +179,7 @@ func Login(c *gin.Context) {
 
 	// verify password
 	if !VerifyPassword(password, user.Password) {
-		// 记录失败的登录尝试
+		// log failed login attempt
 		database.LogUserAction(
 			username,
 			database.UserActionLogin,
@@ -197,7 +197,7 @@ func Login(c *gin.Context) {
 	// generate JWT token
 	token, err := GenerateToken(user.Username, user.Role)
 	if err != nil {
-		// 记录失败的登录尝试
+		// log failed login attempt
 		database.LogUserAction(
 			username,
 			database.UserActionLogin,
@@ -228,7 +228,7 @@ func Login(c *gin.Context) {
 	// create client session record
 	session := AddClientSession(token, clientName, user.Username)
 
-	// 记录成功的登录
+	// log successful login
 	database.LogUserAction(
 		username,
 		database.UserActionLogin,
@@ -284,7 +284,7 @@ func CreateUser(c *gin.Context) {
 
 	// check if user already exists
 	if FindUser(req.Username) != nil {
-		// 记录失败的用户创建尝试
+		// log failed user creation attempt
 		database.LogUserAction(
 			currentUserStr,
 			database.UserActionCreateUser,
@@ -305,7 +305,7 @@ func CreateUser(c *gin.Context) {
 
 	// validate role
 	if req.Role != "admin" && req.Role != "user" {
-		// 记录失败的用户创建尝试
+		// log failed user creation attempt
 		database.LogUserAction(
 			currentUserStr,
 			database.UserActionCreateUser,
@@ -335,7 +335,7 @@ func CreateUser(c *gin.Context) {
 
 	// save config file
 	if err := SaveUsersConfig(); err != nil {
-		// 记录失败的用户创建尝试
+		// log failed user creation attempt
 		database.LogUserAction(
 			currentUserStr,
 			database.UserActionCreateUser,
@@ -354,7 +354,7 @@ func CreateUser(c *gin.Context) {
 		return
 	}
 
-	// 记录成功的用户创建
+	// log successful user creation
 	database.LogUserAction(
 		currentUserStr,
 		database.UserActionCreateUser,
@@ -389,7 +389,7 @@ func DeleteUser(c *gin.Context) {
 
 	// cannot delete yourself
 	if username == currentUser {
-		// 记录失败的用户删除尝试
+		// log failed user deletion attempt
 		database.LogUserAction(
 			currentUserStr,
 			database.UserActionDeleteUser,
@@ -419,7 +419,7 @@ func DeleteUser(c *gin.Context) {
 	}
 
 	if userIndex == -1 {
-		// 记录失败的用户删除尝试
+		// log failed user deletion attempt
 		database.LogUserAction(
 			currentUserStr,
 			database.UserActionDeleteUser,
@@ -442,7 +442,7 @@ func DeleteUser(c *gin.Context) {
 
 	// save config file
 	if err := SaveUsersConfig(); err != nil {
-		// 记录失败的用户删除尝试
+		// log failed user deletion attempt
 		database.LogUserAction(
 			currentUserStr,
 			database.UserActionDeleteUser,
@@ -461,7 +461,7 @@ func DeleteUser(c *gin.Context) {
 		return
 	}
 
-	// 记录成功的用户删除
+	// log successful user deletion
 	database.LogUserAction(
 		currentUserStr,
 		database.UserActionDeleteUser,
