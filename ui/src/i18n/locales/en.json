@@ -373,7 +373,38 @@
     },
     "startDate": "Start Date",
     "endDate": "End Date",
-    "clearFilters": "Clear Filters"
+    "clearFilters": "Clear Filters",
+    "userActions": {
+      "CREATE_HOOK": "Create Hook",
+      "create_hook": "Create Hook",
+      "UPDATE_HOOK_BASIC": "Update Basic Info",
+      "UPDATE_HOOK_PARAMETERS": "Update Parameters",
+      "UPDATE_HOOK_TRIGGERS": "Update Triggers",
+      "UPDATE_HOOK_RESPONSE": "Update Response",
+      "UPDATE_HOOK_SCRIPT": "Update Script",
+      "DELETE_HOOK": "Delete Hook",
+      "delete_hook": "Delete Hook",
+      "SAVE_HOOK_SCRIPT": "Save Script",
+      "save_hook_script": "Save Script",
+      "LOGIN": "Login",
+      "LOGOUT": "Logout",
+      "CREATE_USER": "Create User",
+      "UPDATE_USER": "Update User",
+      "DELETE_USER": "Delete User",
+      "CHANGE_PASSWORD": "Change Password",
+      "VIEW_SYSTEM_CONFIG": "View System Config",
+      "UPDATE_SYSTEM_CONFIG": "Update System Config"
+    },
+    "projectActions": {
+      "BRANCH_SWITCH": "Branch Switch",
+      "TAG_SWITCH": "Tag Switch",
+      "switch-tag": "Switch Tag",
+      "switch-branch": "Switch Branch",
+      "PULL": "Pull Code",
+      "ADD": "Add Project",
+      "DELETE": "Delete Project",
+      "UPDATE": "Update Project"
+    }
   },
   "settings": {
     "systemSettings": "Settings",

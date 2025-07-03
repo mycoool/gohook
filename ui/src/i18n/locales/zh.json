@@ -376,18 +376,34 @@
     "clearFilters": "清除筛选",
     "userActions": {
       "CREATE_HOOK": "创建Hook",
+      "create_hook": "创建Hook",
       "UPDATE_HOOK_BASIC": "更新基本信息",
       "UPDATE_HOOK_PARAMETERS": "更新参数配置",
       "UPDATE_HOOK_TRIGGERS": "更新触发规则",
       "UPDATE_HOOK_RESPONSE": "更新响应配置",
       "UPDATE_HOOK_SCRIPT": "更新脚本",
       "DELETE_HOOK": "删除Hook",
+      "delete_hook": "删除Hook",
+      "SAVE_HOOK_SCRIPT": "保存脚本",
+      "save_hook_script": "保存脚本",
       "LOGIN": "登录",
       "LOGOUT": "登出",
       "CREATE_USER": "创建用户",
       "UPDATE_USER": "更新用户",
       "DELETE_USER": "删除用户",
-      "CHANGE_PASSWORD": "修改密码"
+      "CHANGE_PASSWORD": "修改密码",
+      "VIEW_SYSTEM_CONFIG": "查看系统配置",
+      "UPDATE_SYSTEM_CONFIG": "更新系统配置"
+    },
+    "projectActions": {
+      "BRANCH_SWITCH": "分支切换",
+      "TAG_SWITCH": "标签切换",
+      "switch-tag": "切换标签",
+      "switch-branch": "切换分支",
+      "PULL": "拉取代码",
+      "ADD": "添加项目",
+      "DELETE": "删除项目",
+      "UPDATE": "更新项目"
     }
   },
   "settings": {

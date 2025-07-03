@@ -180,6 +180,26 @@ class Logs extends Component<LogsProps, LogsState> {
         );
     };
 
+    getActionTranslation = (action: string, type?: string) => {
+        // 根据日志类型选择不同的翻译源
+        if (type === 'project') {
+            // 项目操作翻译
+            const translation = this.props.t(`logs.projectActions.${action}`);
+            if (translation !== `logs.projectActions.${action}`) {
+                return translation;
+            }
+        }
+
+        // 用户操作翻译
+        const userActionTranslation = this.props.t(`logs.userActions.${action}`);
+        if (userActionTranslation !== `logs.userActions.${action}`) {
+            return userActionTranslation;
+        }
+
+        // 如果都没有找到翻译，返回原始action
+        return action;
+    };
+
     renderFilters = () => {
         const {filters} = this.logStore;
 
@@ -381,9 +401,10 @@ class Logs extends Component<LogsProps, LogsState> {
                                                 {this.props.t('logs.action')}
                                             </Typography>
                                             <Typography variant="body2">
-                                                {this.props.t(
-                                                    `logs.userActions.${selectedLog.action}`
-                                                ) || selectedLog.action}
+                                                {this.getActionTranslation(
+                                                    selectedLog.action,
+                                                    selectedLog.type
+                                                )}
                                             </Typography>
                                         </Box>
                                     )}
