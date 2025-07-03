@@ -17,6 +17,7 @@ import (
 	"github.com/mycoool/gohook/internal/database"
 	"github.com/mycoool/gohook/internal/middleware"
 	"github.com/mycoool/gohook/internal/pidfile"
+	"github.com/mycoool/gohook/internal/types"
 	"github.com/mycoool/gohook/internal/webhook"
 
 	"github.com/fsnotify/fsnotify"
@@ -120,32 +121,38 @@ func main() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
-	// first try to load app config to get port setting
-	// create a temporary router instance to load config
-	webhook.LoadedHooksFromFiles = &loadedHooksFromFiles
-	webhook.HookManager = webhook.NewHookManager(&loadedHooksFromFiles, hooksFiles, *asTemplate)
-	router.InitRouter() // this will load app.yaml config file
-
-	// determine final port: app.yaml > command line flag > default
-	finalPort := *port // use command line flag by default
-
-	// check if app.yaml exists
-	if _, err := os.Stat("app.yaml"); err == nil {
-		log.SetPrefix("[GoHook] ")
-		// app.yaml exists, use port from app.yaml
-		if appConfig := config.GetAppConfig(); appConfig != nil {
-			finalPort = appConfig.Port
-			log.Printf("listen port %d", finalPort)
-		} else {
-			log.Printf("listen port %d", finalPort)
-		}
-	} else {
-		// app.yaml not found, use command line flag
-		log.Printf("using port %d from command line flag (no app.yaml found)", finalPort)
+	// first try to load app config from app.yaml
+	if err := config.LoadAppConfig(); err != nil {
+		log.Printf("couldn't load app.yaml: %v", err)
+	}
+	appCfg := config.GetAppConfig()
+	if appCfg == nil {
+		// This can happen if app.yaml is unreadable.
+		// Create a new empty config.
+		appCfg = &types.AppConfig{}
 	}
 
+	// Now, override config with command-line flags if they were provided.
+	// The IsFlagPassed function checks if a flag was actually set on the command line.
+	if IsFlagPassed("port") {
+		appCfg.Port = *port
+	} else if appCfg.Port == 0 {
+		appCfg.Port = 9000 // Fallback to default if not in file and not in flag
+	}
+	// Similar logic can be applied to other flags like jwt_secret, etc. if needed.
+	// For now, we only focus on the port.
+
+	// Save the final configuration back to the global instance
+	types.GoHookAppConfig = appCfg
+
+	// Init router with the final config
+	webhook.LoadedHooksFromFiles = &loadedHooksFromFiles
+	webhook.HookManager = webhook.NewHookManager(&loadedHooksFromFiles, hooksFiles, *asTemplate)
+	router.InitRouter()
+
 	// by default the listen address is ip:port, but this may be modified by trySocketListener
-	addr = fmt.Sprintf("%s:%d", *ip, finalPort)
+	addr = fmt.Sprintf("%s:%d", *ip, appCfg.Port)
+	log.Printf("listening on %s", addr)
 
 	ln, err := trySocketListener()
 	if err != nil {
@@ -672,4 +679,15 @@ func ginHookHandler(c *gin.Context) {
 	}
 
 	log.Printf("[%s] %s got matched, but didn't get triggered because the trigger rules were not satisfied\n", req.ID, matchedHook.ID)
+}
+
+// IsFlagPassed checks if a command-line flag was passed.
+func IsFlagPassed(name string) bool {
+	found := false
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == name {
+			found = true
+		}
+	})
+	return found
 }
