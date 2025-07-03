@@ -383,7 +383,11 @@ export class VersionStore {
     };
 
     @action
-    public refreshTags = async (projectName: string, filter?: string, messageFilter?: string): Promise<void> => {
+    public refreshTags = async (
+        projectName: string,
+        filter?: string,
+        messageFilter?: string
+    ): Promise<void> => {
         this.currentProject = projectName;
         this.tagsLoading = true;
         this.tagsPage = 1;
@@ -404,7 +408,11 @@ export class VersionStore {
     };
 
     @action
-    public loadMoreTags = async (projectName: string, filter?: string, messageFilter?: string): Promise<void> => {
+    public loadMoreTags = async (
+        projectName: string,
+        filter?: string,
+        messageFilter?: string
+    ): Promise<void> => {
         if (this.tagsLoading || !this.tagsHasMore) {
             return;
         }

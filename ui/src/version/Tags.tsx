@@ -208,10 +208,11 @@ class Tags extends Component<TagsProps> {
                             </Typography>
                             {(this.filterText || this.messageFilterText) && (
                                 <Typography variant="body2" color="textSecondary">
-                                    筛选条件: 
+                                    筛选条件:
                                     {this.filterText && ` 标签名称包含"${this.filterText}"`}
                                     {this.filterText && this.messageFilterText && ', '}
-                                    {this.messageFilterText && ` 说明包含"${this.messageFilterText}"`}
+                                    {this.messageFilterText &&
+                                        ` 说明包含"${this.messageFilterText}"`}
                                 </Typography>
                             )}
                         </div>
@@ -264,7 +265,9 @@ class Tags extends Component<TagsProps> {
                         {!tagsLoading && tags.length === 0 && (
                             <div className={classes.loadingContainer}>
                                 <Typography variant="body2" color="textSecondary">
-                                    {(this.filterText || this.messageFilterText) ? '没有找到匹配的标签' : '暂无标签'}
+                                    {this.filterText || this.messageFilterText
+                                        ? '没有找到匹配的标签'
+                                        : '暂无标签'}
                                 </Typography>
                             </div>
                         )}
@@ -292,7 +295,11 @@ class Tags extends Component<TagsProps> {
 
     private refreshTags = () => {
         const projectName = this.props.match.params.projectName;
-        this.props.versionStore.refreshTags(projectName, this.filterText || undefined, this.messageFilterText || undefined);
+        this.props.versionStore.refreshTags(
+            projectName,
+            this.filterText || undefined,
+            this.messageFilterText || undefined
+        );
     };
 
     private syncTags = () => {
@@ -316,7 +323,11 @@ class Tags extends Component<TagsProps> {
         // 设置新的定时器，延迟500ms后执行筛选
         this.filterTimeout = setTimeout(() => {
             const projectName = this.props.match.params.projectName;
-            this.props.versionStore.refreshTags(projectName, value || undefined, this.messageFilterText || undefined);
+            this.props.versionStore.refreshTags(
+                projectName,
+                value || undefined,
+                this.messageFilterText || undefined
+            );
         }, 500);
     };
 
@@ -326,7 +337,11 @@ class Tags extends Component<TagsProps> {
             clearTimeout(this.filterTimeout);
         }
         const projectName = this.props.match.params.projectName;
-        this.props.versionStore.refreshTags(projectName, undefined, this.messageFilterText || undefined);
+        this.props.versionStore.refreshTags(
+            projectName,
+            undefined,
+            this.messageFilterText || undefined
+        );
     };
 
     private handleMessageFilterChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -341,7 +356,11 @@ class Tags extends Component<TagsProps> {
         // 设置新的定时器，延迟500ms后执行筛选
         this.filterTimeout = setTimeout(() => {
             const projectName = this.props.match.params.projectName;
-            this.props.versionStore.refreshTags(projectName, this.filterText || undefined, value || undefined);
+            this.props.versionStore.refreshTags(
+                projectName,
+                this.filterText || undefined,
+                value || undefined
+            );
         }, 500);
     };
 
@@ -363,7 +382,11 @@ class Tags extends Component<TagsProps> {
         // 当滚动到距离底部100px时开始加载
         if (scrollTop + windowHeight >= documentHeight - 100) {
             const projectName = this.props.match.params.projectName;
-            this.props.versionStore.loadMoreTags(projectName, this.filterText || undefined, this.messageFilterText || undefined);
+            this.props.versionStore.loadMoreTags(
+                projectName,
+                this.filterText || undefined,
+                this.messageFilterText || undefined
+            );
         }
     };
 
