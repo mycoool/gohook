@@ -19,6 +19,65 @@ import (
 	"github.com/mycoool/gohook/internal/types"
 )
 
+// execGitCommand 执行Git命令，自动处理safe.directory权限问题
+func execGitCommand(projectPath string, args ...string) ([]byte, error) {
+	// 首先尝试正常执行Git命令
+	cmd := exec.Command("git", append([]string{"-C", projectPath}, args...)...)
+	output, err := cmd.CombinedOutput()
+
+	// 如果成功或者不是safe.directory相关错误，直接返回
+	if err == nil {
+		return output, nil
+	}
+
+	outputStr := string(output)
+	// 检查是否是safe.directory相关错误
+	if !strings.Contains(outputStr, "safe.directory") && !strings.Contains(outputStr, "detected dubious ownership") {
+		return output, err
+	}
+
+	log.Printf("检测到Git安全目录问题，尝试自动修复: %s", projectPath)
+
+	// 尝试添加到safe.directory (全局系统级配置)
+	safeCmd := exec.Command("git", "config", "--system", "--add", "safe.directory", projectPath)
+	if safeOutput, safeErr := safeCmd.CombinedOutput(); safeErr != nil {
+		log.Printf("尝试系统级safe.directory配置失败: %s", string(safeOutput))
+
+		// 如果系统级配置失败，尝试全局用户级配置
+		safeCmd = exec.Command("git", "config", "--global", "--add", "safe.directory", projectPath)
+		if safeOutput, safeErr := safeCmd.CombinedOutput(); safeErr != nil {
+			log.Printf("尝试全局safe.directory配置也失败: %s", string(safeOutput))
+			return output, fmt.Errorf("git safe.directory configuration failed: %v. Original error: %v", safeErr, err)
+		} else {
+			log.Printf("成功配置全局safe.directory: %s", projectPath)
+		}
+	} else {
+		log.Printf("成功配置系统级safe.directory: %s", projectPath)
+	}
+
+	// 重新尝试执行原始Git命令
+	cmd = exec.Command("git", append([]string{"-C", projectPath}, args...)...)
+	retryOutput, retryErr := cmd.CombinedOutput()
+	if retryErr != nil {
+		log.Printf("配置safe.directory后重试仍失败: %s", string(retryOutput))
+		return retryOutput, fmt.Errorf("git command failed even after safe.directory configuration: %v", retryErr)
+	}
+
+	log.Printf("配置safe.directory后Git命令执行成功: %s", projectPath)
+	return retryOutput, nil
+}
+
+// execGitCommandOutput 执行Git命令并返回输出，使用safe.directory自动修复
+func execGitCommandOutput(projectPath string, args ...string) ([]byte, error) {
+	return execGitCommand(projectPath, args...)
+}
+
+// execGitCommandRun 执行Git命令，只返回错误，使用safe.directory自动修复
+func execGitCommandRun(projectPath string, args ...string) error {
+	_, err := execGitCommand(projectPath, args...)
+	return err
+}
+
 // init Git repository
 func initGit(projectPath string) error {
 	// check if project path exists
@@ -48,9 +107,8 @@ func initGit(projectPath string) error {
 	// clean up test file
 	os.Remove(testFile)
 
-	// execute git init command
-	cmd := exec.Command("git", "-C", projectPath, "init")
-	output, err := cmd.CombinedOutput()
+	// execute git init command with safe.directory support
+	output, err := execGitCommand(projectPath, "init")
 	if err != nil {
 		return fmt.Errorf("git repository initialization failed: %v, output: %s", err, string(output))
 	}
@@ -66,26 +124,22 @@ func initGit(projectPath string) error {
 // switchAndPullBranch switch to specified branch and pull latest code
 func switchAndPullBranch(projectPath, branchName string) error {
 	// check if local branch exists
-	cmd := exec.Command("git", "-C", projectPath, "branch", "--list", branchName)
-	output, err := cmd.Output()
+	output, err := execGitCommandOutput(projectPath, "branch", "--list", branchName)
 	localBranchExists := err == nil && strings.TrimSpace(string(output)) != ""
 
 	if !localBranchExists {
 		// local branch does not exist, try to create from remote
-		cmd = exec.Command("git", "-C", projectPath, "checkout", "-b", branchName, "origin/"+branchName)
-		if output, err := cmd.CombinedOutput(); err != nil {
+		if output, err := execGitCommand(projectPath, "checkout", "-b", branchName, "origin/"+branchName); err != nil {
 			return fmt.Errorf("create and switch to branch %s failed: %s", branchName, string(output))
 		}
 	} else {
 		// local branch exists, switch directly
-		cmd = exec.Command("git", "-C", projectPath, "checkout", branchName)
-		if output, err := cmd.CombinedOutput(); err != nil {
+		if output, err := execGitCommand(projectPath, "checkout", branchName); err != nil {
 			return fmt.Errorf("switch to branch %s failed: %s", branchName, string(output))
 		}
 
 		// fetch latest code
-		cmd = exec.Command("git", "-C", projectPath, "pull", "origin", branchName)
-		if output, err := cmd.CombinedOutput(); err != nil {
+		if output, err := execGitCommand(projectPath, "pull", "origin", branchName); err != nil {
 			return fmt.Errorf("failed to fetch latest code for branch %s: %s", branchName, string(output))
 		}
 	}
@@ -96,30 +150,25 @@ func switchAndPullBranch(projectPath, branchName string) error {
 // switchToTag switch to specified tag
 func switchToTag(projectPath, tagName string) error {
 	// fetch tag information
-	cmd := exec.Command("git", "-C", projectPath, "fetch", "--tags")
-	if output, err := cmd.CombinedOutput(); err != nil {
+	if output, err := execGitCommand(projectPath, "fetch", "--tags"); err != nil {
 		log.Printf("warning: failed to fetch tag information: %s", string(output))
 	}
 
 	// ensure tag exists (local or remote)
-	cmd = exec.Command("git", "-C", projectPath, "rev-parse", tagName)
-	if err := cmd.Run(); err != nil {
+	if err := execGitCommandRun(projectPath, "rev-parse", tagName); err != nil {
 		log.Printf("tag %s does not exist, try to fetch from remote", tagName)
-		cmd = exec.Command("git", "-C", projectPath, "fetch", "origin", "--tags")
-		if output, err := cmd.CombinedOutput(); err != nil {
+		if output, err := execGitCommand(projectPath, "fetch", "origin", "--tags"); err != nil {
 			return fmt.Errorf("failed to fetch tag from remote: %s", string(output))
 		}
 
 		// check if tag exists again
-		cmd = exec.Command("git", "-C", projectPath, "rev-parse", tagName)
-		if err := cmd.Run(); err != nil {
+		if err := execGitCommandRun(projectPath, "rev-parse", tagName); err != nil {
 			return fmt.Errorf("tag %s does not exist on remote, cannot deploy", tagName)
 		}
 	}
 
 	// switch to specified tag
-	cmd = exec.Command("git", "-C", projectPath, "checkout", tagName)
-	if output, err := cmd.CombinedOutput(); err != nil {
+	if output, err := execGitCommand(projectPath, "checkout", tagName); err != nil {
 		return fmt.Errorf("switch to tag %s failed: %s", tagName, string(output))
 	}
 
@@ -135,15 +184,13 @@ func deleteLocalTag(projectPath, tagName string) error {
 	}
 
 	// check if tag exists
-	cmd := exec.Command("git", "-C", projectPath, "show-ref", "--tags", "--quiet", "refs/tags/"+tagName)
-	if err := cmd.Run(); err != nil {
+	if err := execGitCommandRun(projectPath, "show-ref", "--tags", "--quiet", "refs/tags/"+tagName); err != nil {
 		log.Printf("local tag %s does not exist, skip deletion", tagName)
 		return nil
 	}
 
 	// delete local tag
-	cmd = exec.Command("git", "-C", projectPath, "tag", "-d", tagName)
-	if output, err := cmd.CombinedOutput(); err != nil {
+	if output, err := execGitCommand(projectPath, "tag", "-d", tagName); err != nil {
 		return fmt.Errorf("delete local tag %s failed: %s", tagName, string(output))
 	}
 
@@ -183,8 +230,7 @@ func deleteLocalBranch(projectPath, branchName string) error {
 	}
 
 	// get current branch
-	cmd := exec.Command("git", "-C", projectPath, "rev-parse", "--abbrev-ref", "HEAD")
-	currentBranchOutput, err := cmd.Output()
+	currentBranchOutput, err := execGitCommandOutput(projectPath, "rev-parse", "--abbrev-ref", "HEAD")
 	if err != nil {
 		return fmt.Errorf("get current branch failed: %v", err)
 	}
@@ -197,15 +243,13 @@ func deleteLocalBranch(projectPath, branchName string) error {
 	}
 
 	// check if branch exists
-	cmd = exec.Command("git", "-C", projectPath, "show-ref", "--verify", "--quiet", "refs/heads/"+branchName)
-	if err := cmd.Run(); err != nil {
+	if err := execGitCommandRun(projectPath, "show-ref", "--verify", "--quiet", "refs/heads/"+branchName); err != nil {
 		log.Printf("local branch %s does not exist, skip deletion", branchName)
 		return nil
 	}
 
 	// delete local branch
-	cmd = exec.Command("git", "-C", projectPath, "branch", "-D", branchName)
-	if output, err := cmd.CombinedOutput(); err != nil {
+	if output, err := execGitCommand(projectPath, "branch", "-D", branchName); err != nil {
 		return fmt.Errorf("delete local branch %s failed: %s", branchName, string(output))
 	}
 
@@ -221,8 +265,7 @@ func deleteBranch(projectPath, branchName string) error {
 	}
 
 	// get current branch
-	cmd := exec.Command("git", "-C", projectPath, "rev-parse", "--abbrev-ref", "HEAD")
-	currentBranchOutput, err := cmd.Output()
+	currentBranchOutput, err := execGitCommandOutput(projectPath, "rev-parse", "--abbrev-ref", "HEAD")
 	if err != nil {
 		return fmt.Errorf("get current branch failed: %v", err)
 	}
@@ -234,8 +277,7 @@ func deleteBranch(projectPath, branchName string) error {
 	}
 
 	// delete local branch
-	cmd = exec.Command("git", "-C", projectPath, "branch", "-D", branchName)
-	output, err := cmd.CombinedOutput()
+	output, err := execGitCommand(projectPath, "branch", "-D", branchName)
 	if err != nil {
 		return fmt.Errorf("delete branch failed: %s", string(output))
 	}
@@ -251,8 +293,7 @@ func deleteTag(projectPath, tagName string) error {
 	}
 
 	// check if current is on the tag
-	cmd := exec.Command("git", "-C", projectPath, "describe", "--tags", "--exact-match", "HEAD")
-	currentTagOutput, err := cmd.Output()
+	currentTagOutput, err := execGitCommandOutput(projectPath, "describe", "--tags", "--exact-match", "HEAD")
 	if err == nil {
 		currentTag := strings.TrimSpace(string(currentTagOutput))
 		if currentTag == tagName {
@@ -261,15 +302,13 @@ func deleteTag(projectPath, tagName string) error {
 	}
 
 	// delete local tag
-	cmd = exec.Command("git", "-C", projectPath, "tag", "-d", tagName)
-	localOutput, localErr := cmd.CombinedOutput()
+	localOutput, localErr := execGitCommand(projectPath, "tag", "-d", tagName)
 	if localErr != nil {
 		return fmt.Errorf("delete local tag failed: %s", string(localOutput))
 	}
 
 	// try to delete remote tag
-	cmd = exec.Command("git", "-C", projectPath, "push", "origin", ":refs/tags/"+tagName)
-	remoteOutput, remoteErr := cmd.CombinedOutput()
+	remoteOutput, remoteErr := execGitCommand(projectPath, "push", "origin", ":refs/tags/"+tagName)
 	if remoteErr != nil {
 		log.Printf("delete remote tag failed (project: %s, tag: %s): %s", projectPath, tagName, string(remoteOutput))
 		// remote tag deletion failed is not a fatal error, because it may not exist on remote
@@ -280,8 +319,7 @@ func deleteTag(projectPath, tagName string) error {
 
 // SwitchTag switch tag
 func switchTag(projectPath, tagName string) error {
-	cmd := exec.Command("git", "-C", projectPath, "checkout", tagName)
-	if err := cmd.Run(); err != nil {
+	if err := execGitCommandRun(projectPath, "checkout", tagName); err != nil {
 		return fmt.Errorf("switch tag failed: %v", err)
 	}
 	return nil
@@ -289,8 +327,7 @@ func switchTag(projectPath, tagName string) error {
 
 // SyncTags sync remote tags
 func syncTags(projectPath string) error {
-	cmd := exec.Command("git", "-C", projectPath, "fetch", "origin", "--prune", "--tags")
-	output, err := cmd.CombinedOutput()
+	output, err := execGitCommand(projectPath, "fetch", "origin", "--prune", "--tags")
 	if err != nil {
 		return fmt.Errorf("sync tags failed: %s", string(output))
 	}
@@ -305,8 +342,7 @@ func getRemote(projectPath string) (string, error) {
 	}
 
 	// get origin remote repository URL
-	cmd := exec.Command("git", "-C", projectPath, "remote", "get-url", "origin")
-	output, err := cmd.Output()
+	output, err := execGitCommandOutput(projectPath, "remote", "get-url", "origin")
 	if err != nil {
 		// if "origin" does not exist, the command will return a non-zero exit code
 		// in this case, we return an empty string, indicating that no remote address is set
@@ -324,18 +360,15 @@ func setRemote(projectPath, remoteUrl string) error {
 	}
 
 	// check if origin remote repository already exists
-	cmd := exec.Command("git", "-C", projectPath, "remote", "get-url", "origin")
-	if cmd.Run() == nil {
+	if execGitCommandRun(projectPath, "remote", "get-url", "origin") == nil {
 		// if origin already exists, delete it first
-		cmd = exec.Command("git", "-C", projectPath, "remote", "remove", "origin")
-		if err := cmd.Run(); err != nil {
+		if err := execGitCommandRun(projectPath, "remote", "remove", "origin"); err != nil {
 			return fmt.Errorf("delete existing remote repository failed: %v", err)
 		}
 	}
 
 	// add new origin remote repository
-	cmd = exec.Command("git", "-C", projectPath, "remote", "add", "origin", remoteUrl)
-	if err := cmd.Run(); err != nil {
+	if err := execGitCommandRun(projectPath, "remote", "add", "origin", remoteUrl); err != nil {
 		return fmt.Errorf("set remote repository failed: %v", err)
 	}
 
@@ -345,8 +378,7 @@ func setRemote(projectPath, remoteUrl string) error {
 // SyncBranches sync remote branches, clean up deleted remote branch references
 func syncBranches(projectPath string) error {
 	// use fetch --prune to update remote branch information and delete non-existent references
-	cmd := exec.Command("git", "-C", projectPath, "fetch", "origin", "--prune")
-	output, err := cmd.CombinedOutput()
+	output, err := execGitCommand(projectPath, "fetch", "origin", "--prune")
 	if err != nil {
 		return fmt.Errorf("sync branches failed: %s", string(output))
 	}
@@ -355,7 +387,6 @@ func syncBranches(projectPath string) error {
 
 // SwitchBranch switch branch
 func switchBranch(projectPath, branchName string) error {
-	var cmd *exec.Cmd
 	var isRemoteBranch bool
 	var localBranchName string
 
@@ -365,30 +396,29 @@ func switchBranch(projectPath, branchName string) error {
 		localBranchName = strings.TrimPrefix(branchName, "origin/")
 
 		// check if local branch already exists
-		checkCmd := exec.Command("git", "-C", projectPath, "rev-parse", "--verify", localBranchName)
-		if checkCmd.Run() == nil {
+		if execGitCommandRun(projectPath, "rev-parse", "--verify", localBranchName) == nil {
 			// local branch already exists, switch directly
-			cmd = exec.Command("git", "-C", projectPath, "checkout", localBranchName)
+			if output, err := execGitCommand(projectPath, "checkout", localBranchName); err != nil {
+				return fmt.Errorf("switch branch failed: %s", string(output))
+			}
 		} else {
 			// local branch does not exist, create a new local branch based on the remote branch
-			cmd = exec.Command("git", "-C", projectPath, "checkout", "-b", localBranchName, branchName)
+			if output, err := execGitCommand(projectPath, "checkout", "-b", localBranchName, branchName); err != nil {
+				return fmt.Errorf("switch branch failed: %s", string(output))
+			}
 		}
 	} else {
 		// normal local branch switch
 		isRemoteBranch = false
 		localBranchName = branchName
-		cmd = exec.Command("git", "-C", projectPath, "checkout", branchName)
-	}
-
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("switch branch failed: %s", string(output))
+		if output, err := execGitCommand(projectPath, "checkout", branchName); err != nil {
+			return fmt.Errorf("switch branch failed: %s", string(output))
+		}
 	}
 
 	// if a new branch is created based on a remote branch, try to pull the latest code
 	if isRemoteBranch {
-		pullCmd := exec.Command("git", "-C", projectPath, "pull", "origin", localBranchName)
-		pullOutput, pullErr := pullCmd.CombinedOutput()
+		pullOutput, pullErr := execGitCommand(projectPath, "pull", "origin", localBranchName)
 		if pullErr != nil {
 			// pull failed is not a fatal error, but log it
 			log.Printf("pull latest code after switching branch failed (project: %s, branch: %s): %s", projectPath, localBranchName, string(pullOutput))
@@ -401,13 +431,11 @@ func switchBranch(projectPath, branchName string) error {
 // GetTags get tag list
 func getTags(projectPath string) ([]types.TagResponse, error) {
 	// get current tag
-	cmd := exec.Command("git", "-C", projectPath, "describe", "--exact-match", "--tags", "HEAD")
-	currentOutput, _ := cmd.Output()
+	currentOutput, _ := execGitCommandOutput(projectPath, "describe", "--exact-match", "--tags", "HEAD")
 	currentTag := strings.TrimSpace(string(currentOutput))
 
 	// get all tags
-	cmd = exec.Command("git", "-C", projectPath, "tag", "-l", "--sort=-version:refname", "--format=%(refname:short)|%(creatordate)|%(objectname:short)|%(subject)")
-	output, err := cmd.Output()
+	output, err := execGitCommandOutput(projectPath, "tag", "-l", "--sort=-version:refname", "--format=%(refname:short)|%(creatordate)|%(objectname:short)|%(subject)")
 	if err != nil {
 		return nil, fmt.Errorf("get tag list failed: %v", err)
 	}
@@ -440,21 +468,21 @@ func getBranches(projectPath string) ([]types.BranchResponse, error) {
 	branchSet := make(map[string]bool) // used to prevent duplicate addition
 
 	// 1. get whether current is in detached head state
-	_, err := exec.Command("git", "-C", projectPath, "symbolic-ref", "-q", "HEAD").Output()
+	_, err := execGitCommandOutput(projectPath, "symbolic-ref", "-q", "HEAD")
 	isDetached := err != nil
 
 	// 2. get current branch or commit reference
 	var currentRef string
 	if isDetached {
 		// detached head state, get HEAD short hash
-		headSha, err := exec.Command("git", "-C", projectPath, "rev-parse", "--short", "HEAD").Output()
+		headSha, err := execGitCommandOutput(projectPath, "rev-parse", "--short", "HEAD")
 		if err != nil {
 			return nil, fmt.Errorf("get HEAD commit failed: %v", err)
 		}
 		currentRef = strings.TrimSpace(string(headSha))
 	} else {
 		// on a branch, get branch name
-		branchName, err := exec.Command("git", "-C", projectPath, "rev-parse", "--abbrev-ref", "HEAD").Output()
+		branchName, err := execGitCommandOutput(projectPath, "rev-parse", "--abbrev-ref", "HEAD")
 		if err != nil {
 			return nil, fmt.Errorf("get current branch name failed: %v", err)
 		}
@@ -464,7 +492,7 @@ func getBranches(projectPath string) ([]types.BranchResponse, error) {
 	// 3. handle detached head state
 	if isDetached {
 		// try to get tag name
-		tagName, err := exec.Command("git", "-C", projectPath, "describe", "--tags", "--exact-match", "HEAD").Output()
+		tagName, err := execGitCommandOutput(projectPath, "describe", "--tags", "--exact-match", "HEAD")
 		var displayName string
 		if err == nil {
 			displayName = strings.TrimSpace(string(tagName))
@@ -473,7 +501,7 @@ func getBranches(projectPath string) ([]types.BranchResponse, error) {
 		}
 
 		// get last commit information
-		commitOutput, _ := exec.Command("git", "-C", projectPath, "log", "-1", "HEAD", "--format=%H|%ci").Output()
+		commitOutput, _ := execGitCommandOutput(projectPath, "log", "-1", "HEAD", "--format=%H|%ci")
 		parts := strings.Split(strings.TrimSpace(string(commitOutput)), "|")
 		lastCommit, lastCommitTime := "", ""
 		if len(parts) > 0 {
@@ -493,8 +521,7 @@ func getBranches(projectPath string) ([]types.BranchResponse, error) {
 	}
 
 	// 4. get all local branches
-	cmd := exec.Command("git", "-C", projectPath, "for-each-ref", "refs/heads", "--format=%(refname:short)|%(committerdate:iso)|%(objectname:short)")
-	localOutput, err := cmd.Output()
+	localOutput, err := execGitCommandOutput(projectPath, "for-each-ref", "refs/heads", "--format=%(refname:short)|%(committerdate:iso)|%(objectname:short)")
 	if err != nil {
 		return nil, fmt.Errorf("get local branch list failed: %v", err)
 	}
@@ -520,8 +547,7 @@ func getBranches(projectPath string) ([]types.BranchResponse, error) {
 	}
 
 	// 5. get all remote branches
-	cmd = exec.Command("git", "-C", projectPath, "for-each-ref", "refs/remotes", "--format=%(refname:short)|%(committerdate:iso)|%(objectname:short)")
-	remoteOutput, err := cmd.Output()
+	remoteOutput, err := execGitCommandOutput(projectPath, "for-each-ref", "refs/remotes", "--format=%(refname:short)|%(committerdate:iso)|%(objectname:short)")
 	if err == nil {
 		for _, line := range strings.Split(strings.TrimSpace(string(remoteOutput)), "\n") {
 			if line == "" {
@@ -561,24 +587,24 @@ func getGitStatus(projectPath string) (*types.VersionResponse, error) {
 	}
 
 	// get current branch
-	cmd := exec.Command("git", "-C", projectPath, "branch", "--show-current")
-	branchOutput, _ := cmd.Output()
+	branchOutput, _ := execGitCommandOutput(projectPath, "rev-parse", "--abbrev-ref", "HEAD")
 	currentBranch := strings.TrimSpace(string(branchOutput))
 
-	// get current tag (if on a tag)
-	cmd = exec.Command("git", "-C", projectPath, "describe", "--exact-match", "--tags", "HEAD")
-	tagOutput, _ := cmd.Output()
-	currentTag := strings.TrimSpace(string(tagOutput))
+	// get current tag (if on a tag) - only if HEAD exactly matches a tag
+	tagOutput, tagErr := execGitCommandOutput(projectPath, "describe", "--exact-match", "--tags", "HEAD")
+	currentTag := ""
+	if tagErr == nil {
+		currentTag = strings.TrimSpace(string(tagOutput))
+	}
 
-	// determine mode
+	// determine mode - only tag mode if HEAD exactly matches a tag
 	mode := "branch"
-	if currentTag != "" {
+	if tagErr == nil && currentTag != "" {
 		mode = "tag"
 	}
 
 	// get last commit information
-	cmd = exec.Command("git", "-C", projectPath, "log", "-1", "--format=%H|%ci|%s")
-	commitOutput, _ := cmd.Output()
+	commitOutput, _ := execGitCommandOutput(projectPath, "log", "-1", "--format=%H|%ci|%s")
 	commitInfo := strings.TrimSpace(string(commitOutput))
 
 	parts := strings.Split(commitInfo, "|")
@@ -1190,10 +1216,8 @@ func HandleSwitchTag(c *gin.Context) {
 	currentCommit := ""
 
 	// 尝试获取当前标签
-	if cmd := exec.Command("git", "-C", projectPath, "describe", "--tags", "--exact-match", "HEAD"); cmd != nil {
-		if output, err := cmd.Output(); err == nil {
-			currentTag = strings.TrimSpace(string(output))
-		}
+	if output, err := execGitCommandOutput(projectPath, "describe", "--tags", "--exact-match", "HEAD"); err == nil {
+		currentTag = strings.TrimSpace(string(output))
 	}
 
 	// 如果不在标签上，获取当前分支
@@ -1252,12 +1276,10 @@ func HandleSwitchTag(c *gin.Context) {
 
 	// 获取切换后的提交哈希
 	newCommit := ""
-	if cmd := exec.Command("git", "-C", projectPath, "rev-parse", "HEAD"); cmd != nil {
-		if output, err := cmd.Output(); err == nil {
-			newCommit = strings.TrimSpace(string(output))
-			if len(newCommit) > 7 {
-				newCommit = newCommit[:7]
-			}
+	if output, err := execGitCommandOutput(projectPath, "rev-parse", "HEAD"); err == nil {
+		newCommit = strings.TrimSpace(string(output))
+		if len(newCommit) > 7 {
+			newCommit = newCommit[:7]
 		}
 	}
 
@@ -1335,21 +1357,17 @@ func HandleDeleteTag(c *gin.Context) {
 	tagDate := ""
 
 	// 获取标签对应的提交哈希
-	if cmd := exec.Command("git", "-C", projectPath, "rev-list", "-n", "1", tagName); cmd != nil {
-		if output, err := cmd.Output(); err == nil {
-			tagCommit = strings.TrimSpace(string(output))
-			if len(tagCommit) > 7 {
-				tagCommit = tagCommit[:7]
-			}
+	if output, err := execGitCommandOutput(projectPath, "rev-list", "-n", "1", tagName); err == nil {
+		tagCommit = strings.TrimSpace(string(output))
+		if len(tagCommit) > 7 {
+			tagCommit = tagCommit[:7]
 		}
 	}
 
 	// 获取标签创建日期
-	if cmd := exec.Command("git", "-C", projectPath, "log", "-1", "--format=%ci", tagName); cmd != nil {
-		if output, err := cmd.Output(); err == nil {
-			if t, err := time.Parse("2006-01-02 15:04:05 -0700", strings.TrimSpace(string(output))); err == nil {
-				tagDate = t.Format("2006-01-02 15:04")
-			}
+	if output, err := execGitCommandOutput(projectPath, "log", "-1", "--format=%ci", tagName); err == nil {
+		if t, err := time.Parse("2006-01-02 15:04:05 -0700", strings.TrimSpace(string(output))); err == nil {
+			tagDate = t.Format("2006-01-02 15:04")
 		}
 	}
 

@@ -166,6 +166,9 @@ func InitRouter() *gin.Engine {
 		hookAPI.GET("/:id/script", webhook.HandleGetHookScript)
 		hookAPI.POST("/:id/script", webhook.HandleSaveHookScript)
 		hookAPI.PUT("/:id/execute-command", webhook.HandleUpdateHookExecuteCommand)
+
+		// delete hook
+		hookAPI.DELETE("/:id", webhook.HandleDeleteHook)
 	}
 
 	// add websocket
@@ -192,12 +195,7 @@ func InitRouter() *gin.Engine {
 		// add project
 		versionAPI.POST("/add-project", version.HandleAddProject)
 
-		// edit project
-		versionAPI.PUT("/:name", version.HandleEditProject)
-
-		// delete project
-		versionAPI.DELETE("/:name", version.HandleDeleteProject)
-
+		// project-specific routes (more specific paths first to avoid conflicts)
 		// get project branches list
 		versionAPI.GET("/:name/branches", version.HandleGetBranches)
 
@@ -248,6 +246,13 @@ func InitRouter() *gin.Engine {
 
 		// save project GitHook configuration
 		versionAPI.POST("/:name/githook", version.HandleSaveGitHook)
+
+		// project management routes (less specific paths last)
+		// edit project
+		versionAPI.PUT("/:name", version.HandleEditProject)
+
+		// delete project
+		versionAPI.DELETE("/:name", version.HandleDeleteProject)
 	}
 
 	// GitHook webhook endpoint

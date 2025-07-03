@@ -1912,3 +1912,134 @@ func HandleUpdateHookExecuteCommand(c *gin.Context) {
 		"hookId":  hookID,
 	})
 }
+
+// HandleDeleteHook 删除Hook
+func HandleDeleteHook(c *gin.Context) {
+	hookID := c.Param("id")
+	if hookID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Hook ID is required"})
+		return
+	}
+
+	// 查找Hook是否存在
+	existingHook := HookManager.MatchLoadedHook(hookID)
+	if existingHook == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Hook not found"})
+		return
+	}
+
+	// 查找Hook所在的配置文件
+	var targetFilePath string
+	var hookIndex = -1
+	if LoadedHooksFromFiles != nil {
+		for filePath, hooks := range *LoadedHooksFromFiles {
+			for i, hook := range hooks {
+				if hook.ID == hookID {
+					targetFilePath = filePath
+					hookIndex = i
+					break
+				}
+			}
+			if hookIndex != -1 {
+				break
+			}
+		}
+	}
+
+	if targetFilePath == "" || hookIndex == -1 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Hook configuration not found"})
+		return
+	}
+
+	// 从内存中删除Hook
+	hooks := (*LoadedHooksFromFiles)[targetFilePath]
+	updatedHooks := append(hooks[:hookIndex], hooks[hookIndex+1:]...)
+	(*LoadedHooksFromFiles)[targetFilePath] = updatedHooks
+
+	// 保存配置文件
+	if err := HookManager.SaveHooksToFile(targetFilePath); err != nil {
+		// 保存失败，恢复Hook到内存中
+		hooks = append(hooks[:hookIndex], append([]Hook{*existingHook}, hooks[hookIndex:]...)...)
+		(*LoadedHooksFromFiles)[targetFilePath] = hooks
+
+		// 记录失败的日志
+		username, _ := c.Get("username")
+		usernameStr := "unknown"
+		if username != nil {
+			usernameStr = username.(string)
+		}
+		database.LogHookManagement(
+			database.UserActionDeleteHook,
+			hookID,
+			hookID,
+			usernameStr,
+			middleware.GetClientIP(c),
+			c.Request.UserAgent(),
+			false,
+			map[string]interface{}{
+				"hookId":   hookID,
+				"error":    err.Error(),
+				"action":   "delete_hook",
+				"filePath": targetFilePath,
+			},
+		)
+
+		// 推送失败消息
+		wsMessage := stream.WsMessage{
+			Type:      "hook_managed",
+			Timestamp: time.Now(),
+			Data: stream.HookManageMessage{
+				Action:   "delete",
+				HookID:   hookID,
+				HookName: hookID,
+				Success:  false,
+				Error:    "保存Hook配置失败: " + err.Error(),
+			},
+		}
+		stream.Global.Broadcast(wsMessage)
+
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save hook configuration: " + err.Error()})
+		return
+	}
+
+	// 记录成功的日志
+	username, _ := c.Get("username")
+	usernameStr := "unknown"
+	if username != nil {
+		usernameStr = username.(string)
+	}
+	database.LogHookManagement(
+		database.UserActionDeleteHook,
+		hookID,
+		hookID,
+		usernameStr,
+		middleware.GetClientIP(c),
+		c.Request.UserAgent(),
+		true,
+		map[string]interface{}{
+			"hookId":         hookID,
+			"executeCommand": existingHook.ExecuteCommand,
+			"action":         "delete_hook",
+			"filePath":       targetFilePath,
+			"remainingHooks": len(updatedHooks),
+		},
+	)
+
+	// 推送成功消息
+	wsMessage := stream.WsMessage{
+		Type:      "hook_managed",
+		Timestamp: time.Now(),
+		Data: stream.HookManageMessage{
+			Action:   "delete",
+			HookID:   hookID,
+			HookName: hookID,
+			Success:  true,
+		},
+	}
+	stream.Global.Broadcast(wsMessage)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Hook删除成功",
+		"hookId":  hookID,
+	})
+}

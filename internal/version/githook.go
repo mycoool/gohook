@@ -12,7 +12,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -200,19 +199,17 @@ func tryGitHook(project *types.ProjectConfig, payload map[string]interface{}) (G
 		}
 	case "tag":
 		// 获取当前标签
-		if cmd := exec.Command("git", "-C", project.Path, "describe", "--tags", "--exact-match", "HEAD"); cmd != nil {
-			if output, err := cmd.Output(); err == nil {
-				currentPosition = fmt.Sprintf("标签:%s", strings.TrimSpace(string(output)))
-			} else {
-				// 不在标签上，获取分支信息
-				if gitStatus, err := getGitStatus(project.Path); err == nil {
-					currentPosition = fmt.Sprintf("分支:%s", gitStatus.CurrentBranch)
-					if gitStatus.LastCommit != "" {
-						currentPosition += fmt.Sprintf("@%s", gitStatus.LastCommit)
-					}
-				} else {
-					currentPosition = "未知位置"
+		if output, err := execGitCommandOutput(project.Path, "describe", "--tags", "--exact-match", "HEAD"); err == nil {
+			currentPosition = fmt.Sprintf("标签:%s", strings.TrimSpace(string(output)))
+		} else {
+			// 不在标签上，获取分支信息
+			if gitStatus, err := getGitStatus(project.Path); err == nil {
+				currentPosition = fmt.Sprintf("分支:%s", gitStatus.CurrentBranch)
+				if gitStatus.LastCommit != "" {
+					currentPosition += fmt.Sprintf("@%s", gitStatus.LastCommit)
 				}
+			} else {
+				currentPosition = "未知位置"
 			}
 		}
 	}
@@ -259,12 +256,10 @@ func tryGitHook(project *types.ProjectConfig, payload map[string]interface{}) (G
 	}
 
 	// 获取执行后的提交哈希
-	if cmd := exec.Command("git", "-C", project.Path, "rev-parse", "HEAD"); cmd != nil {
-		if output, err := cmd.Output(); err == nil {
-			commitHash = strings.TrimSpace(string(output))
-			if len(commitHash) > 7 {
-				commitHash = commitHash[:7]
-			}
+	if output, err := execGitCommandOutput(project.Path, "rev-parse", "HEAD"); err == nil {
+		commitHash = strings.TrimSpace(string(output))
+		if len(commitHash) > 7 {
+			commitHash = commitHash[:7]
 		}
 	}
 
@@ -330,8 +325,7 @@ func executeGitHook(project *types.ProjectConfig, refType, targetRef string) err
 	}
 
 	// fetch latest remote information
-	cmd := exec.Command("git", "-C", projectPath, "fetch", "--all")
-	if output, err := cmd.CombinedOutput(); err != nil {
+	if output, err := execGitCommand(projectPath, "fetch", "--all"); err != nil {
 		log.Printf("warning: failed to fetch remote information: %s", string(output))
 	}
 
