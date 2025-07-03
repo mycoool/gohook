@@ -200,6 +200,17 @@ class Logs extends Component<LogsProps, LogsState> {
         return action;
     };
 
+    getResourceTranslation = (resource: string) => {
+        // 尝试翻译资源类型
+        const translation = this.props.t(`logs.resources.${resource}`);
+        if (translation !== `logs.resources.${resource}`) {
+            return translation;
+        }
+
+        // 如果没有找到翻译，返回原始resource
+        return resource;
+    };
+
     renderFilters = () => {
         const {filters} = this.logStore;
 
@@ -414,7 +425,7 @@ class Logs extends Component<LogsProps, LogsState> {
                                                 {this.props.t('logs.resource')}
                                             </Typography>
                                             <Typography variant="body2">
-                                                {selectedLog.resource}
+                                                {this.getResourceTranslation(selectedLog.resource)}
                                             </Typography>
                                         </Box>
                                     )}
@@ -739,132 +750,130 @@ class Logs extends Component<LogsProps, LogsState> {
 
         return (
             <main style={{margin: '0 auto', maxWidth: 1200}}>
-                <Box sx={{p: 3}}>
-                    <Typography variant="h4" gutterBottom>
-                        {this.props.t('logs.title')}
+                <Typography variant="h4" gutterBottom>
+                    {this.props.t('logs.title')}
+                </Typography>
+
+                <Box
+                    sx={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        mb: 2,
+                    }}>
+                    <Typography variant="h6">
+                        {this.props.t('logs.totalItems', {count: total})}
                     </Typography>
-
-                    <Box
-                        sx={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            mb: 2,
-                        }}>
-                        <Typography variant="h6">
-                            {this.props.t('logs.totalItems', {count: total})}
-                        </Typography>
-                        <Box sx={{display: 'flex', gap: 1}}>
-                            <Tooltip title={this.props.t('logs.refreshLogs')}>
-                                <span>
-                                    <IconButton onClick={this.handleRefresh} disabled={loading}>
-                                        <RefreshIcon />
-                                    </IconButton>
-                                </span>
-                            </Tooltip>
-                            <Tooltip title={this.props.t('logs.exportLogs')}>
-                                <IconButton onClick={this.handleExport}>
-                                    <DownloadIcon />
+                    <Box sx={{display: 'flex', gap: 1}}>
+                        <Tooltip title={this.props.t('logs.refreshLogs')}>
+                            <span>
+                                <IconButton onClick={this.handleRefresh} disabled={loading}>
+                                    <RefreshIcon />
                                 </IconButton>
-                            </Tooltip>
-                            <Tooltip title={this.props.t('logs.clearLogs')}>
-                                <IconButton onClick={this.handleCleanup} color="error">
-                                    <DeleteIcon />
-                                </IconButton>
-                            </Tooltip>
-                        </Box>
+                            </span>
+                        </Tooltip>
+                        <Tooltip title={this.props.t('logs.exportLogs')}>
+                            <IconButton onClick={this.handleExport}>
+                                <DownloadIcon />
+                            </IconButton>
+                        </Tooltip>
+                        <Tooltip title={this.props.t('logs.clearLogs')}>
+                            <IconButton onClick={this.handleCleanup} color="error">
+                                <DeleteIcon />
+                            </IconButton>
+                        </Tooltip>
                     </Box>
-
-                    {this.renderFilters()}
-
-                    <Paper elevation={6} style={{overflowX: 'auto'}}>
-                        <Table>
-                            <TableHead>
-                                <TableRow>
-                                    <TableCell>{this.props.t('logs.logId')}</TableCell>
-                                    <TableCell>{this.props.t('logs.timestamp')}</TableCell>
-                                    <TableCell>{this.props.t('logs.filterByType')}</TableCell>
-                                    <TableCell>{this.props.t('common.status')}</TableCell>
-                                    <TableCell>{this.props.t('logs.message')}</TableCell>
-                                    <TableCell>{this.props.t('logs.user')}</TableCell>
-                                    <TableCell>{this.props.t('logs.resource')}</TableCell>
-                                    <TableCell>{this.props.t('common.actions')}</TableCell>
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {logs.map((log) => (
-                                    <TableRow key={`${log.type}-${log.id}-${log.timestamp}`} hover>
-                                        <TableCell>{log.id}</TableCell>
-                                        <TableCell>
-                                            <Tooltip
-                                                title={
-                                                    log.timestamp
-                                                        ? new Date(log.timestamp).toLocaleString()
-                                                        : 'Invalid Date'
-                                                }>
-                                                <span>
-                                                    {log.timestamp &&
-                                                    !isNaN(Date.parse(log.timestamp))
-                                                        ? new Date(
-                                                              log.timestamp
-                                                          ).toLocaleTimeString()
-                                                        : 'Invalid Date'}
-                                                </span>
-                                            </Tooltip>
-                                        </TableCell>
-                                        <TableCell>{this.getTypeChip(log.type)}</TableCell>
-                                        <TableCell>{this.getStatusChip(log)}</TableCell>
-                                        <TableCell style={{maxWidth: 300, wordWrap: 'break-word'}}>
-                                            {log.message}
-                                        </TableCell>
-                                        <TableCell>{log.username || log.userId || '-'}</TableCell>
-                                        <TableCell>
-                                            {log.hookName || log.projectName || '-'}
-                                        </TableCell>
-                                        <TableCell>
-                                            <IconButton
-                                                size="small"
-                                                onClick={() => this.handleViewDetail(log)}>
-                                                <VisibilityIcon />
-                                            </IconButton>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                                {loading && (
-                                    <TableRow>
-                                        <TableCell colSpan={8} sx={{textAlign: 'center', p: 2}}>
-                                            <CircularProgress size={24} sx={{mr: 1}} />
-                                            {this.props.t('common.loading')}...
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                                {!loading && logs.length === 0 && (
-                                    <TableRow>
-                                        <TableCell
-                                            colSpan={8}
-                                            sx={{
-                                                textAlign: 'center',
-                                                p: 2,
-                                                color: 'text.secondary',
-                                            }}>
-                                            {this.props.t('logs.noMoreLogs')}
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
-                    </Paper>
-
-                    {loading && logs.length > 0 && (
-                        <Box sx={{textAlign: 'center', mt: 2}}>
-                            <CircularProgress size={24} sx={{mr: 1}} />
-                            {this.props.t('logs.loadMore')}...
-                        </Box>
-                    )}
-
-                    {this.renderDetailDialog()}
-                    {this.renderCleanupDialog()}
                 </Box>
+
+                {this.renderFilters()}
+
+                <Paper elevation={6} style={{overflowX: 'auto'}}>
+                    <Table>
+                        <TableHead>
+                            <TableRow>
+                                <TableCell>{this.props.t('logs.logId')}</TableCell>
+                                <TableCell>{this.props.t('logs.timestamp')}</TableCell>
+                                <TableCell>{this.props.t('logs.filterByType')}</TableCell>
+                                <TableCell>{this.props.t('common.status')}</TableCell>
+                                <TableCell>{this.props.t('logs.message')}</TableCell>
+                                <TableCell>{this.props.t('logs.user')}</TableCell>
+                                <TableCell>{this.props.t('logs.resource')}</TableCell>
+                                <TableCell>{this.props.t('common.actions')}</TableCell>
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {logs.map((log) => (
+                                <TableRow key={`${log.type}-${log.id}-${log.timestamp}`} hover>
+                                    <TableCell>{log.id}</TableCell>
+                                    <TableCell>
+                                        <Tooltip
+                                            title={
+                                                log.timestamp
+                                                    ? new Date(log.timestamp).toLocaleString()
+                                                    : 'Invalid Date'
+                                            }>
+                                            <span>
+                                                {log.timestamp &&
+                                                !isNaN(Date.parse(log.timestamp))
+                                                    ? new Date(
+                                                          log.timestamp
+                                                      ).toLocaleTimeString()
+                                                    : 'Invalid Date'}
+                                            </span>
+                                        </Tooltip>
+                                    </TableCell>
+                                    <TableCell>{this.getTypeChip(log.type)}</TableCell>
+                                    <TableCell>{this.getStatusChip(log)}</TableCell>
+                                    <TableCell style={{maxWidth: 300, wordWrap: 'break-word'}}>
+                                        {log.message}
+                                    </TableCell>
+                                    <TableCell>{log.username || log.userId || '-'}</TableCell>
+                                    <TableCell>
+                                        {log.hookName || log.projectName || '-'}
+                                    </TableCell>
+                                    <TableCell>
+                                        <IconButton
+                                            size="small"
+                                            onClick={() => this.handleViewDetail(log)}>
+                                            <VisibilityIcon />
+                                        </IconButton>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                            {loading && (
+                                <TableRow>
+                                    <TableCell colSpan={8} sx={{textAlign: 'center', p: 2}}>
+                                        <CircularProgress size={24} sx={{mr: 1}} />
+                                        {this.props.t('common.loading')}...
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                            {!loading && logs.length === 0 && (
+                                <TableRow>
+                                    <TableCell
+                                        colSpan={8}
+                                        sx={{
+                                            textAlign: 'center',
+                                            p: 2,
+                                            color: 'text.secondary',
+                                        }}>
+                                        {this.props.t('logs.noMoreLogs')}
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </Paper>
+
+                {loading && logs.length > 0 && (
+                    <Box sx={{textAlign: 'center', mt: 2}}>
+                        <CircularProgress size={24} sx={{mr: 1}} />
+                        {this.props.t('logs.loadMore')}...
+                    </Box>
+                )}
+
+                {this.renderDetailDialog()}
+                {this.renderCleanupDialog()}
             </main>
         );
     }

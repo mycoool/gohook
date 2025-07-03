@@ -404,6 +404,16 @@
       "ADD": "添加项目",
       "DELETE": "删除项目",
       "UPDATE": "更新项目"
+    },
+    "resources": {
+      "system_config": "系统配置",
+      "/client": "客户端登录",
+      "hook": "Hook配置",
+      "user": "用户信息",
+      "project": "项目配置",
+      "webhook": "WebHook",
+      "version": "版本控制",
+      "settings": "系统设置"
     }
   },
   "settings": {

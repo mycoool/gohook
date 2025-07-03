@@ -404,6 +404,16 @@
       "ADD": "Add Project",
       "DELETE": "Delete Project",
       "UPDATE": "Update Project"
+    },
+    "resources": {
+      "system_config": "System Configuration",
+      "/client": "Client Login",
+      "hook": "Hook Configuration",
+      "user": "User Information",
+      "project": "Project Configuration",
+      "webhook": "WebHook",
+      "version": "Version Control",
+      "settings": "System Settings"
     }
   },
   "settings": {
