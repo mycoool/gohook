@@ -4,7 +4,6 @@ import * as config from '../config';
 import {SnackReporter} from '../snack/SnackManager';
 
 export interface IAppConfig {
-    port: number;
     mode: string; // "dev" | "test" | "prod"
 }
 

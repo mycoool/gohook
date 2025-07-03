@@ -142,7 +142,6 @@ func HandleGetAppConfig(c *gin.Context) {
 
 	// only return safe config fields, not including secrets
 	c.JSON(http.StatusOK, gin.H{
-		"port": types.GoHookAppConfig.Port,
 		"mode": types.GoHookAppConfig.Mode,
 	})
 }
