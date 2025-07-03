@@ -10,7 +10,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-//go:embed build/*
+//go:embed build/index.html build/manifest.json build/asset-manifest.json
+//go:embed build/static/*
 var box embed.FS
 
 // VersionInfo version info structure
@@ -48,6 +49,7 @@ func Register(r *gin.Engine, version VersionInfo, register bool) {
 	// register ui routes, use middleware to disable logging and gzip compression
 	r.GET("/", noLogMiddleware(), gzip.Gzip(gzip.DefaultCompression), serveFile("index.html", "text/html", replaceConfig))
 	r.GET("/index.html", noLogMiddleware(), gzip.Gzip(gzip.DefaultCompression), serveFile("index.html", "text/html", replaceConfig))
+	r.GET("/favicon.ico", noLogMiddleware(), gzip.Gzip(gzip.DefaultCompression), serveFile("static/favicon.ico", "image/x-icon", noop))
 	r.GET("/manifest.json", noLogMiddleware(), gzip.Gzip(gzip.DefaultCompression), serveFile("manifest.json", "application/json", noop))
 	r.GET("/asset-manifest.json", noLogMiddleware(), gzip.Gzip(gzip.DefaultCompression), serveFile("asset-manifest.json", "application/json", noop))
 
