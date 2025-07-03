@@ -22,7 +22,7 @@ func LoadSystemConfig() (*SystemConfig, error) {
 	if _, err := os.Stat(configFilePath); os.IsNotExist(err) {
 		return &SystemConfig{
 			JWTSecret:         "gohook-secret-key-change-in-production",
-			JWTExpiryDuration: 24,
+			JWTExpiryDuration: 1440, // 1440 minutes = 24 hours
 			Mode:              "dev",
 		}, nil
 	}
@@ -43,7 +43,7 @@ func LoadSystemConfig() (*SystemConfig, error) {
 		config.JWTSecret = "gohook-secret-key-change-in-production"
 	}
 	if config.JWTExpiryDuration <= 0 {
-		config.JWTExpiryDuration = 24
+		config.JWTExpiryDuration = 1440 // 1440 minutes = 24 hours
 	}
 	if config.Mode == "" {
 		config.Mode = "dev"
@@ -58,8 +58,8 @@ func SaveSystemConfig(config *SystemConfig) error {
 	if config.JWTSecret == "" {
 		return fmt.Errorf("JWT secret cannot be empty")
 	}
-	if config.JWTExpiryDuration <= 0 || config.JWTExpiryDuration > 8760 {
-		return fmt.Errorf("JWT expiry duration must be between 1 and 8760 hours")
+	if config.JWTExpiryDuration <= 0 || config.JWTExpiryDuration > 525600 {
+		return fmt.Errorf("JWT expiry duration must be between 1 and 525600 minutes")
 	}
 	if config.Mode != "dev" && config.Mode != "test" && config.Mode != "prod" {
 		return fmt.Errorf("mode must be one of: dev, test, prod")

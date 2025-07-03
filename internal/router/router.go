@@ -113,6 +113,9 @@ func InitRouter() *gin.Engine {
 	// login interface - support Basic authentication
 	g.POST("/client", client.Login)
 
+	// token renew interface
+	g.POST("/client/renew", middleware.AuthMiddleware(), client.HandleRenewToken)
+
 	// get current user info interface
 	g.GET("/current/user", middleware.DisableLogMiddleware(), middleware.AuthMiddleware(), client.GetCurrentUser)
 

@@ -105,7 +105,7 @@ func VerifyPassword(password, hashedPassword string) bool {
 
 // generate JWT token
 func GenerateToken(username, role string) (string, error) {
-	expirationTime := time.Now().Add(time.Duration(types.GoHookAppConfig.JWTExpiryDuration) * time.Hour)
+	expirationTime := time.Now().Add(time.Duration(types.GoHookAppConfig.JWTExpiryDuration) * time.Minute)
 	claims := &types.Claims{
 		Username: username,
 		Role:     role,
@@ -210,4 +210,31 @@ func HandleGetClientSessions(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, clients)
+}
+
+func HandleRenewToken(c *gin.Context) {
+	username, _ := c.Get("username")
+	role, _ := c.Get("role")
+	oldToken, _ := c.Get("token")
+
+	// generate new token
+	newToken, err := GenerateToken(username.(string), role.(string))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate new token"})
+		return
+	}
+
+	// remove old session
+	RemoveClientSession(oldToken.(string))
+
+	// add new session
+	// The client name for the new session is not available here, so we'll just use a placeholder.
+	// This could be improved if the client sends its name during renewal.
+	session := AddClientSession(newToken, "renewed session", username.(string))
+
+	c.JSON(http.StatusOK, gin.H{
+		"token": newToken,
+		"id":    session.ID,
+		"name":  session.Name,
+	})
 }

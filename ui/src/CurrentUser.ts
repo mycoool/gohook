@@ -12,6 +12,9 @@ export class CurrentUser {
     private tokenCache: string | null = null;
     private reconnectTimeoutId: number | null = null;
     private reconnectTime = 7500;
+    private tokenExp: number | null = null;
+    private tokenIat: number | null = null;
+    private renewalPromise: Promise<void> | null = null;
     @observable
     public loggedIn = false;
     @observable
@@ -21,25 +24,85 @@ export class CurrentUser {
     @observable
     public connectionErrorMessage: string | null = null;
 
-    public constructor(private readonly snack: SnackReporter) {}
+    public constructor(private readonly snack: SnackReporter) {
+        const token = window.localStorage.getItem(tokenKey);
+        if (token) {
+            // When app starts, if a token exists in storage,
+            // we need to parse it to populate expiry info.
+            this.setToken(token);
+        }
+    }
 
     public token = (): string => {
-        if (this.tokenCache !== null) {
-            return this.tokenCache;
-        }
-
-        const localStorageToken = window.localStorage.getItem(tokenKey);
-        if (localStorageToken) {
-            this.tokenCache = localStorageToken;
-            return localStorageToken;
-        }
-
-        return '';
+        return this.tokenCache ?? '';
     };
 
     private readonly setToken = (token: string) => {
+        try {
+            const payload = JSON.parse(Base64.decode(token.split('.')[1]));
+            this.tokenExp = payload.exp;
+            this.tokenIat = payload.iat;
+        } catch (e) {
+            console.error('Failed to parse token', e);
+            this.tokenExp = null;
+            this.tokenIat = null;
+        }
         this.tokenCache = token;
         window.localStorage.setItem(tokenKey, token);
+    };
+
+    public isTokenExpired = (): boolean => {
+        if (!this.tokenExp) {
+            // If we don't have expiry info, assume it's not expired.
+            // The subsequent API call will fail with a 401 if it is,
+            // which will be handled by the response interceptor.
+            return false;
+        }
+        const now = Date.now() / 1000;
+        return this.tokenExp < now;
+    };
+
+    public isTokenExpiring = (): boolean => {
+        if (!this.tokenExp || !this.tokenIat) {
+            return false;
+        }
+
+        // If token is already expired, it's not "expiring", it's "expired".
+        if (this.isTokenExpired()) {
+            return false;
+        }
+
+        const now = Date.now() / 1000;
+        const remainingLife = this.tokenExp - now;
+        const totalLife = this.tokenExp - this.tokenIat;
+
+        return remainingLife < totalLife * 0.4;
+    };
+
+    public renewToken = async (): Promise<void> => {
+        if (this.renewalPromise) {
+            return this.renewalPromise;
+        }
+
+        this.renewalPromise = (async () => {
+            try {
+                const resp = await axios.create().post(config.get('url') + 'client/renew', undefined, {
+                    headers: {'X-GoHook-Key': this.token()},
+                });
+                this.setToken(resp.data.token);
+                this.snack('会话已自动续期');
+            } catch (e) {
+                this.snack('会话自动续期失败，请重新登录');
+                this.logout();
+                // re-throw the error to notify the caller (the interceptor)
+                throw e;
+            } finally {
+                // reset promise after completion
+                this.renewalPromise = null;
+            }
+        })();
+
+        return this.renewalPromise;
     };
 
     public register = async (name: string, pass: string): Promise<boolean> =>
@@ -187,6 +250,9 @@ export class CurrentUser {
             // 无论如何，都确保清理本地状态，完成登出
             window.localStorage.removeItem(tokenKey);
             this.tokenCache = null;
+            this.tokenExp = null;
+            this.tokenIat = null;
+            this.renewalPromise = null;
             this.loggedIn = false;
             this.user = {name: 'unknown', admin: false, id: -1, username: 'unknown', role: 'user'};
         }
