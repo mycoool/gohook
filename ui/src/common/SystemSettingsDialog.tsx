@@ -224,13 +224,13 @@ class SystemSettingsDialog extends Component<SystemSettingsDialogProps, SystemSe
                                 onChange={(e) =>
                                     this.handleConfigChange(
                                         'jwt_expiry_duration',
-                                        parseInt(e.target.value) || 24
+                                        parseInt(e.target.value) || 1440
                                     )
                                 }
                                 margin="normal"
                                 type="number"
                                 helperText={t('settings.jwtExpiryDurationHelp')}
-                                inputProps={{min: 1, max: 8760}} // 1小时到1年
+                                inputProps={{min: 1, max: 525600}} // 1分钟到1年
                             />
 
                             <FormControl fullWidth margin="normal">
