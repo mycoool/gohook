@@ -19,60 +19,60 @@ import (
 	"github.com/mycoool/gohook/internal/types"
 )
 
-// execGitCommand 执行Git命令，自动处理safe.directory权限问题
+// execGitCommand execute git command, automatically handle safe.directory permission issues
 func execGitCommand(projectPath string, args ...string) ([]byte, error) {
-	// 首先尝试正常执行Git命令
+	// first try to execute git command normally
 	cmd := exec.Command("git", append([]string{"-C", projectPath}, args...)...)
 	output, err := cmd.CombinedOutput()
 
-	// 如果成功或者不是safe.directory相关错误，直接返回
+	// if successful or not safe.directory related error, return directly
 	if err == nil {
 		return output, nil
 	}
 
 	outputStr := string(output)
-	// 检查是否是safe.directory相关错误
+	// check if it is safe.directory related error
 	if !strings.Contains(outputStr, "safe.directory") && !strings.Contains(outputStr, "detected dubious ownership") {
 		return output, err
 	}
 
-	log.Printf("检测到Git安全目录问题，尝试自动修复: %s", projectPath)
+	log.Printf("detected Git safe.directory issue, trying to fix: %s", projectPath)
 
-	// 尝试添加到safe.directory (全局系统级配置)
+	// try to add to safe.directory (global system-level configuration)
 	safeCmd := exec.Command("git", "config", "--system", "--add", "safe.directory", projectPath)
 	if safeOutput, safeErr := safeCmd.CombinedOutput(); safeErr != nil {
-		log.Printf("尝试系统级safe.directory配置失败: %s", string(safeOutput))
+		log.Printf("system-level safe.directory configuration failed: %s", string(safeOutput))
 
-		// 如果系统级配置失败，尝试全局用户级配置
+		// if system-level configuration failed, try global user-level configuration
 		safeCmd = exec.Command("git", "config", "--global", "--add", "safe.directory", projectPath)
 		if safeOutput, safeErr := safeCmd.CombinedOutput(); safeErr != nil {
-			log.Printf("尝试全局safe.directory配置也失败: %s", string(safeOutput))
+			log.Printf("global safe.directory configuration also failed: %s", string(safeOutput))
 			return output, fmt.Errorf("git safe.directory configuration failed: %v. Original error: %v", safeErr, err)
 		} else {
-			log.Printf("成功配置全局safe.directory: %s", projectPath)
+			log.Printf("successfully configured global safe.directory: %s", projectPath)
 		}
 	} else {
-		log.Printf("成功配置系统级safe.directory: %s", projectPath)
+		log.Printf("successfully configured system-level safe.directory: %s", projectPath)
 	}
 
-	// 重新尝试执行原始Git命令
+	// retry to execute original git command
 	cmd = exec.Command("git", append([]string{"-C", projectPath}, args...)...)
 	retryOutput, retryErr := cmd.CombinedOutput()
 	if retryErr != nil {
-		log.Printf("配置safe.directory后重试仍失败: %s", string(retryOutput))
+		log.Printf("retry after safe.directory configuration failed: %s", string(retryOutput))
 		return retryOutput, fmt.Errorf("git command failed even after safe.directory configuration: %v", retryErr)
 	}
 
-	log.Printf("配置safe.directory后Git命令执行成功: %s", projectPath)
+	log.Printf("successfully executed git command after safe.directory configuration: %s", projectPath)
 	return retryOutput, nil
 }
 
-// execGitCommandOutput 执行Git命令并返回输出，使用safe.directory自动修复
+// execGitCommandOutput execute git command and return output, using safe.directory to automatically fix
 func execGitCommandOutput(projectPath string, args ...string) ([]byte, error) {
 	return execGitCommand(projectPath, args...)
 }
 
-// execGitCommandRun 执行Git命令，只返回错误，使用safe.directory自动修复
+// execGitCommandRun execute
 func execGitCommandRun(projectPath string, args ...string) error {
 	_, err := execGitCommand(projectPath, args...)
 	return err
@@ -640,6 +640,11 @@ func HandleEditProject(c *gin.Context) {
 		return
 	}
 
+	// 智能清理路径末尾的斜杠
+	if len(req.Path) > 1 {
+		req.Path = strings.TrimRight(req.Path, string(os.PathSeparator))
+	}
+
 	// find project index
 	projectIndex := -1
 	for i, proj := range types.GoHookVersionData.Projects {
@@ -734,6 +739,11 @@ func HandleAddProject(c *gin.Context) {
 		return
 	}
 
+	// 智能清理路径末尾的斜杠
+	if len(req.Path) > 1 {
+		req.Path = strings.TrimRight(req.Path, string(os.PathSeparator))
+	}
+
 	// check if project name already exists
 	for _, proj := range types.GoHookVersionData.Projects {
 		if proj.Name == req.Name {
@@ -777,6 +787,17 @@ func HandleAddProject(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Save config failed: " + err.Error()})
 		return
 	}
+
+	// 异步执行Git状态检查，以便主动触发safe.directory等修复
+	go func(p types.ProjectConfig) {
+		log.Printf("项目 '%s' 添加成功，开始进行后台Git状态检查...", p.Name)
+		_, err := getGitStatus(p.Path)
+		if err != nil {
+			log.Printf("项目 '%s' 的后台Git状态检查失败: %v", p.Name, err)
+		} else {
+			log.Printf("项目 '%s' 的后台Git状态检查成功完成。", p.Name)
+		}
+	}(newProject)
 
 	// push success message
 	wsMessage := stream.WsMessage{
