@@ -52,9 +52,9 @@ func LoadSystemConfig() (*SystemConfig, error) {
 	return &config, nil
 }
 
-// SaveSystemConfig 保存系统配置
+// SaveSystemConfig save system config
 func SaveSystemConfig(config *SystemConfig) error {
-	// 验证配置
+	// validate config
 	if config.JWTSecret == "" {
 		return fmt.Errorf("JWT secret cannot be empty")
 	}
@@ -65,7 +65,7 @@ func SaveSystemConfig(config *SystemConfig) error {
 		return fmt.Errorf("mode must be one of: dev, test, prod")
 	}
 
-	// 读取现有的完整配置文件
+	// read existing complete config file
 	var existingConfig map[string]interface{}
 	if _, err := os.Stat(configFilePath); err == nil {
 		data, err := os.ReadFile(configFilePath)
@@ -81,12 +81,12 @@ func SaveSystemConfig(config *SystemConfig) error {
 		existingConfig = make(map[string]interface{})
 	}
 
-	// 只更新系统配置相关的字段
+	// only update system config related fields
 	existingConfig["jwt_secret"] = config.JWTSecret
 	existingConfig["jwt_expiry_duration"] = config.JWTExpiryDuration
 	existingConfig["mode"] = config.Mode
 
-	// 确保port字段存在且有效
+	// ensure port field exists and is valid
 	if _, exists := existingConfig["port"]; !exists {
 		existingConfig["port"] = 9000
 	}
@@ -96,7 +96,7 @@ func SaveSystemConfig(config *SystemConfig) error {
 		return fmt.Errorf("failed to marshal config: %v", err)
 	}
 
-	// 备份原文件
+	// backup original file
 	if _, err := os.Stat(configFilePath); err == nil {
 		backupPath := configFilePath + ".backup"
 		if err := copyFile(configFilePath, backupPath); err != nil {
@@ -112,7 +112,7 @@ func SaveSystemConfig(config *SystemConfig) error {
 	return nil
 }
 
-// copyFile 复制文件
+// copyFile copy file
 func copyFile(src, dst string) error {
 	data, err := os.ReadFile(src)
 	if err != nil {

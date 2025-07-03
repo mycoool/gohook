@@ -1,6 +1,6 @@
 package database
 
 import (
-	// 导入纯Go SQLite驱动作为备选
+	// import pure Go SQLite driver as alternative
 	_ "modernc.org/sqlite"
 )

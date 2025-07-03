@@ -81,7 +81,7 @@ func LogProjectAction(projectName, action, oldValue, newValue,
 	}
 }
 
-// LogHookManagement 记录Hook管理操作日志（全局函数）
+// LogHookManagement record hook management operation log (global function)
 func LogHookManagement(action, hookID, hookName, username, ipAddress, userAgent string, success bool, details interface{}) {
 	if globalLogService == nil {
 		InitLogService()
@@ -99,36 +99,36 @@ func LogHookManagement(action, hookID, hookName, username, ipAddress, userAgent 
 	}
 }
 
-// getHookManagementDescription 获取Hook管理操作的描述
+// getHookManagementDescription get hook management operation description
 func getHookManagementDescription(action, hookName string) string {
 	switch action {
 	case "CREATE_HOOK":
-		return "创建Hook: " + hookName
+		return "create hook: " + hookName
 	case "UPDATE_HOOK_BASIC":
-		return "更新Hook基本信息: " + hookName
+		return "update hook basic info: " + hookName
 	case "UPDATE_HOOK_PARAMETERS":
-		return "更新Hook参数配置: " + hookName
+		return "update hook parameters: " + hookName
 	case "UPDATE_HOOK_TRIGGERS":
-		return "更新Hook触发规则: " + hookName
+		return "update hook triggers: " + hookName
 	case "UPDATE_HOOK_RESPONSE":
-		return "更新Hook响应配置: " + hookName
+		return "update hook response: " + hookName
 	case "UPDATE_HOOK_SCRIPT":
-		return "更新Hook脚本: " + hookName
+		return "update hook script: " + hookName
 	case "DELETE_HOOK":
-		return "删除Hook: " + hookName
+		return "delete hook: " + hookName
 	default:
-		return "Hook管理操作: " + hookName
+		return "hook management operation: " + hookName
 	}
 }
 
-// ScheduleLogCleanup 启动定期日志清理任务
+// ScheduleLogCleanup start periodic log cleanup task
 func ScheduleLogCleanup(retentionDays int) {
 	if retentionDays <= 0 {
-		retentionDays = 30 // 默认保留30天
+		retentionDays = 30 // default retention 30 days
 	}
 
 	go func() {
-		ticker := time.NewTicker(24 * time.Hour) // 每天检查一次
+		ticker := time.NewTicker(24 * time.Hour) // check once per day
 		defer ticker.Stop()
 
 		for range ticker.C {

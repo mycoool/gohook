@@ -13,10 +13,10 @@ import (
 
 var DB *gorm.DB
 
-// DatabaseConfig 数据库配置
+// DatabaseConfig database config
 type DatabaseConfig struct {
 	Type     string `yaml:"type"` // sqlite, mysql, postgres
-	DSN      string `yaml:"dsn"`  // 数据源名称
+	DSN      string `yaml:"dsn"`  // data source name
 	Host     string `yaml:"host"`
 	Port     int    `yaml:"port"`
 	Database string `yaml:"database"`
@@ -24,7 +24,7 @@ type DatabaseConfig struct {
 	Password string `yaml:"password"`
 }
 
-// DefaultDatabaseConfig 返回默认数据库配置
+// DefaultDatabaseConfig return default database config
 func DefaultDatabaseConfig() *DatabaseConfig {
 	return &DatabaseConfig{
 		Type:     "sqlite",
@@ -32,12 +32,12 @@ func DefaultDatabaseConfig() *DatabaseConfig {
 	}
 }
 
-// createSQLiteDialector 创建SQLite方言器，自动选择可用的驱动
+// createSQLiteDialector create SQLite dialect, automatically select available driver
 func createSQLiteDialector(dsn string) gorm.Dialector {
-	// 首先尝试标准SQLite驱动，如果失败则使用纯Go驱动
+	// first try standard SQLite driver, if failed, use pure Go driver
 	dialector := sqlite.Open(dsn)
 
-	// 尝试用GORM打开连接测试
+	// try to open connection with GORM
 	testDB, err := gorm.Open(dialector, &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
@@ -45,9 +45,9 @@ func createSQLiteDialector(dsn string) gorm.Dialector {
 	if err != nil && (err.Error() == "Binary was compiled with 'CGO_ENABLED=0', go-sqlite3 requires cgo to work. This is a stub" ||
 		err.Error() == "CGO_ENABLED=0" ||
 		err.Error() == "cgo not available") {
-		log.Printf("Standard SQLite driver (go-sqlite3) not available, using pure Go driver")
+		//log.Printf("Standard SQLite driver (go-sqlite3) not available, using pure Go driver")
 
-		// 使用纯Go SQLite驱动
+		// use pure Go SQLite driver
 		dialector = sqlite.Dialector{
 			DriverName: "sqlite",
 			DSN:        dsn,
@@ -59,8 +59,8 @@ func createSQLiteDialector(dsn string) gorm.Dialector {
 			DSN:        dsn,
 		}
 	} else {
-		// 标准驱动可用
-		log.Printf("Using standard SQLite driver (go-sqlite3)")
+		// standard driver available
+		//log.Printf("Using standard SQLite driver (go-sqlite3)")
 		if testDB != nil {
 			sqlDB, _ := testDB.DB()
 			if sqlDB != nil {
@@ -72,7 +72,7 @@ func createSQLiteDialector(dsn string) gorm.Dialector {
 	return dialector
 }
 
-// InitDatabase 初始化数据库连接
+// InitDatabase initialize database connection
 func InitDatabase(config *DatabaseConfig) error {
 	var dsn string
 	var dialector gorm.Dialector
@@ -83,7 +83,7 @@ func InitDatabase(config *DatabaseConfig) error {
 			config.Database = "gohook.db"
 		}
 
-		// 确保数据库目录存在
+		// ensure database directory exists
 		dbDir := filepath.Dir(config.Database)
 		if dbDir != "." && dbDir != "" {
 			if err := os.MkdirAll(dbDir, 0755); err != nil {
@@ -98,7 +98,7 @@ func InitDatabase(config *DatabaseConfig) error {
 		return fmt.Errorf("unsupported database type: %s", config.Type)
 	}
 
-	// 配置日志级别
+	// set log level
 	logLevel := logger.Error
 	if os.Getenv("DB_DEBUG") == "true" {
 		logLevel = logger.Info
@@ -117,18 +117,18 @@ func InitDatabase(config *DatabaseConfig) error {
 	return nil
 }
 
-// GetDB 获取数据库实例
+// GetDB get database instance
 func GetDB() *gorm.DB {
 	return DB
 }
 
-// AutoMigrate 自动迁移数据库表结构
+// AutoMigrate auto migrate database table structure
 func AutoMigrate() error {
 	if DB == nil {
 		return fmt.Errorf("database not initialized")
 	}
 
-	// 迁移所有模型
+	// migrate all models
 	err := DB.AutoMigrate(
 		&HookLog{},
 		&SystemLog{},
@@ -143,7 +143,7 @@ func AutoMigrate() error {
 	return nil
 }
 
-// CloseDB 关闭数据库连接
+// CloseDB close database connection
 func CloseDB() error {
 	if DB == nil {
 		return nil

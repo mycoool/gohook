@@ -949,12 +949,12 @@ func HandleGetTags(c *gin.Context) {
 	var filteredTags []types.TagResponse
 	if filter != "" || messageFilter != "" {
 		for _, tag := range allTags {
-			// 检查标签名称筛选
+			// check tag name filter
 			nameMatch := filter == "" || strings.HasPrefix(tag.Name, filter)
-			// 检查说明内容筛选（不区分大小写的包含匹配）
+			// check message filter (case-insensitive contains match)
 			messageMatch := messageFilter == "" || strings.Contains(strings.ToLower(tag.Message), strings.ToLower(messageFilter))
 
-			// 只有当两个条件都满足时才添加到结果中
+			// only add to results if both conditions are met
 			if nameMatch && messageMatch {
 				filteredTags = append(filteredTags, tag)
 			}
@@ -1080,7 +1080,7 @@ func HandleSwitchBranch(c *gin.Context) {
 	}
 
 	if projectPath == "" {
-		// 记录失败的分支切换尝试
+		// log failed branch switch attempt
 		database.LogProjectAction(
 			projectName,                        // projectName
 			database.ProjectActionBranchSwitch, // action
@@ -1097,14 +1097,14 @@ func HandleSwitchBranch(c *gin.Context) {
 		return
 	}
 
-	// 获取当前分支用于记录
+	// get current branch for logging
 	currentBranch := ""
 	if gitStatus, err := getGitStatus(projectPath); err == nil {
 		currentBranch = gitStatus.CurrentBranch
 	}
 
 	if err := switchBranch(projectPath, req.Branch); err != nil {
-		// 记录失败的分支切换
+		// log failed branch switch attempt
 		database.LogProjectAction(
 			projectName,                        // projectName
 			database.ProjectActionBranchSwitch, // action
@@ -1136,7 +1136,7 @@ func HandleSwitchBranch(c *gin.Context) {
 		return
 	}
 
-	// 记录成功的分支切换
+	// log successful branch switch
 	database.LogProjectAction(
 		projectName,                        // projectName
 		database.ProjectActionBranchSwitch, // action
@@ -1204,7 +1204,7 @@ func HandleSwitchTag(c *gin.Context) {
 		return
 	}
 
-	// 获取当前用户信息
+	// get current user information
 	currentUser, _ := c.Get("username")
 	currentUserStr := "unknown"
 	if currentUser != nil {
@@ -1221,7 +1221,7 @@ func HandleSwitchTag(c *gin.Context) {
 	}
 
 	if projectPath == "" {
-		// 记录失败的标签切换尝试
+		// log failed tag switch attempt
 		database.LogProjectAction(
 			projectName,                   // projectName
 			"switch-tag",                  // action
@@ -1238,17 +1238,17 @@ func HandleSwitchTag(c *gin.Context) {
 		return
 	}
 
-	// 获取当前标签/分支信息用于记录
+	// get current tag/branch information for logging
 	currentTag := ""
 	currentBranch := ""
 	currentCommit := ""
 
-	// 尝试获取当前标签
+	// try to get current tag
 	if output, err := execGitCommandOutput(projectPath, "describe", "--tags", "--exact-match", "HEAD"); err == nil {
 		currentTag = strings.TrimSpace(string(output))
 	}
 
-	// 如果不在标签上，获取当前分支
+	// if not on a tag, get current branch
 	if currentTag == "" {
 		if gitStatus, err := getGitStatus(projectPath); err == nil {
 			currentBranch = gitStatus.CurrentBranch
@@ -1256,31 +1256,31 @@ func HandleSwitchTag(c *gin.Context) {
 		}
 	}
 
-	// 构建当前位置描述
+	// build current position description
 	currentPosition := ""
 	if currentTag != "" {
-		currentPosition = fmt.Sprintf("标签:%s", currentTag)
+		currentPosition = fmt.Sprintf("Tag:%s", currentTag)
 	} else if currentBranch != "" {
-		currentPosition = fmt.Sprintf("分支:%s", currentBranch)
+		currentPosition = fmt.Sprintf("Branch:%s", currentBranch)
 		if currentCommit != "" && len(currentCommit) > 7 {
 			currentPosition += fmt.Sprintf("@%s", currentCommit[:7])
 		}
 	} else {
-		currentPosition = "未知位置"
+		currentPosition = "Unknown position"
 	}
 
 	if err := switchTag(projectPath, req.Tag); err != nil {
-		// 记录失败的项目活动日志
+		// log failed project action
 		database.LogProjectAction(
 			projectName,
 			"switch-tag",
-			currentPosition,               // oldValue - 当前位置
-			fmt.Sprintf("标签:%s", req.Tag), // newValue - 目标标签
-			currentUserStr,                // username - 使用获取到的用户信息
-			false,                         // success
-			err.Error(),                   // error
-			"",                            // commitHash
-			fmt.Sprintf("标签切换失败：从 %s 切换到标签 %s 时出错: %s", currentPosition, req.Tag, err.Error()), // description
+			currentPosition,                // oldValue - current position
+			fmt.Sprintf("Tag:%s", req.Tag), // newValue - target tag
+			currentUserStr,                 // username - use the user information we got
+			false,                          // success
+			err.Error(),                    // error
+			"",                             // commitHash
+			fmt.Sprintf("Switch tag failed: from %s to tag %s: %s", currentPosition, req.Tag, err.Error()), // description
 			middleware.GetClientIP(c), // ipAddress
 		)
 
@@ -1302,7 +1302,7 @@ func HandleSwitchTag(c *gin.Context) {
 		return
 	}
 
-	// 获取切换后的提交哈希
+	// get new commit hash after switch
 	newCommit := ""
 	if output, err := execGitCommandOutput(projectPath, "rev-parse", "HEAD"); err == nil {
 		newCommit = strings.TrimSpace(string(output))
@@ -1311,17 +1311,17 @@ func HandleSwitchTag(c *gin.Context) {
 		}
 	}
 
-	// 记录成功的项目活动日志
+	// log successful project action
 	database.LogProjectAction(
 		projectName,
 		"switch-tag",
-		currentPosition,               // oldValue - 之前的位置
-		fmt.Sprintf("标签:%s", req.Tag), // newValue - 目标标签
-		currentUserStr,                // username - 使用获取到的用户信息
-		true,                          // success
-		"",                            // error
-		newCommit,                     // commitHash - 切换后的提交哈希
-		fmt.Sprintf("标签切换成功：从 %s 切换到标签 %s (提交: %s)", currentPosition, req.Tag, newCommit), // description
+		currentPosition,                // oldValue - previous position
+		fmt.Sprintf("Tag:%s", req.Tag), // newValue - target tag
+		currentUserStr,                 // username - use the user information we got
+		true,                           // success
+		"",                             // error
+		newCommit,                      // commitHash - new commit hash after switch
+		fmt.Sprintf("Switch tag successfully: from %s to tag %s (commit: %s)", currentPosition, req.Tag, newCommit), // description
 		middleware.GetClientIP(c), // ipAddress
 	)
 
@@ -1346,7 +1346,7 @@ func HandleDeleteTag(c *gin.Context) {
 	projectName := c.Param("name")
 	tagName := c.Param("tagName")
 
-	// 获取当前用户信息
+	// get current user information
 	currentUser, _ := c.Get("username")
 	currentUserStr := "unknown"
 	if currentUser != nil {
@@ -1363,28 +1363,28 @@ func HandleDeleteTag(c *gin.Context) {
 	}
 
 	if projectPath == "" {
-		// 记录失败的标签删除尝试
+		// log failed tag delete attempt
 		database.LogProjectAction(
-			projectName,                   // projectName
-			"delete-tag",                  // action
-			fmt.Sprintf("标签:%s", tagName), // oldValue
-			"",                            // newValue
-			currentUserStr,                // username
-			false,                         // success
-			"Project not found",           // error
-			"",                            // commitHash
-			fmt.Sprintf("标签删除失败：项目 %s 未找到", projectName), // description
+			projectName,                    // projectName
+			"delete-tag",                   // action
+			fmt.Sprintf("Tag:%s", tagName), // oldValue
+			"",                             // newValue
+			currentUserStr,                 // username
+			false,                          // success
+			"Project not found",            // error
+			"",                             // commitHash
+			fmt.Sprintf("Delete tag failed: project %s not found", projectName), // description
 			middleware.GetClientIP(c), // ipAddress
 		)
 		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
 		return
 	}
 
-	// 获取标签信息用于详细记录
+	// get tag information for detailed logging
 	tagCommit := ""
 	tagDate := ""
 
-	// 获取标签对应的提交哈希
+	// get tag commit hash
 	if output, err := execGitCommandOutput(projectPath, "rev-list", "-n", "1", tagName); err == nil {
 		tagCommit = strings.TrimSpace(string(output))
 		if len(tagCommit) > 7 {
@@ -1392,7 +1392,7 @@ func HandleDeleteTag(c *gin.Context) {
 		}
 	}
 
-	// 获取标签创建日期
+	// get tag creation date
 	if output, err := execGitCommandOutput(projectPath, "log", "-1", "--format=%ci", tagName); err == nil {
 		if t, err := time.Parse("2006-01-02 15:04:05 -0700", strings.TrimSpace(string(output))); err == nil {
 			tagDate = t.Format("2006-01-02 15:04")
@@ -1400,17 +1400,17 @@ func HandleDeleteTag(c *gin.Context) {
 	}
 
 	if err := deleteTag(projectPath, tagName); err != nil {
-		// 记录失败的项目活动日志
+		// log failed project action
 		database.LogProjectAction(
 			projectName,
 			"delete-tag",
-			fmt.Sprintf("标签:%s", tagName), // oldValue
-			"",                            // newValue
-			currentUserStr,                // username - 使用获取到的用户信息
-			false,                         // success
-			err.Error(),                   // error
-			tagCommit,                     // commitHash
-			fmt.Sprintf("标签删除失败：删除标签 %s 时出错 (提交: %s, 创建时间: %s): %s", tagName, tagCommit, tagDate, err.Error()), // description
+			fmt.Sprintf("Tag:%s", tagName), // oldValue
+			"",                             // newValue
+			currentUserStr,                 // username - use the user information we got
+			false,                          // success
+			err.Error(),                    // error
+			tagCommit,                      // commitHash
+			fmt.Sprintf("Delete tag failed: delete tag %s: %s (commit: %s, created at: %s)", tagName, tagCommit, tagDate, err.Error()), // description
 			middleware.GetClientIP(c), // ipAddress
 		)
 
@@ -1432,17 +1432,17 @@ func HandleDeleteTag(c *gin.Context) {
 		return
 	}
 
-	// 记录成功的项目活动日志
+	// log successful project action
 	database.LogProjectAction(
 		projectName,
 		"delete-tag",
-		fmt.Sprintf("标签:%s", tagName), // oldValue
-		"",                            // newValue
-		currentUserStr,                // username - 使用获取到的用户信息
-		true,                          // success
-		"",                            // error
-		tagCommit,                     // commitHash
-		fmt.Sprintf("标签删除成功：已删除标签 %s (提交: %s, 创建时间: %s)", tagName, tagCommit, tagDate), // description
+		fmt.Sprintf("Tag:%s", tagName), // oldValue
+		"",                             // newValue
+		currentUserStr,                 // username - use the user information we got
+		true,                           // success
+		"",                             // error
+		tagCommit,                      // commitHash
+		fmt.Sprintf("Delete tag successfully: deleted tag %s (commit: %s, created at: %s)", tagName, tagCommit, tagDate), // description
 		middleware.GetClientIP(c), // ipAddress
 	)
 

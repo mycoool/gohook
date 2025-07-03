@@ -9,17 +9,17 @@ import (
 	"gorm.io/gorm"
 )
 
-// LogService 日志服务
+// LogService log service
 type LogService struct {
 	db *gorm.DB
 }
 
-// NewLogService 创建日志服务实例
+// NewLogService create log service instance
 func NewLogService() *LogService {
 	return &LogService{db: GetDB()}
 }
 
-// CreateHookLog 创建Hook执行日志
+// CreateHookLog create hook execution log
 func (s *LogService) CreateHookLog(hookID, hookName, hookType, method, remoteAddr string,
 	headers map[string][]string, body string, success bool, output, error string,
 	duration int64, userAgent string, queryParams map[string][]string) error {
@@ -46,7 +46,7 @@ func (s *LogService) CreateHookLog(hookID, hookName, hookType, method, remoteAdd
 	return s.db.Create(log).Error
 }
 
-// CreateSystemLog 创建系统日志
+// CreateSystemLog create system log
 func (s *LogService) CreateSystemLog(level, category, message string, details interface{},
 	userID, ipAddress, userAgent string) error {
 
@@ -69,7 +69,7 @@ func (s *LogService) CreateSystemLog(level, category, message string, details in
 	return s.db.Create(log).Error
 }
 
-// CreateUserActivity 创建用户活动记录
+// CreateUserActivity create user activity record
 func (s *LogService) CreateUserActivity(username, action, resource, description,
 	ipAddress, userAgent string, success bool, details interface{}) error {
 
@@ -93,7 +93,7 @@ func (s *LogService) CreateUserActivity(username, action, resource, description,
 	return s.db.Create(activity).Error
 }
 
-// CreateProjectActivity 创建项目活动记录
+// CreateProjectActivity create project activity record
 func (s *LogService) CreateProjectActivity(projectName, action, oldValue, newValue,
 	username string, success bool, error, commitHash, description, ipAddress string) error {
 
@@ -113,13 +113,13 @@ func (s *LogService) CreateProjectActivity(projectName, action, oldValue, newVal
 	return s.db.Create(activity).Error
 }
 
-// GetHookLogs 获取Hook日志列表（支持分页和过滤）
+// GetHookLogs get hook log list (support pagination and filtering)
 func (s *LogService) GetHookLogs(page, pageSize int, hookID, hookName, hookType string, success *bool,
 	startTime, endTime *time.Time) ([]HookLog, int64, error) {
 
 	query := s.db.Model(&HookLog{})
 
-	// 添加过滤条件
+	// add filter conditions
 	if hookID != "" {
 		query = query.Where("hook_id = ?", hookID)
 	}
@@ -139,13 +139,13 @@ func (s *LogService) GetHookLogs(page, pageSize int, hookID, hookName, hookType 
 		query = query.Where("created_at <= ?", *endTime)
 	}
 
-	// 获取总数
+	// get total
 	var total int64
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
-	// 分页查询
+	// pagination query
 	var logs []HookLog
 	offset := (page - 1) * pageSize
 	err := query.Order("created_at DESC").Offset(offset).Limit(pageSize).Find(&logs).Error
@@ -153,13 +153,13 @@ func (s *LogService) GetHookLogs(page, pageSize int, hookID, hookName, hookType 
 	return logs, total, err
 }
 
-// GetSystemLogs 获取系统日志列表
+// GetSystemLogs get system log list
 func (s *LogService) GetSystemLogs(page, pageSize int, level, category, userID string,
 	startTime, endTime *time.Time) ([]SystemLog, int64, error) {
 
 	query := s.db.Model(&SystemLog{})
 
-	// 添加过滤条件
+	// add filter conditions
 	if level != "" {
 		query = query.Where("level = ?", level)
 	}
@@ -176,13 +176,13 @@ func (s *LogService) GetSystemLogs(page, pageSize int, level, category, userID s
 		query = query.Where("created_at <= ?", *endTime)
 	}
 
-	// 获取总数
+	// get total
 	var total int64
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
-	// 分页查询
+	// pagination query
 	var logs []SystemLog
 	offset := (page - 1) * pageSize
 	err := query.Order("created_at DESC").Offset(offset).Limit(pageSize).Find(&logs).Error
@@ -190,13 +190,13 @@ func (s *LogService) GetSystemLogs(page, pageSize int, level, category, userID s
 	return logs, total, err
 }
 
-// GetUserActivities 获取用户活动记录
+// GetUserActivities get user activity record
 func (s *LogService) GetUserActivities(page, pageSize int, username, action string,
 	success *bool, startTime, endTime *time.Time) ([]UserActivity, int64, error) {
 
 	query := s.db.Model(&UserActivity{})
 
-	// 添加过滤条件
+	// add filter conditions
 	if username != "" {
 		query = query.Where("username = ?", username)
 	}
@@ -213,13 +213,13 @@ func (s *LogService) GetUserActivities(page, pageSize int, username, action stri
 		query = query.Where("created_at <= ?", *endTime)
 	}
 
-	// 获取总数
+	// get total
 	var total int64
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
-	// 分页查询
+	// pagination query
 	var activities []UserActivity
 	offset := (page - 1) * pageSize
 	err := query.Order("created_at DESC").Offset(offset).Limit(pageSize).Find(&activities).Error
@@ -227,13 +227,13 @@ func (s *LogService) GetUserActivities(page, pageSize int, username, action stri
 	return activities, total, err
 }
 
-// GetProjectActivities 获取项目活动记录
+// GetProjectActivities get project activity record
 func (s *LogService) GetProjectActivities(page, pageSize int, projectName, action, username string,
 	success *bool, startTime, endTime *time.Time) ([]ProjectActivity, int64, error) {
 
 	query := s.db.Model(&ProjectActivity{})
 
-	// 添加过滤条件
+	// add filter conditions
 	if projectName != "" {
 		query = query.Where("project_name = ?", projectName)
 	}
@@ -253,13 +253,13 @@ func (s *LogService) GetProjectActivities(page, pageSize int, projectName, actio
 		query = query.Where("created_at <= ?", *endTime)
 	}
 
-	// 获取总数
+	// get total
 	var total int64
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
-	// 分页查询
+	// pagination query
 	var activities []ProjectActivity
 	offset := (page - 1) * pageSize
 	err := query.Order("created_at DESC").Offset(offset).Limit(pageSize).Find(&activities).Error
@@ -267,7 +267,7 @@ func (s *LogService) GetProjectActivities(page, pageSize int, projectName, actio
 	return activities, total, err
 }
 
-// GetHookLogStats 获取Hook日志统计信息
+// GetHookLogStats get hook log stats
 func (s *LogService) GetHookLogStats(hookType string, startTime, endTime *time.Time) (map[string]interface{}, error) {
 	query := s.db.Model(&HookLog{})
 
@@ -283,7 +283,7 @@ func (s *LogService) GetHookLogStats(hookType string, startTime, endTime *time.T
 
 	stats := make(map[string]interface{})
 
-	// 总执行次数
+	// total execution times
 	var total int64
 	if err := query.Count(&total).Error; err != nil {
 		return nil, err
@@ -297,7 +297,7 @@ func (s *LogService) GetHookLogStats(hookType string, startTime, endTime *time.T
 		return stats, nil
 	}
 
-	// 成功次数
+	// success times
 	var success int64
 	successQuery := s.db.Model(&HookLog{}).Where("success = ?", true)
 	if hookType != "" {
@@ -315,7 +315,7 @@ func (s *LogService) GetHookLogStats(hookType string, startTime, endTime *time.T
 	stats["success"] = success
 	stats["success_rate"] = float64(success) / float64(total) * 100
 
-	// 平均执行时长
+	// average execution duration
 	var avgDuration float64
 	avgQuery := s.db.Model(&HookLog{}).Select("AVG(duration)")
 	if hookType != "" {
@@ -335,7 +335,7 @@ func (s *LogService) GetHookLogStats(hookType string, startTime, endTime *time.T
 	return stats, nil
 }
 
-// GetUserActivityStats 获取用户活动统计信息
+// GetUserActivityStats get user activity stats
 func (s *LogService) GetUserActivityStats(username string, startTime, endTime *time.Time) (map[string]interface{}, error) {
 	query := s.db.Model(&UserActivity{})
 
@@ -351,7 +351,7 @@ func (s *LogService) GetUserActivityStats(username string, startTime, endTime *t
 
 	stats := make(map[string]interface{})
 
-	// 总活动次数
+	// total activity times
 	var total int64
 	if err := query.Count(&total).Error; err != nil {
 		return nil, err
@@ -364,7 +364,7 @@ func (s *LogService) GetUserActivityStats(username string, startTime, endTime *t
 		return stats, nil
 	}
 
-	// 成功次数
+	// success times
 	var success int64
 	successQuery := s.db.Model(&UserActivity{}).Where("success = ?", true)
 	if username != "" {
@@ -385,26 +385,26 @@ func (s *LogService) GetUserActivityStats(username string, startTime, endTime *t
 	return stats, nil
 }
 
-// CleanOldLogs 清理旧日志（保留指定天数）
+// CleanOldLogs clean old logs (keep specified days)
 func (s *LogService) CleanOldLogs(days int) error {
 	cutoffTime := time.Now().AddDate(0, 0, -days)
 
-	// 清理Hook日志
+	// clean hook logs
 	if err := s.db.Where("created_at < ?", cutoffTime).Delete(&HookLog{}).Error; err != nil {
 		return fmt.Errorf("failed to clean hook logs: %v", err)
 	}
 
-	// 清理系统日志
+	// clean system logs
 	if err := s.db.Where("created_at < ?", cutoffTime).Delete(&SystemLog{}).Error; err != nil {
 		return fmt.Errorf("failed to clean system logs: %v", err)
 	}
 
-	// 清理用户活动记录
+	// clean user activity records
 	if err := s.db.Where("created_at < ?", cutoffTime).Delete(&UserActivity{}).Error; err != nil {
 		return fmt.Errorf("failed to clean user activities: %v", err)
 	}
 
-	// 清理项目活动记录
+	// clean project activity records
 	if err := s.db.Where("created_at < ?", cutoffTime).Delete(&ProjectActivity{}).Error; err != nil {
 		return fmt.Errorf("failed to clean project activities: %v", err)
 	}
@@ -412,11 +412,11 @@ func (s *LogService) CleanOldLogs(days int) error {
 	return nil
 }
 
-// GetAllLogs 获取所有类型的日志（统一接口）
+// GetAllLogs get all types of logs (uniform interface)
 func (s *LogService) GetAllLogs(page, pageSize int, level, search string, startTime, endTime *time.Time) ([]map[string]interface{}, int64, error) {
 	var allLogs []map[string]interface{}
 
-	// 先获取总数
+	// get total
 	hookTotal := s.getHookLogsCount(search, startTime, endTime)
 	systemTotal := s.getSystemLogsCount(level, search, startTime, endTime)
 	userTotal := s.getUserActivitiesCount(search, startTime, endTime)
@@ -424,16 +424,16 @@ func (s *LogService) GetAllLogs(page, pageSize int, level, search string, startT
 
 	total := hookTotal + systemTotal + userTotal + projectTotal
 
-	// 如果没有数据，直接返回
+	// if no data, return directly
 	if total == 0 {
 		return []map[string]interface{}{}, 0, nil
 	}
 
-	// 计算偏移量和限制
+	// calculate offset and limit
 	offset := (page - 1) * pageSize
 	limit := pageSize
 
-	// 从所有表中获取数据并合并排序
+	// get data from all tables and merge sort
 	hookLogs, err := s.getHookLogsAsInterfaceAll(search, startTime, endTime)
 	if err != nil {
 		return nil, 0, err
@@ -458,7 +458,7 @@ func (s *LogService) GetAllLogs(page, pageSize int, level, search string, startT
 	}
 	allLogs = append(allLogs, projectLogs...)
 
-	// 按时间排序（最新的在前）
+	// sort by time (latest first)
 	sort.Slice(allLogs, func(i, j int) bool {
 		timestampI, ok1 := allLogs[i]["timestamp"].(string)
 		timestampJ, ok2 := allLogs[j]["timestamp"].(string)
@@ -466,17 +466,17 @@ func (s *LogService) GetAllLogs(page, pageSize int, level, search string, startT
 			return false
 		}
 
-		// 解析RFC3339格式的时间字符串
+		// parse RFC3339 format time string
 		timeI, errI := time.Parse(time.RFC3339, timestampI)
 		timeJ, errJ := time.Parse(time.RFC3339, timestampJ)
 		if errI != nil || errJ != nil {
 			return false
 		}
 
-		return timeI.After(timeJ) // 最新的在前
+		return timeI.After(timeJ) // latest first
 	})
 
-	// 应用分页
+	// apply pagination
 	if offset >= len(allLogs) {
 		return []map[string]interface{}{}, total, nil
 	}
@@ -491,7 +491,7 @@ func (s *LogService) GetAllLogs(page, pageSize int, level, search string, startT
 	return pagedLogs, total, nil
 }
 
-// getHookLogsCount 获取Hook日志总数
+// getHookLogsCount get hook log total
 func (s *LogService) getHookLogsCount(search string, startTime, endTime *time.Time) int64 {
 	query := s.db.Model(&HookLog{})
 	if search != "" {
@@ -509,7 +509,7 @@ func (s *LogService) getHookLogsCount(search string, startTime, endTime *time.Ti
 	return count
 }
 
-// getSystemLogsCount 获取系统日志总数
+// getSystemLogsCount get system log total
 func (s *LogService) getSystemLogsCount(level, search string, startTime, endTime *time.Time) int64 {
 	query := s.db.Model(&SystemLog{})
 	if level != "" {
@@ -529,7 +529,7 @@ func (s *LogService) getSystemLogsCount(level, search string, startTime, endTime
 	return count
 }
 
-// getUserActivitiesCount 获取用户活动总数
+// getUserActivitiesCount get user activity total
 func (s *LogService) getUserActivitiesCount(search string, startTime, endTime *time.Time) int64 {
 	query := s.db.Model(&UserActivity{})
 	if search != "" {
@@ -547,7 +547,7 @@ func (s *LogService) getUserActivitiesCount(search string, startTime, endTime *t
 	return count
 }
 
-// getProjectActivitiesCount 获取项目活动总数
+// getProjectActivitiesCount get project activity total
 func (s *LogService) getProjectActivitiesCount(search string, startTime, endTime *time.Time) int64 {
 	query := s.db.Model(&ProjectActivity{})
 	if search != "" {
@@ -565,7 +565,7 @@ func (s *LogService) getProjectActivitiesCount(search string, startTime, endTime
 	return count
 }
 
-// getHookLogsAsInterfaceAll 获取所有Hook日志转为通用接口
+// getHookLogsAsInterfaceAll get all hook logs as uniform interface
 func (s *LogService) getHookLogsAsInterfaceAll(search string, startTime, endTime *time.Time) ([]map[string]interface{}, error) {
 	query := s.db.Model(&HookLog{})
 	if search != "" {
@@ -590,7 +590,7 @@ func (s *LogService) getHookLogsAsInterfaceAll(search string, startTime, endTime
 		result = append(result, map[string]interface{}{
 			"id":         log.ID,
 			"type":       "hook",
-			"timestamp":  log.CreatedAt.Format(time.RFC3339), // 确保时间格式正确
+			"timestamp":  log.CreatedAt.Format(time.RFC3339), // ensure time format is correct
 			"message":    fmt.Sprintf("Hook %s executed", log.HookName),
 			"hookName":   log.HookName,
 			"hookType":   log.HookType,
@@ -606,7 +606,7 @@ func (s *LogService) getHookLogsAsInterfaceAll(search string, startTime, endTime
 	return result, nil
 }
 
-// getSystemLogsAsInterfaceAll 获取所有系统日志转为通用接口
+// getSystemLogsAsInterfaceAll get all system logs as uniform interface
 func (s *LogService) getSystemLogsAsInterfaceAll(level, search string, startTime, endTime *time.Time) ([]map[string]interface{}, error) {
 	query := s.db.Model(&SystemLog{})
 	if level != "" {
@@ -633,7 +633,7 @@ func (s *LogService) getSystemLogsAsInterfaceAll(level, search string, startTime
 		result = append(result, map[string]interface{}{
 			"id":        log.ID,
 			"type":      "system",
-			"timestamp": log.CreatedAt.Format(time.RFC3339), // 确保时间格式正确
+			"timestamp": log.CreatedAt.Format(time.RFC3339), // ensure time format is correct
 			"level":     log.Level,
 			"category":  log.Category,
 			"message":   log.Message,
@@ -646,7 +646,7 @@ func (s *LogService) getSystemLogsAsInterfaceAll(level, search string, startTime
 	return result, nil
 }
 
-// getUserActivitiesAsInterfaceAll 获取所有用户活动转为通用接口
+// getUserActivitiesAsInterfaceAll get all user activities as uniform interface
 func (s *LogService) getUserActivitiesAsInterfaceAll(search string, startTime, endTime *time.Time) ([]map[string]interface{}, error) {
 	query := s.db.Model(&UserActivity{})
 	if search != "" {
@@ -668,7 +668,7 @@ func (s *LogService) getUserActivitiesAsInterfaceAll(search string, startTime, e
 
 	var result []map[string]interface{}
 	for _, activity := range activities {
-		// 优先使用详细的description，如果为空则使用简单格式
+		// use detailed description first, if empty, use simple format
 		message := activity.Description
 		if message == "" {
 			message = fmt.Sprintf("User %s performed %s", activity.Username, activity.Action)
@@ -677,7 +677,7 @@ func (s *LogService) getUserActivitiesAsInterfaceAll(search string, startTime, e
 		result = append(result, map[string]interface{}{
 			"id":          activity.ID,
 			"type":        "user",
-			"timestamp":   activity.CreatedAt.Format(time.RFC3339), // 确保时间格式正确
+			"timestamp":   activity.CreatedAt.Format(time.RFC3339), // ensure time format is correct
 			"message":     message,
 			"username":    activity.Username,
 			"action":      activity.Action,
@@ -692,7 +692,7 @@ func (s *LogService) getUserActivitiesAsInterfaceAll(search string, startTime, e
 	return result, nil
 }
 
-// getProjectActivitiesAsInterfaceAll 项目活动转为通用接口（全部）
+// getProjectActivitiesAsInterfaceAll get all project activities as uniform interface
 func (s *LogService) getProjectActivitiesAsInterfaceAll(search string, startTime, endTime *time.Time) ([]map[string]interface{}, error) {
 	query := s.db.Model(&ProjectActivity{})
 
@@ -715,7 +715,7 @@ func (s *LogService) getProjectActivitiesAsInterfaceAll(search string, startTime
 
 	var result []map[string]interface{}
 	for _, activity := range activities {
-		// 优先使用详细的description，如果为空则使用简单格式
+		// use detailed description first, if empty, use simple format
 		message := activity.Description
 		if message == "" {
 			message = fmt.Sprintf("Project %s: %s", activity.ProjectName, activity.Action)
@@ -724,7 +724,7 @@ func (s *LogService) getProjectActivitiesAsInterfaceAll(search string, startTime
 		result = append(result, map[string]interface{}{
 			"id":          activity.ID,
 			"type":        "project",
-			"timestamp":   activity.CreatedAt.Format(time.RFC3339), // 确保时间格式正确
+			"timestamp":   activity.CreatedAt.Format(time.RFC3339), // ensure time format is correct
 			"message":     message,
 			"projectName": activity.ProjectName,
 			"action":      activity.Action,
@@ -741,11 +741,11 @@ func (s *LogService) getProjectActivitiesAsInterfaceAll(search string, startTime
 	return result, nil
 }
 
-// ExportLogsToCSV 导出日志为CSV格式
+// ExportLogsToCSV export logs to CSV format
 func (s *LogService) ExportLogsToCSV(logType, level, search string, startTime, endTime *time.Time) (string, error) {
 	var csvData string
 
-	// CSV头部
+	// CSV header
 	csvData = "ID,Type,Timestamp,Message,Level,User,Success,Details\n"
 
 	switch logType {
@@ -786,7 +786,7 @@ func (s *LogService) ExportLogsToCSV(logType, level, search string, startTime, e
 				log.ID, log.CreatedAt.Format("2006-01-02 15:04:05"), log.ProjectName, log.Action, log.Username, log.Success, log.Description)
 		}
 	default:
-		// 导出所有日志
+		// export
 		allLogs, _, err := s.GetAllLogs(1, 1000, level, search, startTime, endTime)
 		if err != nil {
 			return "", err
@@ -801,9 +801,9 @@ func (s *LogService) ExportLogsToCSV(logType, level, search string, startTime, e
 	return csvData, nil
 }
 
-// API接口专用方法，返回统一格式的日志数据
+// API interface专用方法，返回统一格式的日志数据
 
-// GetHookLogsForAPI 获取Hook日志 - API专用版本
+// GetHookLogsForAPI get hook logs for API
 func (s *LogService) GetHookLogsForAPI(page, pageSize int, hookID, hookName, hookType string, success *bool, startTime, endTime *time.Time) ([]map[string]interface{}, int64, error) {
 	query := s.db.Model(&HookLog{})
 	if hookID != "" {
@@ -859,7 +859,7 @@ func (s *LogService) GetHookLogsForAPI(page, pageSize int, hookID, hookName, hoo
 	return result, total, nil
 }
 
-// GetSystemLogsForAPI 获取系统日志 - API专用版本
+// GetSystemLogsForAPI get system logs for API
 func (s *LogService) GetSystemLogsForAPI(page, pageSize int, level, category, userID string, startTime, endTime *time.Time) ([]map[string]interface{}, int64, error) {
 	query := s.db.Model(&SystemLog{})
 	if level != "" {
@@ -909,7 +909,7 @@ func (s *LogService) GetSystemLogsForAPI(page, pageSize int, level, category, us
 	return result, total, nil
 }
 
-// GetUserActivitiesForAPI 获取用户活动 - API专用版本
+// GetUserActivitiesForAPI get user activities for API
 func (s *LogService) GetUserActivitiesForAPI(page, pageSize int, username, action string, success *bool, startTime, endTime *time.Time) ([]map[string]interface{}, int64, error) {
 	query := s.db.Model(&UserActivity{})
 	if username != "" {
@@ -966,7 +966,7 @@ func (s *LogService) GetUserActivitiesForAPI(page, pageSize int, username, actio
 	return result, total, nil
 }
 
-// GetProjectActivitiesForAPI 获取项目活动 - API专用版本
+// GetProjectActivitiesForAPI get project activities for API
 func (s *LogService) GetProjectActivitiesForAPI(page, pageSize int, projectName, action, username string, success *bool, startTime, endTime *time.Time) ([]map[string]interface{}, int64, error) {
 	query := s.db.Model(&ProjectActivity{})
 	if projectName != "" {

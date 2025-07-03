@@ -19,7 +19,7 @@ func LoadAppConfig() error {
 		types.GoHookAppConfig = &types.AppConfig{
 			Port:              9000,
 			JWTSecret:         "gohook-secret-key-change-in-production",
-			JWTExpiryDuration: 1440, // 默认24小时，单位：分钟
+			JWTExpiryDuration: 1440, // default 24 hours, unit: minutes
 			Mode:              "test",
 			Database: types.DatabaseConfig{
 				Type:             "sqlite",

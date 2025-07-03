@@ -71,7 +71,7 @@ func AdminMiddleware() gin.HandlerFunc {
 	}
 }
 
-// authMiddleware JWT认证中间件
+// authMiddleware JWT auth middleware
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tokenString := c.GetHeader("X-GoHook-Key")
@@ -88,7 +88,7 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// 更新会话最后使用时间
+		// update session last used time
 		client.UpdateSessionLastUsed(tokenString)
 
 		c.Set("username", claims.Username)

@@ -103,7 +103,7 @@ func main() {
 	// set mode according to mode flag
 	//types.GoHookAppConfig.SetMode(*mode)
 
-	// 恢复默认指定hooks.json文件，但增加自动创建空文件的逻辑
+	// restore default hooks.json file, but add logic to create empty file if it does not exist
 	if len(hooksFiles) == 0 {
 		hooksFiles = append(hooksFiles, "hooks.json")
 	}
@@ -227,7 +227,7 @@ func main() {
 	for _, hooksFilePath := range hooksFiles {
 		log.Printf("attempting to load hooks from %s\n", hooksFilePath)
 
-		// 如果hooks文件不存在，创建一个空的配置文件
+		// if hooks file does not exist, create an empty hooks file
 		if _, err := os.Stat(hooksFilePath); os.IsNotExist(err) {
 			log.Printf("hooks file %s does not exist, creating empty hooks file\n", hooksFilePath)
 			emptyHooks := webhook.Hooks{}
@@ -267,13 +267,13 @@ func main() {
 
 	hooksFiles = newHooksFiles
 
-	// 允许零hooks启动，不再强制退出
+	// allow zero hooks to start, no longer force exit
 	if webhook.HookManager.LenLoadedHooks() == 0 {
 		log.Printf("no hooks loaded, starting with empty configuration")
 		log.Printf("you can add hooks through the web interface after startup")
 	}
 
-	// 只有在成功加载了hooks文件时才启用热重载
+	// only enable hot reload if hooks files are loaded successfully
 	if *hotReload && len(hooksFiles) > 0 {
 		var err error
 
@@ -312,7 +312,7 @@ func main() {
 	if *debug {
 		// debug mode use detailed log middleware
 		r.Use(gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
-			return fmt.Sprintf("[GIN] %v | %3d | %13v | %15s | %-7s %#v\n",
+			return fmt.Sprintf("[GoHook] %v | %3d | %13v | %15s | %-7s %#v\n",
 				param.TimeStamp.Format("2006/01/02 - 15:04:05"),
 				param.StatusCode,
 				param.Latency,
@@ -324,7 +324,7 @@ func main() {
 	} else {
 		// production mode use simple log
 		r.Use(gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
-			return fmt.Sprintf("[GIN] %3d | %13v | %s | %s %s\n",
+			return fmt.Sprintf("[GoHook] %3d | %13v | %s | %s %s\n",
 				param.StatusCode,
 				param.Latency,
 				param.ClientIP,

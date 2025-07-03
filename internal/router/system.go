@@ -32,7 +32,7 @@ func (sr *SystemRouter) RegisterSystemRoutes(rg *gin.RouterGroup) {
 // GetSystemConfig 获取系统配置
 func (sr *SystemRouter) GetSystemConfig(c *gin.Context) {
 	// 检查管理员权限
-	username, exists := c.Get("username")
+	_, exists := c.Get("username")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "未授权访问"})
 		return
@@ -49,18 +49,6 @@ func (sr *SystemRouter) GetSystemConfig(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "加载配置失败: " + err.Error()})
 		return
 	}
-
-	// 记录日志
-	database.LogUserAction(
-		username.(string),
-		"VIEW_SYSTEM_CONFIG",
-		"system_config",
-		"查看系统配置",
-		c.ClientIP(),
-		c.GetHeader("User-Agent"),
-		true,
-		nil,
-	)
 
 	c.JSON(http.StatusOK, systemConfig)
 }
