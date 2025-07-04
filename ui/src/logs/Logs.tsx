@@ -813,11 +813,8 @@ class Logs extends Component<LogsProps, LogsState> {
                                                     : 'Invalid Date'
                                             }>
                                             <span>
-                                                {log.timestamp &&
-                                                !isNaN(Date.parse(log.timestamp))
-                                                    ? new Date(
-                                                          log.timestamp
-                                                      ).toLocaleTimeString()
+                                                {log.timestamp && !isNaN(Date.parse(log.timestamp))
+                                                    ? new Date(log.timestamp).toLocaleTimeString()
                                                     : 'Invalid Date'}
                                             </span>
                                         </Tooltip>
@@ -828,9 +825,7 @@ class Logs extends Component<LogsProps, LogsState> {
                                         {log.message}
                                     </TableCell>
                                     <TableCell>{log.username || log.userId || '-'}</TableCell>
-                                    <TableCell>
-                                        {log.hookName || log.projectName || '-'}
-                                    </TableCell>
+                                    <TableCell>{log.hookName || log.projectName || '-'}</TableCell>
                                     <TableCell>
                                         <IconButton
                                             size="small"
