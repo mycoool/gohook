@@ -103,7 +103,7 @@ func InitRouter() *gin.Engine {
 	})
 
 	// adapt frontend All Messages page, return empty for now
-	g.GET("/message", func(c *gin.Context) {
+	g.GET("/message", middleware.DisableLogMiddleware(), func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"messages": []interface{}{},
 			"paging":   gin.H{},
