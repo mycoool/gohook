@@ -166,7 +166,7 @@ func (m *StreamManager) Broadcast(message WsMessage) {
 
 	// batch clean up dead connections
 	if len(deadConnections) > 0 {
-		log.Printf("Cleaning up %d dead WebSocket connections", len(deadConnections))
+		//log.Printf("Cleaning up %d dead WebSocket connections", len(deadConnections))
 		for _, conn := range deadConnections {
 			m.RemoveClient(conn)
 			conn.Close()
@@ -191,7 +191,7 @@ func (m *StreamManager) StartCleanup() {
 		for range ticker.C {
 			staleConns := m.GetStaleConnections()
 			if len(staleConns) > 0 {
-				log.Printf("Cleaning up %d stale WebSocket connections", len(staleConns))
+				//log.Printf("Cleaning up %d stale WebSocket connections", len(staleConns))
 				for _, conn := range staleConns {
 					m.RemoveClient(conn)
 					conn.Close()
@@ -291,7 +291,7 @@ func HandleWebSocket(c *gin.Context) {
 		}
 	}
 
-	log.Printf("WebSocket client %s disconnected, remaining clients: %d", remoteAddr, Global.ClientCount())
+	//log.Printf("WebSocket client %s disconnected, remaining clients: %d", remoteAddr, Global.ClientCount())
 }
 
 // Initialize the stream manager
