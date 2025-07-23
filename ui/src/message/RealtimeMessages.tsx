@@ -17,7 +17,6 @@ import {
     Error as ErrorIcon,
     Info as InfoIcon,
     Delete as DeleteIcon,
-    Refresh as RefreshIcon,
     Visibility as VisibilityIcon,
     VisibilityOff as VisibilityOffIcon,
 } from '@mui/icons-material';
@@ -32,6 +31,7 @@ import {
     IGitHookTriggeredMessage,
     IHookManageMessage,
 } from '../types';
+import {WebSocketStatusIndicator} from '../common/WebSocketStatusIndicator';
 
 // 空接口用于扩展
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
@@ -441,13 +441,7 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
                                         <DeleteIcon />
                                     </IconButton>
                                 </Tooltip>
-                                <Tooltip title="发送心跳">
-                                    <IconButton
-                                        size="small"
-                                        onClick={() => this.props.wsStore.sendPing()}>
-                                        <RefreshIcon />
-                                    </IconButton>
-                                </Tooltip>
+                                <WebSocketStatusIndicator wsStore={this.props.wsStore} />
                             </Box>
                         </Box>
 

@@ -131,7 +131,7 @@ func (m *StreamManager) GetStaleConnections() []*websocket.Conn {
 	defer m.clientsMux.RUnlock()
 
 	var staleConns []*websocket.Conn
-	cutoff := time.Now().Add(-5 * time.Minute)
+	cutoff := time.Now().Add(-3 * time.Minute) // 从5分钟改为3分钟
 
 	for conn, client := range m.clients {
 		if client.LastPing.Before(cutoff) {
@@ -185,13 +185,13 @@ func (m *StreamManager) ClientCount() int {
 // clean up stale connections, prevent connection leak
 func (m *StreamManager) StartCleanup() {
 	go func() {
-		ticker := time.NewTicker(2 * time.Minute)
+		ticker := time.NewTicker(1 * time.Minute) // 从2分钟改为1分钟
 		defer ticker.Stop()
 
 		for range ticker.C {
 			staleConns := m.GetStaleConnections()
 			if len(staleConns) > 0 {
-				//log.Printf("Cleaning up %d stale WebSocket connections", len(staleConns))
+				log.Printf("Cleaning up %d stale WebSocket connections", len(staleConns))
 				for _, conn := range staleConns {
 					m.RemoveClient(conn)
 					conn.Close()
@@ -222,11 +222,11 @@ func HandleWebSocket(c *gin.Context) {
 	log.Printf("WebSocket client connected from %s, total clients: %d", remoteAddr, Global.ClientCount())
 
 	// set connection timeout, prevent dead connection
-	if err := conn.SetReadDeadline(time.Now().Add(10 * time.Minute)); err != nil {
+	if err := conn.SetReadDeadline(time.Now().Add(15 * time.Minute)); err != nil { // 从10分钟改为15分钟
 		log.Printf("Failed to set read deadline for %s: %v", remoteAddr, err)
 		return
 	}
-	if err := conn.SetWriteDeadline(time.Now().Add(1 * time.Minute)); err != nil {
+	if err := conn.SetWriteDeadline(time.Now().Add(2 * time.Minute)); err != nil { // 从1分钟改为2分钟
 		log.Printf("Failed to set write deadline for %s: %v", remoteAddr, err)
 		return
 	}
@@ -247,7 +247,7 @@ func HandleWebSocket(c *gin.Context) {
 	// main loop: handle messages and heartbeat
 	for {
 		// reset read timeout
-		if err := conn.SetReadDeadline(time.Now().Add(10 * time.Minute)); err != nil {
+		if err := conn.SetReadDeadline(time.Now().Add(15 * time.Minute)); err != nil { // 从10分钟改为15分钟
 			log.Printf("Failed to reset read deadline for %s: %v", remoteAddr, err)
 			break
 		}
@@ -277,7 +277,7 @@ func HandleWebSocket(c *gin.Context) {
 
 				if pongData, err := json.Marshal(pongMsg); err == nil {
 					// reset write timeout
-					if err := conn.SetWriteDeadline(time.Now().Add(1 * time.Minute)); err != nil {
+					if err := conn.SetWriteDeadline(time.Now().Add(2 * time.Minute)); err != nil { // 从1分钟改为2分钟
 						log.Printf("Failed to set write deadline for %s: %v", remoteAddr, err)
 						break
 					}
@@ -291,7 +291,7 @@ func HandleWebSocket(c *gin.Context) {
 		}
 	}
 
-	//log.Printf("WebSocket client %s disconnected, remaining clients: %d", remoteAddr, Global.ClientCount())
+	log.Printf("WebSocket client %s disconnected, remaining clients: %d", remoteAddr, Global.ClientCount())
 }
 
 // Initialize the stream manager
