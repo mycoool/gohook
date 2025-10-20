@@ -119,8 +119,8 @@ func InitRouter() *gin.Engine {
 	// get current user info interface
 	g.GET("/current/user", middleware.DisableLogMiddleware(), middleware.AuthMiddleware(), client.GetCurrentUser)
 
-	// get application config interface
-	g.GET("/app/config", middleware.DisableLogMiddleware(), middleware.AuthMiddleware(), config.HandleGetAppConfig)
+	// get application config interface (public, no auth required for panel_alias)
+	g.GET("/app/config", middleware.DisableLogMiddleware(), config.HandleGetAppConfig)
 
 	// user management API group
 	userAPI := g.Group("/user")

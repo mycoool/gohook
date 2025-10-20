@@ -25,6 +25,7 @@ interface SystemConfig {
     jwt_secret: string;
     jwt_expiry_duration: number;
     mode: string;
+    panel_alias: string;
 }
 
 interface SystemSettingsDialogProps {
@@ -55,11 +56,13 @@ class SystemSettingsDialog extends Component<SystemSettingsDialogProps, SystemSe
                 jwt_secret: '',
                 jwt_expiry_duration: 24,
                 mode: 'dev',
+                panel_alias: 'GoHook',
             },
             originalConfig: {
                 jwt_secret: '',
                 jwt_expiry_duration: 24,
                 mode: 'dev',
+                panel_alias: 'GoHook',
             },
         };
     }
@@ -89,6 +92,7 @@ class SystemSettingsDialog extends Component<SystemSettingsDialogProps, SystemSe
                 jwt_secret: '', // 前端显示为空，表示不修改
                 jwt_expiry_duration: configData.jwt_expiry_duration || 24,
                 mode: configData.mode || 'dev',
+                panel_alias: configData.panel_alias || 'GoHook',
             };
 
             this.setState({
@@ -122,7 +126,7 @@ class SystemSettingsDialog extends Component<SystemSettingsDialogProps, SystemSe
                 headers: {'X-GoHook-Key': this.props.token},
             });
 
-            // 保存成功后，用保存的配置（除了jwt_secret）更新原始配置
+            // 保存成功后,用保存的配置（除了jwt_secret）更新原始配置
             this.setState((prevState) => ({
                 saving: false,
                 originalConfig: {
@@ -131,6 +135,10 @@ class SystemSettingsDialog extends Component<SystemSettingsDialogProps, SystemSe
                     jwt_secret: prevState.originalConfig.jwt_secret, // 保持原始secret不变
                 },
             }));
+
+            // 更新浏览器标题
+            const newPanelAlias = configToSave.panel_alias?.trim() || 'GoHook';
+            document.title = newPanelAlias;
 
             this.props.onClose();
             if (this.props.onConfigSaved) {
@@ -173,7 +181,8 @@ class SystemSettingsDialog extends Component<SystemSettingsDialogProps, SystemSe
         // 比较其他字段是否有更改
         return (
             config.jwt_expiry_duration !== originalConfig.jwt_expiry_duration ||
-            config.mode !== originalConfig.mode
+            config.mode !== originalConfig.mode ||
+            config.panel_alias !== originalConfig.panel_alias
         );
     };
 
@@ -231,6 +240,20 @@ class SystemSettingsDialog extends Component<SystemSettingsDialogProps, SystemSe
                                 type="number"
                                 helperText={t('settings.jwtExpiryDurationHelp')}
                                 inputProps={{min: 1, max: 525600}} // 1分钟到1年
+                            />
+
+                            <TextField
+                                fullWidth
+                                label={t('settings.panelAlias')}
+                                value={config.panel_alias}
+                                onChange={(e) =>
+                                    this.handleConfigChange('panel_alias', e.target.value)
+                                }
+                                margin="normal"
+                                helperText={t('settings.panelAliasHelp')}
+                                placeholder={t('settings.panelAliasPlaceholder')}
+                                autoComplete="off"
+                                inputProps={{maxLength: 100}}
                             />
 
                             <FormControl fullWidth margin="normal">

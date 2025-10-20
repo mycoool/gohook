@@ -21,6 +21,7 @@ func LoadAppConfig() error {
 			JWTSecret:         "gohook-secret-key-change-in-production",
 			JWTExpiryDuration: 1440, // default 24 hours, unit: minutes
 			Mode:              "test",
+			PanelAlias:        "GoHook", // 默认面板别名
 			Database: types.DatabaseConfig{
 				Type:             "sqlite",
 				Database:         "gohook.db",
@@ -142,6 +143,7 @@ func HandleGetAppConfig(c *gin.Context) {
 
 	// only return safe config fields, not including secrets
 	c.JSON(http.StatusOK, gin.H{
-		"mode": types.GoHookAppConfig.Mode,
+		"mode":        types.GoHookAppConfig.Mode,
+		"panel_alias": types.GoHookAppConfig.PanelAlias,
 	})
 }

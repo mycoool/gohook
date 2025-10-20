@@ -12,6 +12,7 @@ type SystemConfig struct {
 	JWTSecret         string `yaml:"jwt_secret" json:"jwt_secret"`
 	JWTExpiryDuration int    `yaml:"jwt_expiry_duration" json:"jwt_expiry_duration"`
 	Mode              string `yaml:"mode" json:"mode"`
+	PanelAlias        string `yaml:"panel_alias" json:"panel_alias"` // 面板别名，用于浏览器标题
 }
 
 const configFilePath = "app.yaml"
@@ -24,6 +25,7 @@ func LoadSystemConfig() (*SystemConfig, error) {
 			JWTSecret:         "gohook-secret-key-change-in-production",
 			JWTExpiryDuration: 1440, // 1440 minutes = 24 hours
 			Mode:              "dev",
+			PanelAlias:        "GoHook", // 默认面板别名
 		}, nil
 	}
 
@@ -48,6 +50,9 @@ func LoadSystemConfig() (*SystemConfig, error) {
 	if config.Mode == "" {
 		config.Mode = "dev"
 	}
+	if config.PanelAlias == "" {
+		config.PanelAlias = "GoHook" // 默认面板别名
+	}
 
 	return &config, nil
 }
@@ -63,6 +68,10 @@ func SaveSystemConfig(config *SystemConfig) error {
 	}
 	if config.Mode != "dev" && config.Mode != "test" && config.Mode != "prod" {
 		return fmt.Errorf("mode must be one of: dev, test, prod")
+	}
+	// validate panel_alias: allow empty (will use default), but limit length if provided
+	if len(config.PanelAlias) > 100 {
+		return fmt.Errorf("panel alias must not exceed 100 characters")
 	}
 
 	// read existing complete config file
@@ -85,6 +94,7 @@ func SaveSystemConfig(config *SystemConfig) error {
 	existingConfig["jwt_secret"] = config.JWTSecret
 	existingConfig["jwt_expiry_duration"] = config.JWTExpiryDuration
 	existingConfig["mode"] = config.Mode
+	existingConfig["panel_alias"] = config.PanelAlias
 
 	// ensure port field exists and is valid
 	if _, exists := existingConfig["port"]; !exists {

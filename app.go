@@ -303,7 +303,12 @@ func main() {
 	r := router.GetRouter()
 
 	// register frontend UI router, this will handle root path "/"
-	ui.Register(r, *vInfo, true)
+	// get panel alias from config, default to "GoHook" if not set
+	panelAlias := "GoHook"
+	if types.GoHookAppConfig != nil && types.GoHookAppConfig.PanelAlias != "" {
+		panelAlias = types.GoHookAppConfig.PanelAlias
+	}
+	ui.Register(r, *vInfo, true, panelAlias)
 
 	// enable method not allowed handling
 	r.HandleMethodNotAllowed = true

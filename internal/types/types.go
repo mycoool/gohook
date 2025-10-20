@@ -26,6 +26,7 @@ type AppConfig struct {
 	JWTExpiryDuration int            `yaml:"jwt_expiry_duration"`
 	Mode              string         `yaml:"mode"` // "dev" | "prod" | "test"
 	Database          DatabaseConfig `yaml:"database"`
+	PanelAlias        string         `yaml:"panel_alias"` // 面板别名，用于浏览器标题
 }
 
 // DatabaseConfig database config
@@ -212,6 +213,11 @@ func UpdateAppConfig(systemConfig interface{}) {
 		// get Mode field
 		if modeField := configValue.FieldByName("Mode"); modeField.IsValid() {
 			GoHookAppConfig.Mode = modeField.String()
+		}
+
+		// get PanelAlias field
+		if panelAliasField := configValue.FieldByName("PanelAlias"); panelAliasField.IsValid() {
+			GoHookAppConfig.PanelAlias = panelAliasField.String()
 		}
 	}
 }

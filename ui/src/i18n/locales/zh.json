@@ -427,6 +427,9 @@
     "modeDev": "开发环境",
     "modeTest": "测试环境",
     "modeProd": "生产环境",
+    "panelAlias": "面板别名",
+    "panelAliasHelp": "自定义浏览器标题，方便识别多个GoHook面板",
+    "panelAliasPlaceholder": "例如：生产环境、测试环境等",
     "configSaved": "配置保存成功",
     "configSaveFailed": "配置保存失败"
   }

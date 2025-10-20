@@ -22,8 +22,9 @@ type VersionInfo struct {
 }
 
 type uiConfig struct {
-	Register bool        `json:"register"`
-	Version  VersionInfo `json:"version"`
+	Register   bool        `json:"register"`
+	Version    VersionInfo `json:"version"`
+	PanelAlias string      `json:"panelAlias"` // 面板别名
 }
 
 // noLogMiddleware disable logging for the request
@@ -36,8 +37,8 @@ func noLogMiddleware() gin.HandlerFunc {
 }
 
 // Register registers the ui on the root path.
-func Register(r *gin.Engine, version VersionInfo, register bool) {
-	uiConfigBytes, err := json.Marshal(uiConfig{Version: version, Register: register})
+func Register(r *gin.Engine, version VersionInfo, register bool, panelAlias string) {
+	uiConfigBytes, err := json.Marshal(uiConfig{Version: version, Register: register, PanelAlias: panelAlias})
 	if err != nil {
 		panic(err)
 	}

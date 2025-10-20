@@ -62,10 +62,14 @@ const initStores = (): StoreMapping => {
         config.set('url', devUrl);
         config.set('register', true);
     }
+
     const stores = initStores();
     initAxios(stores.currentUser, stores.snackManager.snack);
 
     registerReactions(stores);
+
+    // 立即加载应用配置（包括面板别名）
+    stores.appConfigStore.fetchAppConfig();
 
     stores.currentUser.tryAuthenticate().catch(() => {});
 

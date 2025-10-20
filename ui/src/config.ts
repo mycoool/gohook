@@ -4,6 +4,7 @@ export interface IConfig {
     url: string;
     register: boolean;
     version: IVersionInfo;
+    panelAlias: string;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -17,6 +18,7 @@ const config: IConfig = {
     url: 'unset',
     register: false,
     version: {commit: 'unknown', buildDate: 'unknown', version: 'unknown'},
+    panelAlias: 'GoHook',
     ...window.config,
 };
 

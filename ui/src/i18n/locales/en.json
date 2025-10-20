@@ -427,6 +427,9 @@
     "modeDev": "Development Environment",
     "modeTest": "Testing Environment",
     "modeProd": "Production Environment",
+    "panelAlias": "Panel Alias",
+    "panelAliasHelp": "Customize browser title to identify multiple GoHook panels",
+    "panelAliasPlaceholder": "e.g.: Production, Testing, etc.",
     "configSaved": "Configuration saved successfully",
     "configSaveFailed": "Failed to save configuration"
   }
