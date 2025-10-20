@@ -33,6 +33,5 @@ gohook.db
 node_modules/
 **/*-packr.go
 /hooks.json
-yarn.lock
 server.log
 
