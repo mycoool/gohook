@@ -68,6 +68,7 @@ type ProjectConfig struct {
 	Hookmode    string `yaml:"hookmode,omitempty"`
 	Hookbranch  string `yaml:"hookbranch,omitempty"`
 	Hooksecret  string `yaml:"hooksecret,omitempty"`
+	ForceSync   bool   `yaml:"forcesync,omitempty"` // GitHook 是否使用强制同步模式
 }
 
 // VersionResponse version response structure
@@ -85,6 +86,7 @@ type VersionResponse struct {
 	Hookmode       string `json:"hookmode,omitempty"`
 	Hookbranch     string `json:"hookbranch,omitempty"`
 	Hooksecret     string `json:"hooksecret,omitempty"`
+	ForceSync      bool   `json:"forcesync,omitempty"` // GitHook 是否使用强制同步模式
 }
 
 // BranchResponse branch response structure

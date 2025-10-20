@@ -67,31 +67,41 @@ export class VersionStore {
             })
             .then((response) => response.data);
 
-    protected requestSwitchBranch = (projectName: string, branch: string): Promise<void> =>
+    protected requestSwitchBranch = (
+        projectName: string,
+        branch: string,
+        force: boolean = false
+    ): Promise<void> =>
         axios
             .post(
                 `${config.get('url')}version/${projectName}/switch-branch`,
                 {
                     branch: branch,
+                    force: force,
                 },
                 {
                     headers: {'X-GoHook-Key': this.tokenProvider()},
                 }
             )
-            .then(() => this.snack('分支切换成功'));
+            .then(() => this.snack(force ? '分支强制切换成功' : '分支切换成功'));
 
-    protected requestSwitchTag = (projectName: string, tag: string): Promise<void> =>
+    protected requestSwitchTag = (
+        projectName: string,
+        tag: string,
+        force: boolean = false
+    ): Promise<void> =>
         axios
             .post(
                 `${config.get('url')}version/${projectName}/switch-tag`,
                 {
                     tag: tag,
+                    force: force,
                 },
                 {
                     headers: {'X-GoHook-Key': this.tokenProvider()},
                 }
             )
-            .then(() => this.snack('标签切换成功'));
+            .then(() => this.snack(force ? '标签强制切换成功' : '标签切换成功'));
 
     @action
     public refreshProjects = async (): Promise<void> => {
@@ -358,6 +368,7 @@ export class VersionStore {
                     hookmode: gitHookConfig.hookmode,
                     hookbranch: gitHookConfig.hookbranch,
                     hooksecret: gitHookConfig.hooksecret,
+                    forcesync: gitHookConfig.forcesync || false,
                 },
                 {
                     headers: {'X-GoHook-Key': this.tokenProvider()},
@@ -435,8 +446,12 @@ export class VersionStore {
     };
 
     @action
-    public switchBranch = async (projectName: string, branch: string): Promise<void> => {
-        await this.requestSwitchBranch(projectName, branch);
+    public switchBranch = async (
+        projectName: string,
+        branch: string,
+        force: boolean = false
+    ): Promise<void> => {
+        await this.requestSwitchBranch(projectName, branch, force);
         await this.refreshBranches(projectName);
         await this.refreshProjects();
     };
@@ -465,8 +480,12 @@ export class VersionStore {
     };
 
     @action
-    public switchTag = async (projectName: string, tag: string): Promise<void> => {
-        await this.requestSwitchTag(projectName, tag);
+    public switchTag = async (
+        projectName: string,
+        tag: string,
+        force: boolean = false
+    ): Promise<void> => {
+        await this.requestSwitchTag(projectName, tag, force);
         await this.refreshTags(projectName);
         await this.refreshProjects();
     };

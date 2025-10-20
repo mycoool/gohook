@@ -83,6 +83,7 @@ export interface IVersion {
     hookmode?: 'branch' | 'tag';
     hookbranch?: string; // 具体分支名或'*'表示任意分支
     hooksecret?: string; // webhook密码
+    forcesync?: boolean; // GitHook 是否使用强制同步
 }
 
 export interface IBranch {

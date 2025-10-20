@@ -131,7 +131,9 @@
     "anyBranchShort": "Any",
     "branchMismatch": "Branch mismatch, no switch needed",
     "modeMismatch": "Mode mismatch, no action needed",
-    "skipMessage": "Operation skipped"
+    "skipMessage": "Operation skipped",
+    "forceSync": "Force Sync",
+    "forceSyncDescription": "When enabled, GitHook will force reset local changes and sync with remote code"
   },
   "hook": {
     "title": "Hook Management",

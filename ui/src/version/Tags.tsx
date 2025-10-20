@@ -24,6 +24,7 @@ import Clear from '@mui/icons-material/Clear';
 import React, {Component} from 'react';
 import DefaultPage from '../common/DefaultPage';
 import ConfirmDialog from '../common/ConfirmDialog';
+import ConfirmDialogWithOptions from '../common/ConfirmDialogWithOptions';
 import {observer} from 'mobx-react';
 import {observable} from 'mobx';
 import {inject, Stores} from '../inject';
@@ -274,11 +275,16 @@ class Tags extends Component<TagsProps> {
                     </Paper>
                 </Grid>
                 {this.switchTag !== false && (
-                    <ConfirmDialog
+                    <ConfirmDialogWithOptions
                         title="确认切换标签"
                         text={`确定要切换到标签 "${this.switchTag}" 吗？这将使项目进入分离头指针状态。`}
                         fClose={() => (this.switchTag = false)}
-                        fOnSubmit={() => this.switchTag && this.performSwitchTag(this.switchTag)}
+                        fOnSubmit={(force) =>
+                            this.switchTag && this.performSwitchTag(this.switchTag, force)
+                        }
+                        forceOptionLabel="强制切换（丢弃本地修改）"
+                        forceOptionDescription="启用此选项将放弃本地修改"
+                        warningText="⚠️ 注意：强制切换会永久丢弃所有未提交的本地修改，但会保留 .env 等未跟踪文件"
                     />
                 )}
                 {this.deleteTag !== false && (
@@ -390,9 +396,9 @@ class Tags extends Component<TagsProps> {
         }
     };
 
-    private performSwitchTag = (tagName: string) => {
+    private performSwitchTag = (tagName: string, force: boolean) => {
         const projectName = this.props.match.params.projectName;
-        this.props.versionStore.switchTag(projectName, tagName);
+        this.props.versionStore.switchTag(projectName, tagName, force);
         this.switchTag = false;
     };
 

@@ -19,6 +19,7 @@ import Delete from '@mui/icons-material/Delete';
 import React, {Component} from 'react';
 import DefaultPage from '../common/DefaultPage';
 import ConfirmDialog from '../common/ConfirmDialog';
+import ConfirmDialogWithOptions from '../common/ConfirmDialogWithOptions';
 import {observer} from 'mobx-react';
 import {observable} from 'mobx';
 import {inject, Stores} from '../inject';
@@ -119,11 +120,14 @@ class Branches extends Component<BranchesProps> {
                     </Paper>
                 </Grid>
                 {switchBranch !== false && (
-                    <ConfirmDialog
+                    <ConfirmDialogWithOptions
                         title="确认切换分支"
                         text={`确定要切换到分支 "${switchBranch}" 吗？`}
                         fClose={() => (this.switchBranch = false)}
-                        fOnSubmit={() => this.performSwitchBranch(switchBranch)}
+                        fOnSubmit={(force) => this.performSwitchBranch(switchBranch, force)}
+                        forceOptionLabel="强制切换（丢弃本地修改）"
+                        forceOptionDescription="启用此选项将放弃本地修改"
+                        warningText="⚠️ 注意：强制切换会永久丢弃所有未提交的本地修改，但会保留 .env 等未跟踪文件"
                     />
                 )}
                 {this.deleteBranch !== false && (
@@ -154,9 +158,9 @@ class Branches extends Component<BranchesProps> {
         this.props.history.push('/versions');
     };
 
-    private performSwitchBranch = (branchName: string) => {
+    private performSwitchBranch = (branchName: string, force: boolean) => {
         const projectName = this.props.match.params.projectName;
-        this.props.versionStore.switchBranch(projectName, branchName);
+        this.props.versionStore.switchBranch(projectName, branchName, force);
         this.switchBranch = false;
     };
 

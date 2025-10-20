@@ -1,6 +1,6 @@
 {
   "name": "gohook-ui",
-  "version": "0.2.0",
+  "version": "0.3.10",
   "private": true,
   "homepage": ".",
   "proxy": "http://localhost:9000",

@@ -93,6 +93,7 @@ export interface GitHookConfig {
     hookmode: 'branch' | 'tag';
     hookbranch?: string;
     hooksecret?: string;
+    forcesync?: boolean; // 是否强制同步
 }
 
 const GitHookDialog: React.FC<GitHookDialogProps> = ({open, project, onClose, onSave}) => {
@@ -101,6 +102,7 @@ const GitHookDialog: React.FC<GitHookDialogProps> = ({open, project, onClose, on
     const [hookmode, setHookmode] = useState<'branch' | 'tag'>('branch');
     const [hookbranch, setHookbranch] = useState('*');
     const [hooksecret, setHooksecret] = useState('');
+    const [forcesync, setForcesync] = useState(false); // 强制同步选项
     const [saving, setSaving] = useState(false);
     const [snackbarOpen, setSnackbarOpen] = useState(false);
     const [snackbarMessage, setSnackbarMessage] = useState('');
@@ -143,6 +145,7 @@ const GitHookDialog: React.FC<GitHookDialogProps> = ({open, project, onClose, on
             setHookmode(project.hookmode || 'branch');
             setHookbranch(project.hookbranch || '*');
             setHooksecret(project.hooksecret || '');
+            setForcesync(project.forcesync || false);
         }
     }, [project]);
 
@@ -156,6 +159,7 @@ const GitHookDialog: React.FC<GitHookDialogProps> = ({open, project, onClose, on
                 hookmode,
                 hookbranch: hookmode === 'branch' ? hookbranch : undefined,
                 hooksecret,
+                forcesync,
             });
             onClose();
         } catch (error) {
@@ -315,6 +319,20 @@ const GitHookDialog: React.FC<GitHookDialogProps> = ({open, project, onClose, on
                             <StyledDescription>
                                 {t('githook.webhookPasswordDescription')}
                             </StyledDescription>
+                        </StyledSection>
+
+                        <StyledSection>
+                            <FormControlLabel
+                                control={
+                                    <Switch
+                                        checked={forcesync}
+                                        onChange={(e) => setForcesync(e.target.checked)}
+                                        color="primary"
+                                    />
+                                }
+                                label={t('githook.forceSync')}
+                            />
+                            <StyledDescription>{t('githook.forceSyncDescription')}</StyledDescription>
                         </StyledSection>
 
                         <StyledSection>

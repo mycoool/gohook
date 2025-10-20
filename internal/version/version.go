@@ -121,8 +121,31 @@ func initGit(projectPath string) error {
 	return nil
 }
 
+// forceCleanWorkingDirectory force clean working directory, discard all local changes
+// Note: Only resets tracked files, does NOT clean untracked files (to preserve .env, runtime/, etc.)
+func forceCleanWorkingDirectory(projectPath string) error {
+	log.Printf("Force cleaning working directory: %s", projectPath)
+
+	// Reset all changes to tracked files (staged and unstaged)
+	// This will discard all local modifications but preserve untracked files like .env, runtime/, etc.
+	if output, err := execGitCommand(projectPath, "reset", "--hard", "HEAD"); err != nil {
+		return fmt.Errorf("git reset --hard failed: %s", string(output))
+	}
+
+	log.Printf("Working directory cleaned successfully (tracked files only): %s", projectPath)
+	return nil
+}
+
 // switchAndPullBranch switch to specified branch and pull latest code
-func switchAndPullBranch(projectPath, branchName string) error {
+// force: if true, will discard all local changes before switching
+func switchAndPullBranch(projectPath, branchName string, force bool) error {
+	// if force mode, clean working directory first
+	if force {
+		if err := forceCleanWorkingDirectory(projectPath); err != nil {
+			return fmt.Errorf("force clean failed: %v", err)
+		}
+	}
+
 	// check if local branch exists
 	output, err := execGitCommandOutput(projectPath, "branch", "--list", branchName)
 	localBranchExists := err == nil && strings.TrimSpace(string(output)) != ""
@@ -138,9 +161,16 @@ func switchAndPullBranch(projectPath, branchName string) error {
 			return fmt.Errorf("switch to branch %s failed: %s", branchName, string(output))
 		}
 
-		// fetch latest code
-		if output, err := execGitCommand(projectPath, "pull", "origin", branchName); err != nil {
-			return fmt.Errorf("failed to fetch latest code for branch %s: %s", branchName, string(output))
+		// if force mode, use reset to sync with remote instead of pull
+		if force {
+			if output, err := execGitCommand(projectPath, "reset", "--hard", "origin/"+branchName); err != nil {
+				return fmt.Errorf("failed to force sync with remote branch %s: %s", branchName, string(output))
+			}
+		} else {
+			// normal mode: pull latest code
+			if output, err := execGitCommand(projectPath, "pull", "origin", branchName); err != nil {
+				return fmt.Errorf("failed to fetch latest code for branch %s: %s", branchName, string(output))
+			}
 		}
 	}
 
@@ -148,7 +178,15 @@ func switchAndPullBranch(projectPath, branchName string) error {
 }
 
 // switchToTag switch to specified tag
-func switchToTag(projectPath, tagName string) error {
+// force: if true, will discard all local changes before switching
+func switchToTag(projectPath, tagName string, force bool) error {
+	// if force mode, clean working directory first
+	if force {
+		if err := forceCleanWorkingDirectory(projectPath); err != nil {
+			return fmt.Errorf("force clean failed: %v", err)
+		}
+	}
+
 	// fetch tag information
 	if output, err := execGitCommand(projectPath, "fetch", "--tags"); err != nil {
 		log.Printf("warning: failed to fetch tag information: %s", string(output))
@@ -317,12 +355,9 @@ func deleteTag(projectPath, tagName string) error {
 	return nil
 }
 
-// SwitchTag switch tag
-func switchTag(projectPath, tagName string) error {
-	if err := execGitCommandRun(projectPath, "checkout", tagName); err != nil {
-		return fmt.Errorf("switch tag failed: %v", err)
-	}
-	return nil
+// SwitchTag switch tag (wrapper for backward compatibility)
+func switchTag(projectPath, tagName string, force bool) error {
+	return switchToTag(projectPath, tagName, force)
 }
 
 // SyncTags sync remote tags
@@ -386,7 +421,15 @@ func syncBranches(projectPath string) error {
 }
 
 // SwitchBranch switch branch
-func switchBranch(projectPath, branchName string) error {
+// force: if true, will discard all local changes before switching
+func switchBranch(projectPath, branchName string, force bool) error {
+	// if force mode, clean working directory first
+	if force {
+		if err := forceCleanWorkingDirectory(projectPath); err != nil {
+			return fmt.Errorf("force clean failed: %v", err)
+		}
+	}
+
 	var isRemoteBranch bool
 	var localBranchName string
 
@@ -418,10 +461,19 @@ func switchBranch(projectPath, branchName string) error {
 
 	// if a new branch is created based on a remote branch, try to pull the latest code
 	if isRemoteBranch {
-		pullOutput, pullErr := execGitCommand(projectPath, "pull", "origin", localBranchName)
-		if pullErr != nil {
-			// pull failed is not a fatal error, but log it
-			log.Printf("pull latest code after switching branch failed (project: %s, branch: %s): %s", projectPath, localBranchName, string(pullOutput))
+		if force {
+			// force mode: use reset instead of pull
+			resetOutput, resetErr := execGitCommand(projectPath, "reset", "--hard", "origin/"+localBranchName)
+			if resetErr != nil {
+				log.Printf("force reset after switching branch failed (project: %s, branch: %s): %s", projectPath, localBranchName, string(resetOutput))
+			}
+		} else {
+			// normal mode: try to pull
+			pullOutput, pullErr := execGitCommand(projectPath, "pull", "origin", localBranchName)
+			if pullErr != nil {
+				// pull failed is not a fatal error, but log it
+				log.Printf("pull latest code after switching branch failed (project: %s, branch: %s): %s", projectPath, localBranchName, string(pullOutput))
+			}
 		}
 	}
 
@@ -1058,6 +1110,7 @@ func HandleSwitchBranch(c *gin.Context) {
 
 	var req struct {
 		Branch string `json:"branch"`
+		Force  bool   `json:"force"` // force switch, discard local changes
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request parameters"})
@@ -1103,7 +1156,7 @@ func HandleSwitchBranch(c *gin.Context) {
 		currentBranch = gitStatus.CurrentBranch
 	}
 
-	if err := switchBranch(projectPath, req.Branch); err != nil {
+	if err := switchBranch(projectPath, req.Branch, req.Force); err != nil {
 		// log failed branch switch attempt
 		database.LogProjectAction(
 			projectName,                        // projectName
@@ -1197,7 +1250,8 @@ func HandleSwitchTag(c *gin.Context) {
 	projectName := c.Param("name")
 
 	var req struct {
-		Tag string `json:"tag"`
+		Tag   string `json:"tag"`
+		Force bool   `json:"force"` // force switch, discard local changes
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request parameters"})
@@ -1269,7 +1323,7 @@ func HandleSwitchTag(c *gin.Context) {
 		currentPosition = "Unknown position"
 	}
 
-	if err := switchTag(projectPath, req.Tag); err != nil {
+	if err := switchTag(projectPath, req.Tag, req.Force); err != nil {
 		// log failed project action
 		database.LogProjectAction(
 			projectName,
@@ -1623,6 +1677,7 @@ func HandleGetProjects(c *gin.Context) {
 		gitStatus.Hookmode = proj.Hookmode
 		gitStatus.Hookbranch = proj.Hookbranch
 		gitStatus.Hooksecret = proj.Hooksecret
+		gitStatus.ForceSync = proj.ForceSync
 		projects = append(projects, *gitStatus)
 	}
 

@@ -316,6 +316,7 @@ func tryGitHook(project *types.ProjectConfig, payload map[string]interface{}) (G
 }
 
 // executeGitHook execute specific Git operation
+// Uses the force mode configured in project settings
 func executeGitHook(project *types.ProjectConfig, refType, targetRef string) error {
 	projectPath := project.Path
 
@@ -329,13 +330,16 @@ func executeGitHook(project *types.ProjectConfig, refType, targetRef string) err
 		log.Printf("warning: failed to fetch remote information: %s", string(output))
 	}
 
+	// Use force mode from project configuration
+	force := project.ForceSync
+
 	switch refType {
 	case "branch":
 		// branch mode: switch to specified branch and pull latest code
-		return switchAndPullBranch(projectPath, targetRef)
+		return switchAndPullBranch(projectPath, targetRef, force)
 	case "tag":
 		// tag mode: switch to specified tag
-		return switchToTag(projectPath, targetRef)
+		return switchToTag(projectPath, targetRef, force)
 	default:
 		return fmt.Errorf("unsupported reference type: %s", refType)
 	}
@@ -497,6 +501,7 @@ func HandleSaveGitHook(c *gin.Context) {
 		Hookmode   string `json:"hookmode"`
 		Hookbranch string `json:"hookbranch"`
 		Hooksecret string `json:"hooksecret"`
+		ForceSync  bool   `json:"forcesync"` // 是否强制同步
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request parameters"})
@@ -511,6 +516,7 @@ func HandleSaveGitHook(c *gin.Context) {
 			types.GoHookVersionData.Projects[i].Hookmode = req.Hookmode
 			types.GoHookVersionData.Projects[i].Hookbranch = req.Hookbranch
 			types.GoHookVersionData.Projects[i].Hooksecret = req.Hooksecret
+			types.GoHookVersionData.Projects[i].ForceSync = req.ForceSync
 			projectFound = true
 			break
 		}
