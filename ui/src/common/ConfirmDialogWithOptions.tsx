@@ -25,9 +25,9 @@ export default function ConfirmDialogWithOptions({
     text,
     fClose,
     fOnSubmit,
-    forceOptionLabel = '强制同步（丢弃本地修改）',
+    forceOptionLabel = '强制同步',
     forceOptionDescription = '启用此选项将会强制覆盖本地修改，确保与远程仓库同步',
-    warningText = '⚠️ 注意：强制同步会永久丢弃所有未提交的本地修改',
+    warningText = '注意：强制同步会永久丢弃所有未提交的本地修改',
 }: IProps) {
     const [forceEnabled, setForceEnabled] = useState(false);
 

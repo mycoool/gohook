@@ -282,9 +282,9 @@ class Tags extends Component<TagsProps> {
                         fOnSubmit={(force) =>
                             this.switchTag && this.performSwitchTag(this.switchTag, force)
                         }
-                        forceOptionLabel="强制切换（丢弃本地修改）"
+                        forceOptionLabel="强制切换"
                         forceOptionDescription="启用此选项将放弃本地修改"
-                        warningText="⚠️ 注意：强制切换会永久丢弃所有未提交的本地修改，但会保留 .env 等未跟踪文件"
+                        warningText="注意：强制切换会永久丢弃所有未提交的本地修改"
                     />
                 )}
                 {this.deleteTag !== false && (
