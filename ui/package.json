@@ -11,6 +11,7 @@
     "@mui/material": "^7.1.1",
     "@mui/styles": "^5.15.21",
     "axios": "^0.21.1",
+    "caniuse-lite": "^1.0.30001753",
     "codemirror": "^5.61.1",
     "detect-browser": "^5.2.0",
     "js-base64": "^3.6.1",

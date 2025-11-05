@@ -4,6 +4,7 @@ import {action, observable} from 'mobx';
 import {SnackReporter} from '../snack/SnackManager';
 import {IVersion, IBranch, ITag, ITagsResponse} from '../types';
 import {GitHookConfig} from './GitHookDialog';
+import translate from '../i18n/translator';
 
 export class VersionStore {
     @observable
@@ -294,8 +295,8 @@ export class VersionStore {
                 error instanceof Error
                     ? error.message
                     : (error as {response?: {data?: {error?: string}}})?.response?.data?.error ??
-                      '获取环境变量文件失败';
-            this.snack('获取环境变量文件失败: ' + errorMessage);
+                      translate('version.env.loadError');
+            this.snack(translate('version.env.loadFailed', {error: errorMessage}));
             throw new Error(errorMessage);
         }
     };
@@ -311,7 +312,7 @@ export class VersionStore {
                     headers: {'X-GoHook-Key': this.tokenProvider()},
                 }
             );
-            this.snack(response.data.message || '环境变量文件保存成功');
+            this.snack(response.data.message || translate('version.env.saveSuccess'));
         } catch (error: unknown) {
             if (error && typeof error === 'object' && 'response' in error) {
                 const axiosError = error as {
@@ -322,16 +323,18 @@ export class VersionStore {
                 if (errorData?.details && Array.isArray(errorData.details)) {
                     // 格式验证失败，显示详细错误信息
                     const details = errorData.details.join('\n');
-                    this.snack(`环境变量文件格式验证失败:\n${details}`);
+                    const message = translate('version.env.validationFailed', {details});
+                    this.snack(message);
                     throw new Error(`格式验证失败:\n${details}`);
                 } else {
-                    const errorMessage = errorData?.error ?? '保存环境变量文件失败';
-                    this.snack('保存环境变量文件失败: ' + errorMessage);
+                    const errorMessage = errorData?.error ?? translate('version.env.saveError');
+                    this.snack(translate('version.env.saveFailed', {error: errorMessage}));
                     throw new Error(errorMessage);
                 }
             } else {
-                const errorMessage = error instanceof Error ? error.message : '未知错误';
-                this.snack('保存环境变量文件失败: ' + errorMessage);
+                const errorMessage =
+                    error instanceof Error ? error.message : translate('version.env.unknownError');
+                this.snack(translate('version.env.saveFailed', {error: errorMessage}));
                 throw new Error(errorMessage);
             }
         }
@@ -342,14 +345,14 @@ export class VersionStore {
             const response = await axios.delete(`${config.get('url')}version/${name}/env`, {
                 headers: {'X-GoHook-Key': this.tokenProvider()},
             });
-            this.snack(response.data.message || '环境变量文件删除成功');
+            this.snack(response.data.message || translate('version.env.deleteSuccess'));
         } catch (error: unknown) {
             const errorMessage =
                 error instanceof Error
                     ? error.message
                     : (error as {response?: {data?: {error?: string}}})?.response?.data?.error ??
-                      '删除环境变量文件失败';
-            this.snack('删除环境变量文件失败: ' + errorMessage);
+                      translate('version.env.deleteError');
+            this.snack(translate('version.env.deleteFailed', {error: errorMessage}));
             throw new Error(errorMessage);
         }
     };

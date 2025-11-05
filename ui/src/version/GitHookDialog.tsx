@@ -332,7 +332,9 @@ const GitHookDialog: React.FC<GitHookDialogProps> = ({open, project, onClose, on
                                 }
                                 label={t('githook.forceSync')}
                             />
-                            <StyledDescription>{t('githook.forceSyncDescription')}</StyledDescription>
+                            <StyledDescription>
+                                {t('githook.forceSyncDescription')}
+                            </StyledDescription>
                         </StyledSection>
 
                         <StyledSection>

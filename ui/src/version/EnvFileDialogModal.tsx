@@ -15,7 +15,6 @@ import {
     Theme,
     SelectChangeEvent,
 } from '@mui/material';
-import {useTheme} from '@mui/material/styles';
 import {inject, Stores} from '../inject';
 import {observer} from 'mobx-react';
 import Editor from 'react-simple-code-editor';
@@ -24,6 +23,7 @@ import 'prismjs/components/prism-toml';
 import 'prismjs/components/prism-bash';
 import 'prismjs/themes/prism.css';
 import './EnvFileDialog.css';
+import useTranslation from '../i18n/useTranslation';
 
 // ENV高亮：自定义实现，精确控制token类型
 const highlightEnv = (code: string, isDark: boolean = false) => {
@@ -148,6 +148,12 @@ interface IProps {
     onSaveEnvFile: (name: string, content: string) => Promise<void>;
     onDeleteEnvFile: (name: string) => Promise<void>;
     theme?: Theme;
+}
+
+type IInjectedProps = IProps & Stores<'snackManager'>;
+
+interface IPropsWithTranslation extends IInjectedProps {
+    t: (key: string, params?: Record<string, string | number>) => string;
 }
 
 interface IState {
@@ -296,7 +302,7 @@ function detectTomlFormat(content: string): boolean {
 }
 
 @observer
-class EnvFileDialogModal extends Component<IProps & Stores<'snackManager'>, IState> {
+class EnvFileDialogModal extends Component<IPropsWithTranslation, IState> {
     state: IState = {
         envFileContent: '',
         originalEnvFileContent: '',
@@ -307,7 +313,7 @@ class EnvFileDialogModal extends Component<IProps & Stores<'snackManager'>, ISta
         isEditMode: false,
     };
 
-    componentDidUpdate(prevProps: IProps) {
+    componentDidUpdate(prevProps: IPropsWithTranslation) {
         if (this.props.open && !prevProps.open && this.props.projectName) {
             this.loadEnvFile();
         }
@@ -337,7 +343,7 @@ class EnvFileDialogModal extends Component<IProps & Stores<'snackManager'>, ISta
                 });
             }
         } catch (error) {
-            this.props.snackManager.snack('加载环境文件失败');
+            this.props.snackManager.snack(this.props.t('version.env.loadError'));
         }
     };
 
@@ -372,7 +378,7 @@ class EnvFileDialogModal extends Component<IProps & Stores<'snackManager'>, ISta
     handleSave = async () => {
         try {
             await this.props.onSaveEnvFile(this.props.projectName, this.state.envFileContent);
-            this.props.snackManager.snack('环境文件保存成功');
+            this.props.snackManager.snack(this.props.t('version.env.saveSuccess'));
             this.setState({
                 originalEnvFileContent: this.state.envFileContent,
                 hasEnvFile: true,
@@ -383,16 +389,16 @@ class EnvFileDialogModal extends Component<IProps & Stores<'snackManager'>, ISta
             if (error.response?.data?.errors) {
                 this.setState({errors: error.response.data.errors});
             } else {
-                this.props.snackManager.snack('保存环境文件失败');
+                this.props.snackManager.snack(this.props.t('version.env.saveError'));
             }
         }
     };
 
     handleDelete = async () => {
-        if (window.confirm('确定要删除环境文件吗？')) {
+        if (window.confirm(this.props.t('version.env.deleteConfirm'))) {
             try {
                 await this.props.onDeleteEnvFile(this.props.projectName);
-                this.props.snackManager.snack('环境文件删除成功');
+                this.props.snackManager.snack(this.props.t('version.env.deleteSuccess'));
                 this.setState({
                     envFileContent: '',
                     originalEnvFileContent: '',
@@ -404,13 +410,13 @@ class EnvFileDialogModal extends Component<IProps & Stores<'snackManager'>, ISta
                 });
                 this.props.onClose();
             } catch (error) {
-                this.props.snackManager.snack('删除环境文件失败');
+                this.props.snackManager.snack(this.props.t('version.env.deleteError'));
             }
         }
     };
 
     render() {
-        const {open, projectName, theme} = this.props;
+        const {open, projectName, theme, t} = this.props;
         const {envFileContent, hasEnvFile, errors, isTomlContent, selectedTemplate, isEditMode} =
             this.state;
 
@@ -458,11 +464,12 @@ class EnvFileDialogModal extends Component<IProps & Stores<'snackManager'>, ISta
                 <DialogTitle>
                     <Box display="flex" alignItems="center" justifyContent="space-between">
                         <span>
-                            {isEditMode ? '编辑环境文件' : '创建环境文件'} - {projectName}
+                            {isEditMode ? t('version.env.edit') : t('version.env.create')} -{' '}
+                            {projectName}
                         </span>
                         {(isEditMode || envFileContent) && (
                             <Chip
-                                label={`格式: ${formatIndicator}`}
+                                label={t('version.env.formatChip', {format: formatIndicator})}
                                 style={{backgroundColor: formatColor, color: 'white'}}
                                 size="small"
                             />
@@ -474,23 +481,33 @@ class EnvFileDialogModal extends Component<IProps & Stores<'snackManager'>, ISta
                     {!isEditMode && (
                         <Box mb={2}>
                             <FormControl fullWidth variant="outlined" size="small">
-                                <InputLabel>选择模板</InputLabel>
+                                <InputLabel>{t('version.env.templateLabel')}</InputLabel>
                                 <Select
                                     value={selectedTemplate}
                                     onChange={this.handleTemplateChange}
-                                    label="选择模板">
-                                    <MenuItem value="empty">空白</MenuItem>
-                                    <MenuItem value="basic_env">基础ENV格式</MenuItem>
-                                    <MenuItem value="toml_format">TOML格式</MenuItem>
-                                    <MenuItem value="web_app">Web应用配置</MenuItem>
-                                    <MenuItem value="microservice">微服务配置</MenuItem>
+                                    label={t('version.env.templateLabel')}>
+                                    <MenuItem value="empty">
+                                        {t('version.env.templateEmpty')}
+                                    </MenuItem>
+                                    <MenuItem value="basic_env">
+                                        {t('version.env.templateBasic')}
+                                    </MenuItem>
+                                    <MenuItem value="toml_format">
+                                        {t('version.env.templateToml')}
+                                    </MenuItem>
+                                    <MenuItem value="web_app">
+                                        {t('version.env.templateWebApp')}
+                                    </MenuItem>
+                                    <MenuItem value="microservice">
+                                        {t('version.env.templateMicroservice')}
+                                    </MenuItem>
                                 </Select>
                             </FormControl>
                             <Typography
                                 variant="caption"
                                 color="textSecondary"
                                 style={{display: 'block', marginTop: '8px'}}>
-                                选择模板将自动填充内容到编辑器中
+                                {t('version.env.templatePlaceholder')}
                             </Typography>
                         </Box>
                     )}
@@ -514,11 +531,11 @@ class EnvFileDialogModal extends Component<IProps & Stores<'snackManager'>, ISta
                             placeholder={
                                 !isEditMode
                                     ? isTomlContent
-                                        ? '# TOML格式内容\n[section]\nkey = "value"\n\n# 选择上方模板快速开始'
-                                        : '# 标准ENV格式\nKEY=value\nANOTHER_KEY=another_value\n\n# 选择上方模板快速开始'
+                                        ? t('version.env.editorPlaceholderToml')
+                                        : t('version.env.editorPlaceholderEnv')
                                     : isTomlContent
-                                    ? '# TOML格式配置文件'
-                                    : '# 环境变量配置文件'
+                                    ? t('version.env.editorPlaceholderExistingToml')
+                                    : t('version.env.editorPlaceholderExistingEnv')
                             }
                         />
                     </Box>
@@ -527,7 +544,7 @@ class EnvFileDialogModal extends Component<IProps & Stores<'snackManager'>, ISta
                     {errors.length > 0 && (
                         <Box mt={2}>
                             <Typography variant="subtitle2" color="error">
-                                验证错误：
+                                {t('version.env.validationTitle')}
                             </Typography>
                             {errors.map((error, index) => (
                                 <Typography key={index} variant="body2" color="error">
@@ -541,16 +558,17 @@ class EnvFileDialogModal extends Component<IProps & Stores<'snackManager'>, ISta
                     <Box mt={2} mb={1}>
                         {(isEditMode || envFileContent) && (
                             <Typography variant="body2" color="textSecondary">
-                                <strong>检测到格式：</strong>
-                                {formatIndicator} 格式内容
+                                <strong>{t('version.env.detectedFormat')}</strong>
+                                {t('version.env.detectedFormatValue', {format: formatIndicator})}
                             </Typography>
                         )}
                         <Typography variant="body2" color="textSecondary">
-                            文件将始终保存为 <code>.env</code>，但支持两种内容格式
+                            {t('version.env.saveInfoPrefix')} <code>.env</code>{' '}
+                            {t('version.env.saveInfoSuffix')}
                         </Typography>
                         {!isEditMode && !envFileContent && (
                             <Typography variant="body2" color="primary" style={{marginTop: '8px'}}>
-                                💡 提示：选择上方模板可快速开始配置
+                                💡 {t('version.env.templateHint')}
                             </Typography>
                         )}
                     </Box>
@@ -558,15 +576,15 @@ class EnvFileDialogModal extends Component<IProps & Stores<'snackManager'>, ISta
                 <DialogActions style={{paddingLeft: 24, paddingRight: 24}}>
                     {hasEnvFile && (
                         <Button onClick={this.handleDelete} variant="contained" color="error">
-                            删除文件
+                            {t('version.env.deleteFile')}
                         </Button>
                     )}
                     <Box flexGrow={1} />
                     <Button onClick={this.handleClose} variant="contained" color="secondary">
-                        取消
+                        {t('common.cancel')}
                     </Button>
                     <Button onClick={this.handleSave} color="primary" variant="contained">
-                        保存
+                        {t('version.env.save')}
                     </Button>
                 </DialogActions>
             </Dialog>
@@ -574,4 +592,11 @@ class EnvFileDialogModal extends Component<IProps & Stores<'snackManager'>, ISta
     }
 }
 
-export default inject('snackManager')(EnvFileDialogModal);
+const EnvFileDialogModalWithTranslation: React.FC<IInjectedProps> = (props) => {
+    const {t} = useTranslation();
+    return <EnvFileDialogModal {...props} t={t} />;
+};
+
+const EnvFileDialogModalInjected = inject('snackManager')(EnvFileDialogModalWithTranslation);
+
+export default EnvFileDialogModalInjected as React.ComponentType<IProps>;

@@ -10,6 +10,7 @@ import {
 } from '@mui/material';
 import {observer} from 'mobx-react';
 import {observable} from 'mobx';
+import useTranslation from '../i18n/useTranslation';
 
 interface IProps {
     open: boolean;
@@ -17,8 +18,17 @@ interface IProps {
     onSubmit: (name: string, path: string, description: string) => Promise<void>;
 }
 
+interface IPropsWithTranslation extends IProps {
+    t: (key: string, params?: Record<string, string | number>) => string;
+}
+
+const AddProjectDialogWithTranslation: React.FC<IProps> = (props) => {
+    const {t} = useTranslation();
+    return <AddProjectDialog {...props} t={t} />;
+};
+
 @observer
-export default class AddProjectDialog extends Component<IProps> {
+class AddProjectDialog extends Component<IPropsWithTranslation> {
     @observable
     private name = '';
     @observable
@@ -38,19 +48,19 @@ export default class AddProjectDialog extends Component<IProps> {
     }
 
     public render() {
-        const {open, onClose} = this.props;
+        const {open, onClose, t} = this.props;
         const {name, path, description, submitting} = this;
 
         return (
             <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-                <DialogTitle>添加新项目</DialogTitle>
+                <DialogTitle>{t('version.addProjectDialogTitle')}</DialogTitle>
                 <DialogContent>
                     <Grid container spacing={2}>
                         <Grid size={12}>
                             <TextField
                                 autoFocus
                                 margin="dense"
-                                label="项目名称"
+                                label={t('version.projectName')}
                                 type="text"
                                 fullWidth
                                 variant="outlined"
@@ -58,13 +68,13 @@ export default class AddProjectDialog extends Component<IProps> {
                                 onChange={(e) => (this.name = e.target.value)}
                                 disabled={submitting}
                                 required
-                                helperText="项目的唯一标识符"
+                                helperText={t('version.projectNamePlaceholder')}
                             />
                         </Grid>
                         <Grid size={12}>
                             <TextField
                                 margin="dense"
-                                label="项目路径"
+                                label={t('version.projectPath')}
                                 type="text"
                                 fullWidth
                                 variant="outlined"
@@ -72,14 +82,14 @@ export default class AddProjectDialog extends Component<IProps> {
                                 onChange={(e) => (this.path = e.target.value)}
                                 disabled={submitting}
                                 required
-                                helperText="项目在服务器上的绝对路径"
-                                placeholder="/www/wwwroot/my-project"
+                                helperText={t('version.projectPathPlaceholder')}
+                                placeholder={t('version.projectPathExample')}
                             />
                         </Grid>
                         <Grid size={12}>
                             <TextField
                                 margin="dense"
-                                label="项目描述"
+                                label={t('version.projectDescription')}
                                 type="text"
                                 fullWidth
                                 variant="outlined"
@@ -88,7 +98,7 @@ export default class AddProjectDialog extends Component<IProps> {
                                 value={description}
                                 onChange={(e) => (this.description = e.target.value)}
                                 disabled={submitting}
-                                helperText="项目的详细描述（可选）"
+                                helperText={t('version.projectDescriptionPlaceholder')}
                             />
                         </Grid>
                     </Grid>
@@ -99,14 +109,14 @@ export default class AddProjectDialog extends Component<IProps> {
                         color="secondary"
                         onClick={onClose}
                         disabled={submitting}>
-                        取消
+                        {t('common.cancel')}
                     </Button>
                     <Button
                         onClick={this.handleSubmit}
                         color="primary"
                         variant="contained"
                         disabled={submitting || !this.isFormValid()}>
-                        {submitting ? '添加中...' : '添加项目'}
+                        {submitting ? t('version.addingProject') : t('version.addProject')}
                     </Button>
                 </DialogActions>
             </Dialog>
@@ -129,3 +139,5 @@ export default class AddProjectDialog extends Component<IProps> {
         }
     };
 }
+
+export default AddProjectDialogWithTranslation;

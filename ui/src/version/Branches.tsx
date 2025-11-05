@@ -30,6 +30,7 @@ import {Theme} from '@mui/material/styles';
 import {WithStyles} from '@mui/styles';
 import withStyles from '@mui/styles/withStyles';
 import createStyles from '@mui/styles/createStyles';
+import useTranslation from '../i18n/useTranslation';
 
 // 添加样式定义
 const styles = (theme: Theme) =>
@@ -49,8 +50,12 @@ const styles = (theme: Theme) =>
 
 type BranchesProps = RouteComponentProps<{projectName: string}> & Stores<'versionStore'>;
 
+interface BranchesPropsWithTranslation extends BranchesProps {
+    t: (key: string, params?: Record<string, string | number>) => string;
+}
+
 @observer
-class Branches extends Component<BranchesProps> {
+class Branches extends Component<BranchesPropsWithTranslation> {
     @observable
     private switchBranch: string | false = false;
 
@@ -65,31 +70,31 @@ class Branches extends Component<BranchesProps> {
     public render() {
         const {
             switchBranch,
-            props: {versionStore, match},
+            props: {versionStore, match, t},
         } = this;
         const projectName = match.params.projectName;
         const branches = versionStore.getBranches();
 
         return (
             <DefaultPage
-                title={`分支管理 - ${projectName}`}
+                title={t('version.branchManagementTitle', {name: projectName})}
                 rightControl={
                     <ButtonGroup variant="contained" color="primary">
                         <Button startIcon={<ArrowBack />} onClick={() => this.goBack()}>
-                            返回
+                            {t('common.back')}
                         </Button>
                         <Button
                             id="refresh-branches"
                             color="primary"
                             startIcon={<Refresh />}
                             onClick={() => this.refreshBranches()}>
-                            刷新
+                            {t('common.refresh')}
                         </Button>
                         <Button
                             id="sync-branches"
                             startIcon={<CloudSync />}
                             onClick={() => this.syncBranches()}>
-                            同步
+                            {t('version.syncBranches')}
                         </Button>
                     </ButtonGroup>
                 }
@@ -99,11 +104,11 @@ class Branches extends Component<BranchesProps> {
                         <Table id="branch-table">
                             <TableHead>
                                 <TableRow>
-                                    <TableCell>分支名称</TableCell>
-                                    <TableCell>状态</TableCell>
-                                    <TableCell>最后提交</TableCell>
-                                    <TableCell>提交时间</TableCell>
-                                    <TableCell>操作</TableCell>
+                                    <TableCell>{t('version.branchName')}</TableCell>
+                                    <TableCell>{t('common.status')}</TableCell>
+                                    <TableCell>{t('version.lastCommit')}</TableCell>
+                                    <TableCell>{t('version.commitTime')}</TableCell>
+                                    <TableCell>{t('common.actions')}</TableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
@@ -113,6 +118,7 @@ class Branches extends Component<BranchesProps> {
                                         branch={branch}
                                         onSwitch={() => (this.switchBranch = branch.name)}
                                         onDelete={() => (this.deleteBranch = branch.name)}
+                                        t={t}
                                     />
                                 ))}
                             </TableBody>
@@ -121,19 +127,19 @@ class Branches extends Component<BranchesProps> {
                 </Grid>
                 {switchBranch !== false && (
                     <ConfirmDialogWithOptions
-                        title="确认切换分支"
-                        text={`确定要切换到分支 "${switchBranch}" 吗？`}
+                        title={t('version.confirmSwitchBranchTitle')}
+                        text={t('version.confirmSwitchBranchText', {name: switchBranch})}
                         fClose={() => (this.switchBranch = false)}
                         fOnSubmit={(force) => this.performSwitchBranch(switchBranch, force)}
-                        forceOptionLabel="强制切换"
-                        forceOptionDescription="启用此选项将放弃本地修改"
-                        warningText="注意：强制切换会永久丢弃所有未提交的本地修改"
+                        forceOptionLabel={t('version.forceSwitchLabel')}
+                        forceOptionDescription={t('version.forceSwitchDescription')}
+                        warningText={t('version.forceSwitchWarning')}
                     />
                 )}
                 {this.deleteBranch !== false && (
                     <ConfirmDialog
-                        title="确认删除分支"
-                        text={`确定要删除分支 "${this.deleteBranch}" 吗？此操作不可撤销。`}
+                        title={t('version.confirmDeleteBranchTitle')}
+                        text={t('version.confirmDeleteBranchText', {name: this.deleteBranch})}
                         fClose={() => (this.deleteBranch = false)}
                         fOnSubmit={() =>
                             this.deleteBranch && this.performDeleteBranch(this.deleteBranch)
@@ -175,19 +181,20 @@ interface IRowProps extends WithStyles<typeof styles> {
     branch: IBranch;
     onSwitch: VoidFunction;
     onDelete: VoidFunction;
+    t: BranchesPropsWithTranslation['t'];
 }
 
-const Row: React.FC<IRowProps> = observer(({branch, onSwitch, onDelete, classes}) => {
+const Row: React.FC<IRowProps> = observer(({branch, onSwitch, onDelete, classes, t}) => {
     const renderBranchName = () => {
         let icon = null;
         let title = '';
 
         if (branch.type === 'local') {
             icon = <Computer fontSize="small" />;
-            title = '本地分支';
+            title = t('version.localBranch');
         } else if (branch.type === 'remote') {
             icon = <CloudQueue fontSize="small" />;
-            title = '远程分支';
+            title = t('version.remoteBranch');
         }
 
         return (
@@ -205,7 +212,7 @@ const Row: React.FC<IRowProps> = observer(({branch, onSwitch, onDelete, classes}
                     {renderBranchName()}
                     {branch.isCurrent && branch.type === 'local' && (
                         <Chip
-                            label="当前分支"
+                            label={t('version.currentBranchLabel')}
                             size="small"
                             style={{backgroundColor: '#4caf50', color: 'white'}}
                         />
@@ -215,7 +222,11 @@ const Row: React.FC<IRowProps> = observer(({branch, onSwitch, onDelete, classes}
             <TableCell>
                 {branch.type !== 'detached' ? (
                     <Chip
-                        label={branch.isCurrent ? '当前' : '可切换'}
+                        label={
+                            branch.isCurrent
+                                ? t('version.branchStatusCurrent')
+                                : t('version.branchStatusSwitchable')
+                        }
                         size="small"
                         style={{
                             backgroundColor: branch.isCurrent ? '#4caf50' : '#2196f3',
@@ -223,7 +234,7 @@ const Row: React.FC<IRowProps> = observer(({branch, onSwitch, onDelete, classes}
                         }}
                     />
                 ) : (
-                    <Chip label="游离状态" size="small" />
+                    <Chip label={t('version.branchStatusDetached')} size="small" />
                 )}
             </TableCell>
             <TableCell>
@@ -234,12 +245,12 @@ const Row: React.FC<IRowProps> = observer(({branch, onSwitch, onDelete, classes}
             </TableCell>
             <TableCell>
                 {!branch.isCurrent && (
-                    <IconButton onClick={onSwitch} title="切换到此分支" size="small">
+                    <IconButton onClick={onSwitch} title={t('version.switchToBranch')} size="small">
                         <CallSplit />
                     </IconButton>
                 )}
                 {branch.type === 'local' && !branch.isCurrent && (
-                    <IconButton onClick={onDelete} title="删除分支" size="small">
+                    <IconButton onClick={onDelete} title={t('version.deleteBranch')} size="small">
                         <Delete />
                     </IconButton>
                 )}
@@ -251,4 +262,9 @@ const Row: React.FC<IRowProps> = observer(({branch, onSwitch, onDelete, classes}
 // 使用 withStyles 包装 Row 组件
 const StyledRow = withStyles(styles)(Row);
 
-export default (withRouter as any)((inject('versionStore') as any)(Branches));
+const BranchesWithTranslation: React.FC<BranchesProps> = (props) => {
+    const {t} = useTranslation();
+    return <Branches {...props} t={t} />;
+};
+
+export default (withRouter as any)((inject('versionStore') as any)(BranchesWithTranslation));

@@ -32,6 +32,7 @@ import {ITag} from '../types';
 import {withRouter, RouteComponentProps} from 'react-router-dom';
 import {withStyles, WithStyles, createStyles} from '@mui/styles';
 import {Theme} from '@mui/material/styles';
+import useTranslation from '../i18n/useTranslation';
 
 // 临时保留@mui/styles以确保构建通过，使用固定样式避免主题兼容性问题
 const styles = (theme: Theme) =>
@@ -74,8 +75,12 @@ type TagsProps = RouteComponentProps<{projectName: string}> &
     Stores<'versionStore'> &
     WithStyles<typeof styles>;
 
+interface TagsPropsWithTranslation extends TagsProps {
+    t: (key: string, params?: Record<string, string | number>) => string;
+}
+
 @observer
-class Tags extends Component<TagsProps> {
+class Tags extends Component<TagsPropsWithTranslation> {
     @observable
     private switchTag: string | false = false;
 
@@ -109,7 +114,7 @@ class Tags extends Component<TagsProps> {
 
     public render() {
         const {
-            props: {versionStore, match, classes},
+            props: {versionStore, match, classes, t},
         } = this;
         const projectName = match.params.projectName;
         const tags = versionStore.getTags();
@@ -119,25 +124,25 @@ class Tags extends Component<TagsProps> {
 
         return (
             <DefaultPage
-                title={`标签管理 - ${projectName}`}
+                title={t('version.tagManagementTitle', {name: projectName})}
                 rightControl={
                     <ButtonGroup variant="contained" color="primary">
                         <Button startIcon={<ArrowBack />} onClick={() => this.goBack()}>
-                            返回
+                            {t('common.back')}
                         </Button>
                         <Button
                             id="refresh-tags"
                             startIcon={<Refresh />}
                             color="primary"
                             onClick={() => this.refreshTags()}>
-                            刷新
+                            {t('common.refresh')}
                         </Button>
                         <Button
                             id="sync-tags"
                             startIcon={<CloudSync />}
                             color="primary"
                             onClick={() => this.syncTags()}>
-                            同步
+                            {t('version.syncTags')}
                         </Button>
                     </ButtonGroup>
                 }
@@ -147,8 +152,8 @@ class Tags extends Component<TagsProps> {
                         <div style={{display: 'flex', gap: '16px', flexWrap: 'wrap'}}>
                             <TextField
                                 className={classes.filterInput}
-                                label="筛选标签名称"
-                                placeholder="输入标签前缀，如 v0.1, v1.0 等"
+                                label={t('version.filterTagLabel')}
+                                placeholder={t('version.filterTagPlaceholder')}
                                 value={this.filterText}
                                 onChange={this.handleFilterChange}
                                 variant="outlined"
@@ -164,7 +169,7 @@ class Tags extends Component<TagsProps> {
                                             <IconButton
                                                 size="small"
                                                 onClick={this.clearFilter}
-                                                title="清除筛选">
+                                                title={t('version.clearFilter')}>
                                                 <Clear />
                                             </IconButton>
                                         </InputAdornment>
@@ -173,8 +178,8 @@ class Tags extends Component<TagsProps> {
                             />
                             <TextField
                                 className={classes.filterInput}
-                                label="筛选标签说明"
-                                placeholder="输入说明内容关键词"
+                                label={t('version.filterTagMessageLabel')}
+                                placeholder={t('version.filterTagMessagePlaceholder')}
                                 value={this.messageFilterText}
                                 onChange={this.handleMessageFilterChange}
                                 variant="outlined"
@@ -190,7 +195,7 @@ class Tags extends Component<TagsProps> {
                                             <IconButton
                                                 size="small"
                                                 onClick={this.clearMessageFilter}
-                                                title="清除说明筛选">
+                                                title={t('version.clearMessageFilter')}>
                                                 <Clear />
                                             </IconButton>
                                         </InputAdornment>
@@ -205,15 +210,20 @@ class Tags extends Component<TagsProps> {
                         {/* 统计信息 */}
                         <div className={classes.statsContainer}>
                             <Typography variant="body2" color="textSecondary">
-                                共 {tagsTotal} 个标签，已显示 {tags.length} 个
+                                {t('version.tagStats', {total: tagsTotal, displayed: tags.length})}
                             </Typography>
                             {(this.filterText || this.messageFilterText) && (
                                 <Typography variant="body2" color="textSecondary">
-                                    筛选条件:
-                                    {this.filterText && ` 标签名称包含"${this.filterText}"`}
+                                    {t('version.filterConditionsLabel')}
+                                    {this.filterText &&
+                                        ` ${t('version.tagNameContains', {
+                                            value: this.filterText,
+                                        })}`}
                                     {this.filterText && this.messageFilterText && ', '}
                                     {this.messageFilterText &&
-                                        ` 说明包含"${this.messageFilterText}"`}
+                                        ` ${t('version.tagMessageContains', {
+                                            value: this.messageFilterText,
+                                        })}`}
                                 </Typography>
                             )}
                         </div>
@@ -221,12 +231,12 @@ class Tags extends Component<TagsProps> {
                         <Table id="tag-table">
                             <TableHead>
                                 <TableRow>
-                                    <TableCell>标签名称</TableCell>
-                                    <TableCell>状态</TableCell>
-                                    <TableCell>提交哈希</TableCell>
-                                    <TableCell>创建时间</TableCell>
-                                    <TableCell>说明</TableCell>
-                                    <TableCell>操作</TableCell>
+                                    <TableCell>{t('version.tagName')}</TableCell>
+                                    <TableCell>{t('common.status')}</TableCell>
+                                    <TableCell>{t('version.commitHash')}</TableCell>
+                                    <TableCell>{t('version.createdAt')}</TableCell>
+                                    <TableCell>{t('version.description')}</TableCell>
+                                    <TableCell>{t('common.actions')}</TableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
@@ -236,6 +246,7 @@ class Tags extends Component<TagsProps> {
                                         tag={tag}
                                         onSwitch={() => (this.switchTag = tag.name)}
                                         onDelete={() => (this.deleteTag = tag.name)}
+                                        t={t}
                                     />
                                 ))}
                             </TableBody>
@@ -247,7 +258,7 @@ class Tags extends Component<TagsProps> {
                                 <CircularProgress size={24} />
                                 <Box ml={1}>
                                     <Typography variant="body2" color="textSecondary">
-                                        加载中...
+                                        {t('common.loading')}
                                     </Typography>
                                 </Box>
                             </div>
@@ -257,7 +268,7 @@ class Tags extends Component<TagsProps> {
                         {!tagsLoading && !tagsHasMore && tags.length > 0 && (
                             <div className={classes.loadingContainer}>
                                 <Typography variant="body2" color="textSecondary">
-                                    已显示全部标签
+                                    {t('version.allTagsLoaded')}
                                 </Typography>
                             </div>
                         )}
@@ -267,8 +278,8 @@ class Tags extends Component<TagsProps> {
                             <div className={classes.loadingContainer}>
                                 <Typography variant="body2" color="textSecondary">
                                     {this.filterText || this.messageFilterText
-                                        ? '没有找到匹配的标签'
-                                        : '暂无标签'}
+                                        ? t('version.noMatchingTags')
+                                        : t('version.noTags')}
                                 </Typography>
                             </div>
                         )}
@@ -276,21 +287,21 @@ class Tags extends Component<TagsProps> {
                 </Grid>
                 {this.switchTag !== false && (
                     <ConfirmDialogWithOptions
-                        title="确认切换标签"
-                        text={`确定要切换到标签 "${this.switchTag}" 吗？这将使项目进入分离头指针状态。`}
+                        title={t('version.confirmSwitchTagTitle')}
+                        text={t('version.confirmSwitchTagText', {name: this.switchTag})}
                         fClose={() => (this.switchTag = false)}
                         fOnSubmit={(force) =>
                             this.switchTag && this.performSwitchTag(this.switchTag, force)
                         }
-                        forceOptionLabel="强制切换"
-                        forceOptionDescription="启用此选项将放弃本地修改"
-                        warningText="注意：强制切换会永久丢弃所有未提交的本地修改"
+                        forceOptionLabel={t('version.forceSwitchLabel')}
+                        forceOptionDescription={t('version.forceSwitchDescription')}
+                        warningText={t('version.forceSwitchWarning')}
                     />
                 )}
                 {this.deleteTag !== false && (
                     <ConfirmDialog
-                        title="确认删除标签"
-                        text={`确定要删除标签 "${this.deleteTag}" 吗？此操作将同时删除本地和远程标签，不可撤销。`}
+                        title={t('version.confirmDeleteTagTitle')}
+                        text={t('version.confirmDeleteTagText', {name: this.deleteTag})}
                         fClose={() => (this.deleteTag = false)}
                         fOnSubmit={() => this.deleteTag && this.performDeleteTag(this.deleteTag)}
                     />
@@ -413,16 +424,17 @@ interface IRowProps extends WithStyles<typeof styles> {
     tag: ITag;
     onSwitch: VoidFunction;
     onDelete: VoidFunction;
+    t: TagsPropsWithTranslation['t'];
 }
 
-const Row: React.FC<IRowProps> = observer(({tag, onSwitch, onDelete, classes}) => (
+const Row: React.FC<IRowProps> = observer(({tag, onSwitch, onDelete, classes, t}) => (
     <TableRow>
         <TableCell>
             <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
                 <strong>{tag.name}</strong>
                 {tag.isCurrent && (
                     <Chip
-                        label="当前标签"
+                        label={t('version.currentTagLabel')}
                         size="small"
                         style={{backgroundColor: '#2196f3', color: 'white'}}
                     />
@@ -431,7 +443,9 @@ const Row: React.FC<IRowProps> = observer(({tag, onSwitch, onDelete, classes}) =
         </TableCell>
         <TableCell>
             <Chip
-                label={tag.isCurrent ? '当前' : '可切换'}
+                label={
+                    tag.isCurrent ? t('version.tagStatusCurrent') : t('version.tagStatusSwitchable')
+                }
                 size="small"
                 style={{
                     backgroundColor: tag.isCurrent ? '#2196f3' : '#4caf50',
@@ -444,16 +458,16 @@ const Row: React.FC<IRowProps> = observer(({tag, onSwitch, onDelete, classes}) =
         </TableCell>
         <TableCell style={{fontSize: '0.85em'}}>{new Date(tag.date).toLocaleString()}</TableCell>
         <TableCell style={{maxWidth: 200, wordWrap: 'break-word', fontSize: '0.85em'}}>
-            {tag.message || '无说明'}
+            {tag.message || t('version.noDescription')}
         </TableCell>
         <TableCell>
             {!tag.isCurrent && (
-                <IconButton onClick={onSwitch} title="切换到此标签" size="small">
+                <IconButton onClick={onSwitch} title={t('version.switchToTag')} size="small">
                     <Cached />
                 </IconButton>
             )}
             {!tag.isCurrent && (
-                <IconButton onClick={onDelete} title="删除标签" size="small">
+                <IconButton onClick={onDelete} title={t('version.deleteTag')} size="small">
                     <Delete />
                 </IconButton>
             )}
@@ -464,6 +478,11 @@ const Row: React.FC<IRowProps> = observer(({tag, onSwitch, onDelete, classes}) =
 // 使用 withStyles 包装 Row 组件
 const StyledRow = withStyles(styles)(Row);
 
+const TagsWithTranslation: React.FC<TagsProps> = (props) => {
+    const {t} = useTranslation();
+    return <Tags {...props} t={t} />;
+};
+
 export default (withRouter as any)(
-    (inject as any)('versionStore')((withStyles as any)(styles)(Tags))
+    (inject as any)('versionStore')((withStyles as any)(styles)(TagsWithTranslation))
 );

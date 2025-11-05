@@ -11,14 +11,19 @@ import {
     Box,
     Grid,
 } from '@mui/material';
-import {useTheme} from '@mui/material/styles';
 
 import DefaultPage from '../common/DefaultPage';
 import {inject, Stores} from '../inject';
 import {withRouter, RouteComponentProps} from 'react-router-dom';
 import {observer} from 'mobx-react';
+import useTranslation from '../i18n/useTranslation';
 
 type IProps = RouteComponentProps<{projectName: string}>;
+type InjectedProps = IProps & Stores<'versionStore' | 'snackManager'>;
+
+interface IPropsWithTranslation extends InjectedProps {
+    t: (key: string, params?: Record<string, string | number>) => string;
+}
 
 interface IState {
     editingEnvFile: boolean;
@@ -147,7 +152,7 @@ function escapeHtml(text: string): string {
 }
 
 @observer
-class EnvFileDialog extends Component<IProps & Stores<'versionStore' | 'snackManager'>, IState> {
+class EnvFileDialog extends Component<IPropsWithTranslation, IState> {
     state: IState = {
         editingEnvFile: false,
         envFileContent: '',
@@ -183,7 +188,7 @@ class EnvFileDialog extends Component<IProps & Stores<'versionStore' | 'snackMan
                 });
             }
         } catch (error) {
-            this.props.snackManager.snack('Failed to load env file');
+            this.props.snackManager.snack(this.props.t('version.env.loadError'));
         }
     };
 
@@ -211,7 +216,7 @@ class EnvFileDialog extends Component<IProps & Stores<'versionStore' | 'snackMan
     validateAndSaveEnvFile = async () => {
         try {
             await this.props.versionStore.saveEnvFile(this.projectName, this.state.envFileContent);
-            this.props.snackManager.snack('Env file saved successfully');
+            this.props.snackManager.snack(this.props.t('version.env.saveSuccess'));
             this.setState({
                 editingEnvFile: false,
                 originalEnvFileContent: this.state.envFileContent,
@@ -222,7 +227,7 @@ class EnvFileDialog extends Component<IProps & Stores<'versionStore' | 'snackMan
             if (error.response?.data?.errors) {
                 this.setState({errors: error.response.data.errors});
             } else {
-                this.props.snackManager.snack('Failed to save env file');
+                this.props.snackManager.snack(this.props.t('version.env.saveError'));
             }
         }
     };
@@ -230,7 +235,7 @@ class EnvFileDialog extends Component<IProps & Stores<'versionStore' | 'snackMan
     deleteEnvFile = async () => {
         try {
             await this.props.versionStore.deleteEnvFile(this.projectName);
-            this.props.snackManager.snack('Env file deleted successfully');
+            this.props.snackManager.snack(this.props.t('version.env.deleteSuccess'));
             this.setState({
                 envFileContent: '',
                 originalEnvFileContent: '',
@@ -240,7 +245,7 @@ class EnvFileDialog extends Component<IProps & Stores<'versionStore' | 'snackMan
                 isTomlContent: false,
             });
         } catch (error) {
-            this.props.snackManager.snack('Failed to delete env file');
+            this.props.snackManager.snack(this.props.t('version.env.deleteError'));
         }
     };
 
@@ -312,15 +317,14 @@ app.cache.ttl = 3600
 app.cache.size = 1024`;
 
         return (
-            <DefaultPage title="Environment Configuration" maxWidth={900}>
+            <DefaultPage title={this.props.t('version.env.manage')} maxWidth={900}>
                 <Box mb={3}>
                     <Typography variant="h6" gutterBottom>
-                        Environment File (.env)
+                        {this.props.t('version.env.manage')} (.env)
                     </Typography>
                     <Typography variant="body2" color="textSecondary" gutterBottom>
-                        Configure environment variables for your application. The file is always
-                        named <code>.env</code> but supports both standard ENV format and TOML
-                        format content.
+                        {this.props.t('version.env.saveInfoPrefix')} <code>.env</code>{' '}
+                        {this.props.t('version.env.saveInfoSuffix')}
                     </Typography>
                 </Box>
                 {hasEnvFile ? (
@@ -561,7 +565,13 @@ app.cache.size = 1024`;
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
-const WrappedEnvFileDialog = inject('versionStore', 'snackManager')(EnvFileDialog);
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore
-export default withRouter(WrappedEnvFileDialog);
+const EnvFileDialogWithTranslation: React.FC<InjectedProps> = (props) => {
+    const {t} = useTranslation();
+    return <EnvFileDialog {...props} t={t} />;
+};
+
+const InjectedEnvFileDialog = inject('versionStore', 'snackManager')(EnvFileDialogWithTranslation);
+
+export default withRouter(
+    InjectedEnvFileDialog as unknown as React.ComponentType<IProps>
+);

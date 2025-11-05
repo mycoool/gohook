@@ -343,7 +343,7 @@ const Row: React.FC<IRowProps> = observer(
                         <IconButton
                             size="small"
                             onClick={() => onEditEnv(project.name)}
-                            title="编辑环境变量">
+                            title={t('version.env.manage')}>
                             <Settings />
                         </IconButton>
                         <IconButton
@@ -385,7 +385,7 @@ const Row: React.FC<IRowProps> = observer(
                         <IconButton
                             size="small"
                             onClick={() => onEditEnv(project.name)}
-                            title="编辑环境变量">
+                            title={t('version.env.manage')}>
                             <Settings />
                         </IconButton>
                         <IconButton
@@ -397,7 +397,7 @@ const Row: React.FC<IRowProps> = observer(
                         <IconButton
                             size="small"
                             onClick={() => onConfigGitHook(project)}
-                            title="配置 GitHook"
+                            title={t('githook.title')}
                             style={{
                                 color: project.enhook ? '#4caf50' : '#666',
                             }}>
