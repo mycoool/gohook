@@ -60,33 +60,58 @@ type VersionConfig struct {
 
 // ProjectConfig project config structure
 type ProjectConfig struct {
-	Name        string `yaml:"name"`
-	Path        string `yaml:"path"`
-	Description string `yaml:"description"`
-	Enabled     bool   `yaml:"enabled"`
-	Enhook      bool   `yaml:"enhook,omitempty"`
-	Hookmode    string `yaml:"hookmode,omitempty"`
-	Hookbranch  string `yaml:"hookbranch,omitempty"`
-	Hooksecret  string `yaml:"hooksecret,omitempty"`
-	ForceSync   bool   `yaml:"forcesync,omitempty"` // GitHook 是否使用强制同步模式
+	Name        string             `yaml:"name"`
+	Path        string             `yaml:"path"`
+	Description string             `yaml:"description"`
+	Enabled     bool               `yaml:"enabled"`
+	Enhook      bool               `yaml:"enhook,omitempty"`
+	Hookmode    string             `yaml:"hookmode,omitempty"`
+	Hookbranch  string             `yaml:"hookbranch,omitempty"`
+	Hooksecret  string             `yaml:"hooksecret,omitempty"`
+	ForceSync   bool               `yaml:"forcesync,omitempty"` // GitHook 是否使用强制同步模式
+	Sync        *ProjectSyncConfig `yaml:"sync,omitempty"`      // Sync node settings
+}
+
+// ProjectSyncConfig describes sync strategy for a project
+type ProjectSyncConfig struct {
+	Enabled          bool                    `yaml:"enabled" json:"enabled"`
+	Driver           string                  `yaml:"driver,omitempty" json:"driver,omitempty"`                       // agent | rsync | inherit
+	MaxParallelNodes int                     `yaml:"max_parallel_nodes,omitempty" json:"maxParallelNodes,omitempty"` // concurrency guard
+	IgnoreDefaults   bool                    `yaml:"ignore_defaults,omitempty" json:"ignoreDefaults,omitempty"`      // include built-in ignore set (.git/, runtime/, tmp/)
+	IgnorePatterns   []string                `yaml:"ignore_patterns,omitempty" json:"ignorePatterns,omitempty"`      // extra ignore globs
+	IgnoreFile       string                  `yaml:"ignore_file,omitempty" json:"ignoreFile,omitempty"`              // optional ignore file path
+	Nodes            []ProjectSyncNodeConfig `yaml:"nodes,omitempty" json:"nodes,omitempty"`
+}
+
+// ProjectSyncNodeConfig describes one target node for the project
+type ProjectSyncNodeConfig struct {
+	NodeID         string   `yaml:"node_id" json:"nodeId"`
+	TargetPath     string   `yaml:"target_path" json:"targetPath"`
+	Strategy       string   `yaml:"strategy,omitempty" json:"strategy,omitempty"`              // mirror | overlay
+	Driver         string   `yaml:"driver,omitempty" json:"driver,omitempty"`                  // override driver per node
+	Include        []string `yaml:"include,omitempty" json:"include,omitempty"`                // whitelist globs
+	Exclude        []string `yaml:"exclude,omitempty" json:"exclude,omitempty"`                // blacklist globs
+	IgnoreFile     string   `yaml:"ignore_file,omitempty" json:"ignoreFile,omitempty"`         // per-node ignore file path
+	IgnorePatterns []string `yaml:"ignore_patterns,omitempty" json:"ignorePatterns,omitempty"` // per-node ignore
 }
 
 // VersionResponse version response structure
 type VersionResponse struct {
-	Name           string `json:"name"`
-	Path           string `json:"path"`
-	Description    string `json:"description"`
-	CurrentBranch  string `json:"currentBranch"`
-	CurrentTag     string `json:"currentTag"`
-	Mode           string `json:"mode"` // "branch" or "tag"
-	Status         string `json:"status"`
-	LastCommit     string `json:"lastCommit"`
-	LastCommitTime string `json:"lastCommitTime"`
-	Enhook         bool   `json:"enhook,omitempty"`
-	Hookmode       string `json:"hookmode,omitempty"`
-	Hookbranch     string `json:"hookbranch,omitempty"`
-	Hooksecret     string `json:"hooksecret,omitempty"`
-	ForceSync      bool   `json:"forcesync,omitempty"` // GitHook 是否使用强制同步模式
+	Name           string             `json:"name"`
+	Path           string             `json:"path"`
+	Description    string             `json:"description"`
+	CurrentBranch  string             `json:"currentBranch"`
+	CurrentTag     string             `json:"currentTag"`
+	Mode           string             `json:"mode"` // "branch" or "tag"
+	Status         string             `json:"status"`
+	LastCommit     string             `json:"lastCommit"`
+	LastCommitTime string             `json:"lastCommitTime"`
+	Enhook         bool               `json:"enhook,omitempty"`
+	Hookmode       string             `json:"hookmode,omitempty"`
+	Hookbranch     string             `json:"hookbranch,omitempty"`
+	Hooksecret     string             `json:"hooksecret,omitempty"`
+	ForceSync      bool               `json:"forcesync,omitempty"` // GitHook 是否使用强制同步模式
+	Sync           *ProjectSyncConfig `json:"sync,omitempty"`
 }
 
 // BranchResponse branch response structure

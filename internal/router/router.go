@@ -10,6 +10,7 @@ import (
 	"github.com/mycoool/gohook/internal/config"
 	"github.com/mycoool/gohook/internal/middleware"
 	"github.com/mycoool/gohook/internal/stream"
+	"github.com/mycoool/gohook/internal/syncnode"
 	"github.com/mycoool/gohook/internal/types"
 	"github.com/mycoool/gohook/internal/version"
 	"github.com/mycoool/gohook/internal/webhook"
@@ -256,6 +257,19 @@ func InitRouter() *gin.Engine {
 
 		// delete project
 		versionAPI.DELETE("/:name", version.HandleDeleteProject)
+	}
+
+	// sync node management API
+	syncAPI := g.Group("/api/sync")
+	syncAPI.Use(middleware.AuthMiddleware(), middleware.DisableLogMiddleware())
+	{
+		nodeAPI := syncAPI.Group("/nodes")
+		nodeAPI.GET("", syncnode.HandleListNodes)
+		nodeAPI.POST("", syncnode.HandleCreateNode)
+		nodeAPI.GET("/:id", syncnode.HandleGetNode)
+		nodeAPI.PUT("/:id", syncnode.HandleUpdateNode)
+		nodeAPI.DELETE("/:id", syncnode.HandleDeleteNode)
+		nodeAPI.POST("/:id/install", syncnode.HandleInstallNode)
 	}
 
 	// GitHook webhook endpoint

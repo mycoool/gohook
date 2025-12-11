@@ -1,0 +1,383 @@
+package syncnode
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/mycoool/gohook/internal/database"
+	"gorm.io/gorm"
+)
+
+const (
+	NodeTypeAgent = "agent"
+	NodeTypeSSH   = "ssh"
+
+	NodeStatusOnline  = "ONLINE"
+	NodeStatusOffline = "OFFLINE"
+
+	NodeHealthHealthy  = "HEALTHY"
+	NodeHealthUnknown  = "UNKNOWN"
+	NodeHealthDegraded = "DEGRADED"
+
+	InstallStatusPending    = "pending"
+	InstallStatusInstalling = "installing"
+	InstallStatusSuccess    = "success"
+	InstallStatusFailed     = "failed"
+)
+
+// Service provides sync node management helpers
+type Service struct {
+	db *gorm.DB
+}
+
+// NewService creates a sync node service
+func NewService() *Service {
+	return &Service{
+		db: database.GetDB(),
+	}
+}
+
+// NodeListFilter filters list queries
+type NodeListFilter struct {
+	Status string
+	Type   string
+	Search string
+}
+
+// CreateNodeRequest payload
+type CreateNodeRequest struct {
+	Name           string                 `json:"name" binding:"required"`
+	Address        string                 `json:"address" binding:"required"`
+	Type           string                 `json:"type" binding:"required"`
+	SSHUser        string                 `json:"sshUser"`
+	SSHPort        int                    `json:"sshPort"`
+	AuthType       string                 `json:"authType"`
+	CredentialRef  string                 `json:"credentialRef"`
+	Tags           []string               `json:"tags"`
+	Metadata       map[string]interface{} `json:"metadata"`
+	IgnoreDefaults bool                   `json:"ignoreDefaults"`
+	IgnorePatterns []string               `json:"ignorePatterns"`
+	IgnoreFile     string                 `json:"ignoreFile"`
+	AutoInstall    bool                   `json:"autoInstall"`
+}
+
+// UpdateNodeRequest payload (full replace)
+type UpdateNodeRequest struct {
+	Name           string                 `json:"name"`
+	Address        string                 `json:"address"`
+	Type           string                 `json:"type"`
+	SSHUser        string                 `json:"sshUser"`
+	SSHPort        int                    `json:"sshPort"`
+	AuthType       string                 `json:"authType"`
+	CredentialRef  string                 `json:"credentialRef"`
+	Tags           []string               `json:"tags"`
+	Metadata       map[string]interface{} `json:"metadata"`
+	IgnoreDefaults bool                   `json:"ignoreDefaults"`
+	IgnorePatterns []string               `json:"ignorePatterns"`
+	IgnoreFile     string                 `json:"ignoreFile"`
+}
+
+// InstallRequest controls agent installation
+type InstallRequest struct {
+	SSHUser       string `json:"sshUser"`
+	SSHPort       int    `json:"sshPort"`
+	CredentialRef string `json:"credentialRef"`
+	AuthType      string `json:"authType"`
+	Force         bool   `json:"force"`
+}
+
+// ListNodes returns all nodes with optional filters
+func (s *Service) ListNodes(ctx context.Context, filter NodeListFilter) ([]database.SyncNode, error) {
+	query := s.db.WithContext(ctx).Model(&database.SyncNode{})
+
+	if filter.Status != "" {
+		query = query.Where("status = ?", filter.Status)
+	}
+	if filter.Type != "" {
+		query = query.Where("type = ?", filter.Type)
+	}
+	if filter.Search != "" {
+		like := "%" + filter.Search + "%"
+		query = query.Where("name LIKE ? OR address LIKE ?", like, like)
+	}
+
+	var nodes []database.SyncNode
+	if err := query.Order("created_at DESC").Find(&nodes).Error; err != nil {
+		return nil, err
+	}
+	return nodes, nil
+}
+
+// GetNode fetches a single node
+func (s *Service) GetNode(ctx context.Context, id uint) (*database.SyncNode, error) {
+	var node database.SyncNode
+	if err := s.db.WithContext(ctx).First(&node, id).Error; err != nil {
+		return nil, err
+	}
+	return &node, nil
+}
+
+// CreateNode stores a new node
+func (s *Service) CreateNode(ctx context.Context, req CreateNodeRequest) (*database.SyncNode, error) {
+	if err := req.Validate(); err != nil {
+		return nil, err
+	}
+	node := &database.SyncNode{
+		Status:        NodeStatusOffline,
+		Health:        NodeHealthUnknown,
+		InstallStatus: InstallStatusPending,
+	}
+	s.applyCreateRequest(node, req)
+
+	if err := s.db.WithContext(ctx).Create(node).Error; err != nil {
+		return nil, err
+	}
+	return node, nil
+}
+
+// UpdateNode replaces editable fields
+func (s *Service) UpdateNode(ctx context.Context, id uint, req UpdateNodeRequest) (*database.SyncNode, error) {
+	node, err := s.GetNode(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	s.applyUpdateRequest(node, req)
+
+	if err := s.db.WithContext(ctx).Save(node).Error; err != nil {
+		return nil, err
+	}
+	return node, nil
+}
+
+// DeleteNode removes a sync node
+func (s *Service) DeleteNode(ctx context.Context, id uint) error {
+	res := s.db.WithContext(ctx).Delete(&database.SyncNode{}, id)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+// TriggerInstall sets install status and asynchronously installs agent
+func (s *Service) TriggerInstall(ctx context.Context, id uint, req InstallRequest) (*database.SyncNode, error) {
+	node, err := s.GetNode(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	overrideSSHFields(node, req)
+	node.InstallStatus = InstallStatusInstalling
+	node.InstallLog = appendLogLine(node.InstallLog, "Starting Sync Agent installation job")
+
+	if err := s.db.WithContext(ctx).Save(node).Error; err != nil {
+		return nil, err
+	}
+
+	go s.runInstallRoutine(id, req)
+
+	return node, nil
+}
+
+func (s *Service) runInstallRoutine(id uint, req InstallRequest) {
+	ctx := context.Background()
+	node, err := s.GetNode(ctx, id)
+	if err != nil {
+		return
+	}
+
+	lines := []string{}
+	logStep := func(msg string) {
+		lines = append(lines, fmt.Sprintf("[%s] %s", time.Now().Format(time.RFC3339), msg))
+	}
+
+	logStep("Validating SSH connectivity information")
+	if node.SSHUser == "" {
+		node.SSHUser = "root"
+		logStep("SSH user not provided, defaulting to root")
+	}
+	if node.SSHPort == 0 {
+		node.SSHPort = 22
+	}
+
+	logStep("Preparing Sync Agent package (stub)")
+	logStep("Uploading agent binary via SSH/SCP (stub)")
+	logStep("Configuring systemd service and ignore rules (stub)")
+	logStep("Starting agent process and waiting for heartbeat (stub)")
+
+	now := time.Now()
+	node.InstallLog = combineLogs(node.InstallLog, strings.Join(lines, "\n"))
+	node.InstallStatus = InstallStatusSuccess
+	node.Status = NodeStatusOnline
+	node.Health = NodeHealthHealthy
+	node.LastSeen = &now
+	node.AgentVersion = "v0.1.0-sync"
+
+	if err := s.db.WithContext(ctx).Save(node).Error; err != nil {
+		return
+	}
+}
+
+func (s *Service) applyCreateRequest(node *database.SyncNode, req CreateNodeRequest) {
+	node.Name = req.Name
+	node.Address = req.Address
+	node.Type = normalizeNodeType(req.Type)
+	node.SSHUser = req.SSHUser
+	node.SSHPort = defaultPort(req.SSHPort)
+	node.AuthType = req.AuthType
+	node.CredentialRef = req.CredentialRef
+	node.IgnoreDefaults = req.IgnoreDefaults
+	node.IgnoreFile = req.IgnoreFile
+	node.IgnorePatterns = encodeStringSlice(req.IgnorePatterns)
+	node.Tags = encodeStringSlice(req.Tags)
+	node.Metadata = encodeMap(req.Metadata)
+}
+
+func (s *Service) applyUpdateRequest(node *database.SyncNode, req UpdateNodeRequest) {
+	if req.Name != "" {
+		node.Name = req.Name
+	}
+	if req.Address != "" {
+		node.Address = req.Address
+	}
+	if req.Type != "" {
+		node.Type = normalizeNodeType(req.Type)
+	}
+	if req.SSHUser != "" {
+		node.SSHUser = req.SSHUser
+	}
+	if req.SSHPort != 0 {
+		node.SSHPort = req.SSHPort
+	}
+	if req.AuthType != "" {
+		node.AuthType = req.AuthType
+	}
+	if req.CredentialRef != "" {
+		node.CredentialRef = req.CredentialRef
+	}
+	node.IgnoreDefaults = req.IgnoreDefaults
+	if req.IgnoreFile != "" {
+		node.IgnoreFile = req.IgnoreFile
+	}
+	if req.IgnorePatterns != nil {
+		node.IgnorePatterns = encodeStringSlice(req.IgnorePatterns)
+	}
+	if req.Tags != nil {
+		node.Tags = encodeStringSlice(req.Tags)
+	}
+	if req.Metadata != nil {
+		node.Metadata = encodeMap(req.Metadata)
+	}
+}
+
+func normalizeNodeType(value string) string {
+	if value == "" {
+		return NodeTypeAgent
+	}
+	switch value {
+	case NodeTypeAgent, NodeTypeSSH:
+		return value
+	default:
+		return NodeTypeAgent
+	}
+}
+
+func defaultPort(port int) int {
+	if port <= 0 {
+		return 22
+	}
+	return port
+}
+
+func encodeStringSlice(values []string) string {
+	if len(values) == 0 {
+		return ""
+	}
+	raw, _ := json.Marshal(values)
+	return string(raw)
+}
+
+func encodeMap(values map[string]interface{}) string {
+	if len(values) == 0 {
+		return ""
+	}
+	raw, _ := json.Marshal(values)
+	return string(raw)
+}
+
+func appendLogLine(existing, line string) string {
+	formatted := fmt.Sprintf("[%s] %s", time.Now().Format(time.RFC3339), line)
+	if existing == "" {
+		return formatted
+	}
+	return existing + "\n" + formatted
+}
+
+func combineLogs(existing, addition string) string {
+	if strings.TrimSpace(existing) == "" {
+		return addition
+	}
+	if strings.TrimSpace(addition) == "" {
+		return existing
+	}
+	return existing + "\n" + addition
+}
+
+func overrideSSHFields(node *database.SyncNode, req InstallRequest) {
+	if req.SSHUser != "" {
+		node.SSHUser = req.SSHUser
+	}
+	if req.SSHPort != 0 {
+		node.SSHPort = req.SSHPort
+	}
+	if req.CredentialRef != "" {
+		node.CredentialRef = req.CredentialRef
+	}
+	if req.AuthType != "" {
+		node.AuthType = req.AuthType
+	}
+}
+
+// Decode helper functions for handlers
+func decodeStringSlice(raw string) []string {
+	if strings.TrimSpace(raw) == "" {
+		return []string{}
+	}
+	var out []string
+	if err := json.Unmarshal([]byte(raw), &out); err != nil {
+		return []string{}
+	}
+	return out
+}
+
+func decodeMap(raw string) map[string]interface{} {
+	if strings.TrimSpace(raw) == "" {
+		return map[string]interface{}{}
+	}
+	out := map[string]interface{}{}
+	if err := json.Unmarshal([]byte(raw), &out); err != nil {
+		return map[string]interface{}{}
+	}
+	return out
+}
+
+// Validate ensures create input contains essentials
+func (req CreateNodeRequest) Validate() error {
+	if strings.TrimSpace(req.Name) == "" {
+		return errors.New("name is required")
+	}
+	if strings.TrimSpace(req.Address) == "" {
+		return errors.New("address is required")
+	}
+	if strings.TrimSpace(req.Type) == "" {
+		req.Type = NodeTypeAgent
+	}
+	return nil
+}

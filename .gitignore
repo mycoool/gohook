@@ -34,4 +34,5 @@ node_modules/
 **/*-packr.go
 /hooks.json
 server.log
-
+*.backup
+*.tmp

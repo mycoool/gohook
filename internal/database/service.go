@@ -24,6 +24,10 @@ func (s *LogService) CreateHookLog(hookID, hookName, hookType, method, remoteAdd
 	headers map[string][]string, body string, success bool, output, error string,
 	duration int64, userAgent string, queryParams map[string][]string) error {
 
+	if s.db == nil {
+		return nil
+	}
+
 	headersJSON, _ := json.Marshal(headers)
 	queryParamsJSON, _ := json.Marshal(queryParams)
 
@@ -50,6 +54,9 @@ func (s *LogService) CreateHookLog(hookID, hookName, hookType, method, remoteAdd
 func (s *LogService) CreateSystemLog(level, category, message string, details interface{},
 	userID, ipAddress, userAgent string) error {
 
+	if s.db == nil {
+		return nil
+	}
 	var detailsJSON string
 	if details != nil {
 		detailsBytes, _ := json.Marshal(details)
@@ -73,6 +80,9 @@ func (s *LogService) CreateSystemLog(level, category, message string, details in
 func (s *LogService) CreateUserActivity(username, action, resource, description,
 	ipAddress, userAgent string, success bool, details interface{}) error {
 
+	if s.db == nil {
+		return nil
+	}
 	var detailsJSON string
 	if details != nil {
 		detailsBytes, _ := json.Marshal(details)
@@ -97,6 +107,9 @@ func (s *LogService) CreateUserActivity(username, action, resource, description,
 func (s *LogService) CreateProjectActivity(projectName, action, oldValue, newValue,
 	username string, success bool, error, commitHash, description, ipAddress string) error {
 
+	if s.db == nil {
+		return nil
+	}
 	activity := &ProjectActivity{
 		ProjectName: projectName,
 		Action:      action,

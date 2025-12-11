@@ -134,6 +134,8 @@ func AutoMigrate() error {
 		&SystemLog{},
 		&UserActivity{},
 		&ProjectActivity{},
+		&SyncNode{},
+		&SyncTask{},
 	)
 	if err != nil {
 		return fmt.Errorf("failed to migrate database: %v", err)
