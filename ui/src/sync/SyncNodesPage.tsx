@@ -134,7 +134,7 @@ const SyncNodesPage: React.FC<Props> = ({syncNodeStore, currentUser}) => {
                                 <TableCell>名称</TableCell>
                                 <TableCell>地址</TableCell>
                                 <TableCell>健康状态</TableCell>
-                                <TableCell>安装状态</TableCell>
+                                <TableCell>同步状态</TableCell>
                                 <TableCell>最后心跳</TableCell>
                                 <TableCell>标签</TableCell>
                                 <TableCell align="right">操作</TableCell>

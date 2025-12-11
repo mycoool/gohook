@@ -11,8 +11,6 @@ import {
     Typography,
     ListItemButton,
     ListItemText,
-    ListItemAvatar,
-    Avatar,
     List,
     ListSubheader,
     Tooltip,
@@ -133,17 +131,6 @@ class Navigation extends Component<IProps, {showRequestNotification: boolean}> {
                                 onClick={() => setNavOpen(false)}
                                 key={node.id}>
                                 <ListItemButton>
-                                    <ListItemAvatar>
-                                        <Avatar
-                                            sx={{
-                                                bgcolor: this.getNodeAvatarColor(node.health),
-                                                width: 32,
-                                                height: 32,
-                                                fontSize: 14,
-                                            }}>
-                                            {node.name.slice(0, 2).toUpperCase()}
-                                        </Avatar>
-                                    </ListItemAvatar>
                                     <ListItemText
                                         primaryTypographyProps={{noWrap: true}}
                                         primary={node.name}
@@ -165,19 +152,6 @@ class Navigation extends Component<IProps, {showRequestNotification: boolean}> {
                 </List>
             </Box>
         );
-    }
-
-    private getNodeAvatarColor(health: string) {
-        switch (health) {
-            case 'HEALTHY':
-                return 'success.main';
-            case 'DEGRADED':
-                return 'warning.main';
-            case 'OFFLINE':
-            case 'UNKNOWN':
-            default:
-                return 'text.disabled';
-        }
     }
 
     private getStatusColor(health: string) {
