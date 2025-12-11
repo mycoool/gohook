@@ -12,17 +12,15 @@ export interface SyncNodePayload {
     sshPort?: number;
     authType?: string;
     credentialRef?: string;
+    credentialValue?: string;
     tags?: string[];
     metadata?: Record<string, unknown>;
     ignoreDefaults?: boolean;
     ignorePatterns?: string[];
     ignoreFile?: string;
-    autoInstall?: boolean;
 }
 
-export interface SyncNodeUpdatePayload extends SyncNodePayload {
-    autoInstall?: boolean;
-}
+export type SyncNodeUpdatePayload = SyncNodePayload;
 
 export class SyncNodeStore {
     @observable

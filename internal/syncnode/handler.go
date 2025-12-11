@@ -1,7 +1,6 @@
 package syncnode
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -17,27 +16,28 @@ import (
 var defaultService = NewService()
 
 type nodeResponse struct {
-	ID             uint                   `json:"id"`
-	Name           string                 `json:"name"`
-	Address        string                 `json:"address"`
-	Type           string                 `json:"type"`
-	Status         string                 `json:"status"`
-	Health         string                 `json:"health"`
-	Tags           []string               `json:"tags"`
-	Metadata       map[string]interface{} `json:"metadata"`
-	SSHUser        string                 `json:"sshUser"`
-	SSHPort        int                    `json:"sshPort"`
-	AuthType       string                 `json:"authType"`
-	CredentialRef  string                 `json:"credentialRef"`
-	IgnoreDefaults bool                   `json:"ignoreDefaults"`
-	IgnorePatterns []string               `json:"ignorePatterns"`
-	IgnoreFile     string                 `json:"ignoreFile"`
-	InstallStatus  string                 `json:"installStatus"`
-	InstallLog     string                 `json:"installLog"`
-	AgentVersion   string                 `json:"agentVersion"`
-	LastSeen       *time.Time             `json:"lastSeen"`
-	CreatedAt      time.Time              `json:"createdAt"`
-	UpdatedAt      time.Time              `json:"updatedAt"`
+	ID              uint                   `json:"id"`
+	Name            string                 `json:"name"`
+	Address         string                 `json:"address"`
+	Type            string                 `json:"type"`
+	Status          string                 `json:"status"`
+	Health          string                 `json:"health"`
+	Tags            []string               `json:"tags"`
+	Metadata        map[string]interface{} `json:"metadata"`
+	SSHUser         string                 `json:"sshUser"`
+	SSHPort         int                    `json:"sshPort"`
+	AuthType        string                 `json:"authType"`
+	CredentialRef   string                 `json:"credentialRef"`
+	CredentialValue string                 `json:"credentialValue"`
+	IgnoreDefaults  bool                   `json:"ignoreDefaults"`
+	IgnorePatterns  []string               `json:"ignorePatterns"`
+	IgnoreFile      string                 `json:"ignoreFile"`
+	InstallStatus   string                 `json:"installStatus"`
+	InstallLog      string                 `json:"installLog"`
+	AgentVersion    string                 `json:"agentVersion"`
+	LastSeen        *time.Time             `json:"lastSeen"`
+	CreatedAt       time.Time              `json:"createdAt"`
+	UpdatedAt       time.Time              `json:"updatedAt"`
 }
 
 func HandleListNodes(c *gin.Context) {
@@ -87,10 +87,6 @@ func HandleCreateNode(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
-	}
-
-	if req.AutoInstall {
-		go defaultService.TriggerInstall(context.Background(), node.ID, InstallRequest{})
 	}
 
 	c.JSON(http.StatusCreated, mapNode(node))
@@ -177,27 +173,28 @@ func mapNodes(nodes []database.SyncNode) []nodeResponse {
 
 func mapNode(node *database.SyncNode) nodeResponse {
 	return nodeResponse{
-		ID:             node.ID,
-		Name:           node.Name,
-		Address:        node.Address,
-		Type:           node.Type,
-		Status:         node.Status,
-		Health:         node.Health,
-		Tags:           decodeStringSlice(node.Tags),
-		Metadata:       decodeMap(node.Metadata),
-		SSHUser:        node.SSHUser,
-		SSHPort:        node.SSHPort,
-		AuthType:       node.AuthType,
-		CredentialRef:  node.CredentialRef,
-		IgnoreDefaults: node.IgnoreDefaults,
-		IgnorePatterns: decodeStringSlice(node.IgnorePatterns),
-		IgnoreFile:     node.IgnoreFile,
-		InstallStatus:  node.InstallStatus,
-		InstallLog:     node.InstallLog,
-		AgentVersion:   node.AgentVersion,
-		LastSeen:       node.LastSeen,
-		CreatedAt:      node.CreatedAt,
-		UpdatedAt:      node.UpdatedAt,
+		ID:              node.ID,
+		Name:            node.Name,
+		Address:         node.Address,
+		Type:            node.Type,
+		Status:          node.Status,
+		Health:          node.Health,
+		Tags:            decodeStringSlice(node.Tags),
+		Metadata:        decodeMap(node.Metadata),
+		SSHUser:         node.SSHUser,
+		SSHPort:         node.SSHPort,
+		AuthType:        node.AuthType,
+		CredentialRef:   node.CredentialRef,
+		CredentialValue: node.CredentialValue,
+		IgnoreDefaults:  node.IgnoreDefaults,
+		IgnorePatterns:  decodeStringSlice(node.IgnorePatterns),
+		IgnoreFile:      node.IgnoreFile,
+		InstallStatus:   node.InstallStatus,
+		InstallLog:      node.InstallLog,
+		AgentVersion:    node.AgentVersion,
+		LastSeen:        node.LastSeen,
+		CreatedAt:       node.CreatedAt,
+		UpdatedAt:       node.UpdatedAt,
 	}
 }
 

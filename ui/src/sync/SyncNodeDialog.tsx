@@ -31,26 +31,26 @@ interface FormState {
     sshPort: string;
     authType: string;
     credentialRef: string;
+    credentialValue: string;
     tags: string;
     ignoreDefaults: boolean;
     ignorePatterns: string;
     ignoreFile: string;
-    autoInstall: boolean;
 }
 
 const defaultState: FormState = {
     name: '',
     address: '',
     type: 'agent',
-    sshUser: 'root',
-    sshPort: '22',
+    sshUser: '',
+    sshPort: '',
     authType: 'key',
     credentialRef: '',
+    credentialValue: '',
     tags: '',
     ignoreDefaults: true,
     ignorePatterns: '.git,runtime,tmp',
     ignoreFile: '',
-    autoInstall: true,
 };
 
 const parseList = (value: string): string[] =>
@@ -72,11 +72,11 @@ const SyncNodeDialog: React.FC<SyncNodeDialogProps> = ({open, loading, mode, nod
                 sshPort: node.sshPort ? String(node.sshPort) : '22',
                 authType: node.authType || 'key',
                 credentialRef: node.credentialRef || '',
+                credentialValue: node.credentialValue || '',
                 tags: (node.tags || []).join(', '),
                 ignoreDefaults: node.ignoreDefaults ?? true,
                 ignorePatterns: (node.ignorePatterns || []).join(', '),
                 ignoreFile: node.ignoreFile || '',
-                autoInstall: false,
             });
         } else if (!open) {
             setForm(defaultState);
@@ -95,20 +95,22 @@ const SyncNodeDialog: React.FC<SyncNodeDialogProps> = ({open, loading, mode, nod
     const handleSwitchChange = (key: keyof FormState) => (_: React.ChangeEvent, checked: boolean) =>
         setForm((prev) => ({...prev, [key]: checked}));
 
+    const showSSHFields = form.type === 'ssh';
+
     const handleSubmit = async () => {
         const payload: SyncNodePayload = {
             name: form.name.trim(),
             address: form.address.trim(),
             type: form.type,
-            sshUser: form.sshUser.trim(),
-            sshPort: Number(form.sshPort) || undefined,
+            sshUser: showSSHFields ? form.sshUser.trim() : undefined,
+            sshPort: showSSHFields ? Number(form.sshPort) || undefined : undefined,
             authType: form.authType.trim(),
             credentialRef: form.credentialRef.trim(),
+            credentialValue: form.credentialValue.trim(),
             tags: parseList(form.tags),
             ignoreDefaults: form.ignoreDefaults,
             ignorePatterns: parseList(form.ignorePatterns),
             ignoreFile: form.ignoreFile.trim() || undefined,
-            autoInstall: form.autoInstall,
         };
 
         await onSubmit(payload, node?.id);
@@ -163,23 +165,27 @@ const SyncNodeDialog: React.FC<SyncNodeDialogProps> = ({open, loading, mode, nod
                             placeholder="key/password"
                         />
                     </Box>
-                    <Box>
-                        <TextField
-                            label="SSH 用户"
-                            value={form.sshUser}
-                            onChange={handleChange('sshUser')}
-                            fullWidth
-                        />
-                    </Box>
-                    <Box>
-                        <TextField
-                            label="SSH 端口"
-                            value={form.sshPort}
-                            onChange={handleChange('sshPort')}
-                            type="number"
-                            fullWidth
-                        />
-                    </Box>
+                    {showSSHFields ? (
+                        <>
+                            <Box>
+                                <TextField
+                                    label="SSH 用户"
+                                    value={form.sshUser}
+                                    onChange={handleChange('sshUser')}
+                                    fullWidth
+                                />
+                            </Box>
+                            <Box>
+                                <TextField
+                                    label="SSH 端口"
+                                    value={form.sshPort}
+                                    onChange={handleChange('sshPort')}
+                                    type="number"
+                                    fullWidth
+                                />
+                            </Box>
+                        </>
+                    ) : null}
                     <Box sx={{gridColumn: {xs: 'span 1', sm: 'span 2'}}}>
                         <TextField
                             label="凭证引用"
@@ -187,6 +193,17 @@ const SyncNodeDialog: React.FC<SyncNodeDialogProps> = ({open, loading, mode, nod
                             onChange={handleChange('credentialRef')}
                             fullWidth
                             helperText="引用 server 端保存的密钥/凭证 ID"
+                        />
+                    </Box>
+                    <Box sx={{gridColumn: {xs: 'span 1', sm: 'span 2'}}}>
+                        <TextField
+                            label="直接输入密钥（可选）"
+                            value={form.credentialValue}
+                            onChange={handleChange('credentialValue')}
+                            fullWidth
+                            multiline
+                            minRows={2}
+                            helperText="直接粘贴 Agent 通信所需的 key/token"
                         />
                     </Box>
                     <Box sx={{gridColumn: {xs: 'span 1', sm: 'span 2'}}}>
@@ -226,19 +243,6 @@ const SyncNodeDialog: React.FC<SyncNodeDialogProps> = ({open, loading, mode, nod
                             label="启用默认忽略列表 (.git、runtime、tmp)"
                         />
                     </Box>
-                    {mode === 'create' ? (
-                        <Box sx={{gridColumn: {xs: 'span 1', sm: 'span 2'}}}>
-                            <FormControlLabel
-                                control={
-                                    <Switch
-                                        checked={form.autoInstall}
-                                        onChange={handleSwitchChange('autoInstall')}
-                                    />
-                                }
-                                label="创建后自动安装 Sync Agent"
-                            />
-                        </Box>
-                    ) : null}
                 </Box>
             </DialogContent>
             <DialogActions>

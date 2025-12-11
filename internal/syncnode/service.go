@@ -50,35 +50,36 @@ type NodeListFilter struct {
 
 // CreateNodeRequest payload
 type CreateNodeRequest struct {
-	Name           string                 `json:"name" binding:"required"`
-	Address        string                 `json:"address" binding:"required"`
-	Type           string                 `json:"type" binding:"required"`
-	SSHUser        string                 `json:"sshUser"`
-	SSHPort        int                    `json:"sshPort"`
-	AuthType       string                 `json:"authType"`
-	CredentialRef  string                 `json:"credentialRef"`
-	Tags           []string               `json:"tags"`
-	Metadata       map[string]interface{} `json:"metadata"`
-	IgnoreDefaults bool                   `json:"ignoreDefaults"`
-	IgnorePatterns []string               `json:"ignorePatterns"`
-	IgnoreFile     string                 `json:"ignoreFile"`
-	AutoInstall    bool                   `json:"autoInstall"`
+	Name            string                 `json:"name" binding:"required"`
+	Address         string                 `json:"address" binding:"required"`
+	Type            string                 `json:"type" binding:"required"`
+	SSHUser         string                 `json:"sshUser"`
+	SSHPort         int                    `json:"sshPort"`
+	AuthType        string                 `json:"authType"`
+	CredentialRef   string                 `json:"credentialRef"`
+	CredentialValue string                 `json:"credentialValue"`
+	Tags            []string               `json:"tags"`
+	Metadata        map[string]interface{} `json:"metadata"`
+	IgnoreDefaults  bool                   `json:"ignoreDefaults"`
+	IgnorePatterns  []string               `json:"ignorePatterns"`
+	IgnoreFile      string                 `json:"ignoreFile"`
 }
 
 // UpdateNodeRequest payload (full replace)
 type UpdateNodeRequest struct {
-	Name           string                 `json:"name"`
-	Address        string                 `json:"address"`
-	Type           string                 `json:"type"`
-	SSHUser        string                 `json:"sshUser"`
-	SSHPort        int                    `json:"sshPort"`
-	AuthType       string                 `json:"authType"`
-	CredentialRef  string                 `json:"credentialRef"`
-	Tags           []string               `json:"tags"`
-	Metadata       map[string]interface{} `json:"metadata"`
-	IgnoreDefaults bool                   `json:"ignoreDefaults"`
-	IgnorePatterns []string               `json:"ignorePatterns"`
-	IgnoreFile     string                 `json:"ignoreFile"`
+	Name            string                 `json:"name"`
+	Address         string                 `json:"address"`
+	Type            string                 `json:"type"`
+	SSHUser         string                 `json:"sshUser"`
+	SSHPort         int                    `json:"sshPort"`
+	AuthType        string                 `json:"authType"`
+	CredentialRef   string                 `json:"credentialRef"`
+	CredentialValue string                 `json:"credentialValue"`
+	Tags            []string               `json:"tags"`
+	Metadata        map[string]interface{} `json:"metadata"`
+	IgnoreDefaults  bool                   `json:"ignoreDefaults"`
+	IgnorePatterns  []string               `json:"ignorePatterns"`
+	IgnoreFile      string                 `json:"ignoreFile"`
 }
 
 // InstallRequest controls agent installation
@@ -257,10 +258,16 @@ func (s *Service) applyCreateRequest(node *database.SyncNode, req CreateNodeRequ
 	node.Name = req.Name
 	node.Address = req.Address
 	node.Type = normalizeNodeType(req.Type)
-	node.SSHUser = req.SSHUser
-	node.SSHPort = defaultPort(req.SSHPort)
-	node.AuthType = req.AuthType
+	if node.Type == NodeTypeSSH {
+		node.SSHUser = fallbackSSHUser(req.SSHUser)
+		node.SSHPort = defaultPort(req.SSHPort)
+	} else {
+		node.SSHUser = ""
+		node.SSHPort = 0
+	}
+	node.AuthType = normalizeAuthType(node.Type, req.AuthType)
 	node.CredentialRef = req.CredentialRef
+	node.CredentialValue = req.CredentialValue
 	node.IgnoreDefaults = req.IgnoreDefaults
 	node.IgnoreFile = req.IgnoreFile
 	node.IgnorePatterns = encodeStringSlice(req.IgnorePatterns)
@@ -278,17 +285,29 @@ func (s *Service) applyUpdateRequest(node *database.SyncNode, req UpdateNodeRequ
 	if req.Type != "" {
 		node.Type = normalizeNodeType(req.Type)
 	}
-	if req.SSHUser != "" {
-		node.SSHUser = req.SSHUser
+	if node.Type == NodeTypeSSH {
+		if req.SSHUser != "" {
+			node.SSHUser = req.SSHUser
+		} else if node.SSHUser == "" {
+			node.SSHUser = fallbackSSHUser("")
+		}
+		if req.SSHPort != 0 {
+			node.SSHPort = req.SSHPort
+		} else if node.SSHPort == 0 {
+			node.SSHPort = defaultPort(0)
+		}
+	} else {
+		node.SSHUser = ""
+		node.SSHPort = 0
 	}
-	if req.SSHPort != 0 {
-		node.SSHPort = req.SSHPort
-	}
-	if req.AuthType != "" {
-		node.AuthType = req.AuthType
+	if req.AuthType != "" || req.Type != "" {
+		node.AuthType = normalizeAuthType(node.Type, req.AuthType)
 	}
 	if req.CredentialRef != "" {
 		node.CredentialRef = req.CredentialRef
+	}
+	if req.CredentialValue != "" {
+		node.CredentialValue = req.CredentialValue
 	}
 	node.IgnoreDefaults = req.IgnoreDefaults
 	if req.IgnoreFile != "" {
@@ -322,6 +341,23 @@ func defaultPort(port int) int {
 		return 22
 	}
 	return port
+}
+
+func normalizeAuthType(nodeType, provided string) string {
+	if provided != "" {
+		return provided
+	}
+	if nodeType == NodeTypeAgent {
+		return "key"
+	}
+	return provided
+}
+
+func fallbackSSHUser(value string) string {
+	if value != "" {
+		return value
+	}
+	return "root"
 }
 
 func encodeStringSlice(values []string) string {
