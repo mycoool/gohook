@@ -6,13 +6,12 @@ import {ISyncNode} from '../types';
 
 export interface SyncNodePayload {
     name: string;
-    address: string;
+    address?: string;
     type: string;
     sshUser?: string;
     sshPort?: number;
     authType?: string;
     credentialRef?: string;
-    credentialValue?: string;
     tags?: string[];
     metadata?: Record<string, unknown>;
     ignoreDefaults?: boolean;
@@ -74,14 +73,15 @@ export class SyncNodeStore {
     };
 
     @action
-    public createNode = async (payload: SyncNodePayload) => {
+    public createNode = async (payload: SyncNodePayload): Promise<ISyncNode | undefined> => {
         this.saving = true;
         try {
-            await axios.post(`${config.get('url')}api/sync/nodes`, payload, {
+            const response = await axios.post<ISyncNode>(`${config.get('url')}api/sync/nodes`, payload, {
                 headers: this.headers,
             });
             this.snack('节点创建成功');
             await this.refreshNodes();
+            return response.data;
         } catch (error: unknown) {
             this.handleError(error, '节点创建失败');
             throw error;

@@ -35,13 +35,15 @@ var ErrInvalidToken = errors.New("invalid node token")
 
 // Service provides sync node management helpers
 type Service struct {
-	db *gorm.DB
+	db          *gorm.DB
+	changeQueue ChangeQueue
 }
 
 // NewService creates a sync node service
 func NewService() *Service {
 	return &Service{
-		db: database.GetDB(),
+		db:          database.GetDB(),
+		changeQueue: NewDBChangeQueue(database.GetDB()),
 	}
 }
 
@@ -54,36 +56,34 @@ type NodeListFilter struct {
 
 // CreateNodeRequest payload
 type CreateNodeRequest struct {
-	Name            string                 `json:"name" binding:"required"`
-	Address         string                 `json:"address" binding:"required"`
-	Type            string                 `json:"type" binding:"required"`
-	SSHUser         string                 `json:"sshUser"`
-	SSHPort         int                    `json:"sshPort"`
-	AuthType        string                 `json:"authType"`
-	CredentialRef   string                 `json:"credentialRef"`
-	CredentialValue string                 `json:"credentialValue"`
-	Tags            []string               `json:"tags"`
-	Metadata        map[string]interface{} `json:"metadata"`
-	IgnoreDefaults  bool                   `json:"ignoreDefaults"`
-	IgnorePatterns  []string               `json:"ignorePatterns"`
-	IgnoreFile      string                 `json:"ignoreFile"`
+	Name           string                 `json:"name" binding:"required"`
+	Address        string                 `json:"address"`
+	Type           string                 `json:"type" binding:"required"`
+	SSHUser        string                 `json:"sshUser"`
+	SSHPort        int                    `json:"sshPort"`
+	AuthType       string                 `json:"authType"`
+	CredentialRef  string                 `json:"credentialRef"`
+	Tags           []string               `json:"tags"`
+	Metadata       map[string]interface{} `json:"metadata"`
+	IgnoreDefaults bool                   `json:"ignoreDefaults"`
+	IgnorePatterns []string               `json:"ignorePatterns"`
+	IgnoreFile     string                 `json:"ignoreFile"`
 }
 
 // UpdateNodeRequest payload (full replace)
 type UpdateNodeRequest struct {
-	Name            string                 `json:"name"`
-	Address         string                 `json:"address"`
-	Type            string                 `json:"type"`
-	SSHUser         string                 `json:"sshUser"`
-	SSHPort         int                    `json:"sshPort"`
-	AuthType        string                 `json:"authType"`
-	CredentialRef   string                 `json:"credentialRef"`
-	CredentialValue string                 `json:"credentialValue"`
-	Tags            []string               `json:"tags"`
-	Metadata        map[string]interface{} `json:"metadata"`
-	IgnoreDefaults  bool                   `json:"ignoreDefaults"`
-	IgnorePatterns  []string               `json:"ignorePatterns"`
-	IgnoreFile      string                 `json:"ignoreFile"`
+	Name           string                 `json:"name"`
+	Address        string                 `json:"address"`
+	Type           string                 `json:"type"`
+	SSHUser        string                 `json:"sshUser"`
+	SSHPort        int                    `json:"sshPort"`
+	AuthType       string                 `json:"authType"`
+	CredentialRef  string                 `json:"credentialRef"`
+	Tags           []string               `json:"tags"`
+	Metadata       map[string]interface{} `json:"metadata"`
+	IgnoreDefaults bool                   `json:"ignoreDefaults"`
+	IgnorePatterns []string               `json:"ignorePatterns"`
+	IgnoreFile     string                 `json:"ignoreFile"`
 }
 
 // InstallRequest controls agent installation
@@ -154,10 +154,15 @@ func (s *Service) CreateNode(ctx context.Context, req CreateNodeRequest) (*datab
 	if err != nil {
 		return nil, err
 	}
+	token, err := GenerateNodeToken()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate node token: %w", err)
+	}
 	node := &database.SyncNode{
-		Status:        NodeStatusOffline,
-		Health:        NodeHealthUnknown,
-		InstallStatus: InstallStatusPending,
+		Status:          NodeStatusOffline,
+		Health:          NodeHealthUnknown,
+		InstallStatus:   InstallStatusPending,
+		CredentialValue: token,
 	}
 	s.applyCreateRequest(node, req)
 
@@ -313,6 +318,9 @@ func (s *Service) runInstallRoutine(id uint, req InstallRequest) {
 	if err != nil {
 		return
 	}
+	if s.changeQueue == nil {
+		s.changeQueue = NewDBChangeQueue(db)
+	}
 	if err := db.WithContext(ctx).Save(node).Error; err != nil {
 		return
 	}
@@ -331,7 +339,6 @@ func (s *Service) applyCreateRequest(node *database.SyncNode, req CreateNodeRequ
 	}
 	node.AuthType = normalizeAuthType(node.Type, req.AuthType)
 	node.CredentialRef = req.CredentialRef
-	node.CredentialValue = req.CredentialValue
 	node.IgnoreDefaults = req.IgnoreDefaults
 	node.IgnoreFile = req.IgnoreFile
 	node.IgnorePatterns = encodeStringSlice(req.IgnorePatterns)
@@ -369,9 +376,6 @@ func (s *Service) applyUpdateRequest(node *database.SyncNode, req UpdateNodeRequ
 	}
 	if req.CredentialRef != "" {
 		node.CredentialRef = req.CredentialRef
-	}
-	if req.CredentialValue != "" {
-		node.CredentialValue = req.CredentialValue
 	}
 	node.IgnoreDefaults = req.IgnoreDefaults
 	if req.IgnoreFile != "" {
@@ -520,9 +524,6 @@ func decodeMap(raw string) map[string]interface{} {
 func (req CreateNodeRequest) Validate() error {
 	if strings.TrimSpace(req.Name) == "" {
 		return errors.New("name is required")
-	}
-	if strings.TrimSpace(req.Address) == "" {
-		return errors.New("address is required")
 	}
 	if strings.TrimSpace(req.Type) == "" {
 		req.Type = NodeTypeAgent

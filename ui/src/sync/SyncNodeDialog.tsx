@@ -31,7 +31,6 @@ interface FormState {
     sshPort: string;
     authType: string;
     credentialRef: string;
-    credentialValue: string;
     tags: string;
     ignoreDefaults: boolean;
     ignorePatterns: string;
@@ -46,7 +45,6 @@ const defaultState: FormState = {
     sshPort: '',
     authType: 'key',
     credentialRef: '',
-    credentialValue: '',
     tags: '',
     ignoreDefaults: true,
     ignorePatterns: '.git,runtime,tmp',
@@ -72,7 +70,6 @@ const SyncNodeDialog: React.FC<SyncNodeDialogProps> = ({open, loading, mode, nod
                 sshPort: node.sshPort ? String(node.sshPort) : '22',
                 authType: node.authType || 'key',
                 credentialRef: node.credentialRef || '',
-                credentialValue: node.credentialValue || '',
                 tags: (node.tags || []).join(', '),
                 ignoreDefaults: node.ignoreDefaults ?? true,
                 ignorePatterns: (node.ignorePatterns || []).join(', '),
@@ -100,13 +97,12 @@ const SyncNodeDialog: React.FC<SyncNodeDialogProps> = ({open, loading, mode, nod
     const handleSubmit = async () => {
         const payload: SyncNodePayload = {
             name: form.name.trim(),
-            address: form.address.trim(),
             type: form.type,
+            address: showSSHFields ? form.address.trim() : undefined,
             sshUser: showSSHFields ? form.sshUser.trim() : undefined,
             sshPort: showSSHFields ? Number(form.sshPort) || undefined : undefined,
-            authType: form.authType.trim(),
-            credentialRef: form.credentialRef.trim(),
-            credentialValue: form.credentialValue.trim(),
+            authType: showSSHFields ? form.authType.trim() : undefined,
+            credentialRef: showSSHFields ? form.credentialRef.trim() : undefined,
             tags: parseList(form.tags),
             ignoreDefaults: form.ignoreDefaults,
             ignorePatterns: parseList(form.ignorePatterns),
@@ -135,16 +131,18 @@ const SyncNodeDialog: React.FC<SyncNodeDialogProps> = ({open, loading, mode, nod
                             required
                         />
                     </Box>
-                    <Box sx={{gridColumn: {xs: 'span 1', sm: 'span 2'}}}>
-                        <TextField
-                            label="节点地址"
-                            value={form.address}
-                            onChange={handleChange('address')}
-                            fullWidth
-                            required
-                            helperText="可填写 IP 或 DNS"
-                        />
-                    </Box>
+                    {showSSHFields ? (
+                        <Box sx={{gridColumn: {xs: 'span 1', sm: 'span 2'}}}>
+                            <TextField
+                                label="节点地址"
+                                value={form.address}
+                                onChange={handleChange('address')}
+                                fullWidth
+                                required
+                                helperText="可填写 IP 或 DNS"
+                            />
+                        </Box>
+                    ) : null}
                     <Box>
                         <TextField
                             select
@@ -156,15 +154,17 @@ const SyncNodeDialog: React.FC<SyncNodeDialogProps> = ({open, loading, mode, nod
                             <MenuItem value="ssh">SSH / rsync</MenuItem>
                         </TextField>
                     </Box>
-                    <Box>
-                        <TextField
-                            label="认证方式"
-                            value={form.authType}
-                            onChange={handleChange('authType')}
-                            fullWidth
-                            placeholder="key/password"
-                        />
-                    </Box>
+                    {showSSHFields ? (
+                        <Box>
+                            <TextField
+                                label="认证方式"
+                                value={form.authType}
+                                onChange={handleChange('authType')}
+                                fullWidth
+                                placeholder="key/password"
+                            />
+                        </Box>
+                    ) : null}
                     {showSSHFields ? (
                         <>
                             <Box>
@@ -186,26 +186,17 @@ const SyncNodeDialog: React.FC<SyncNodeDialogProps> = ({open, loading, mode, nod
                             </Box>
                         </>
                     ) : null}
-                    <Box sx={{gridColumn: {xs: 'span 1', sm: 'span 2'}}}>
-                        <TextField
-                            label="凭证引用"
-                            value={form.credentialRef}
-                            onChange={handleChange('credentialRef')}
-                            fullWidth
-                            helperText="引用 server 端保存的密钥/凭证 ID"
-                        />
-                    </Box>
-                    <Box sx={{gridColumn: {xs: 'span 1', sm: 'span 2'}}}>
-                        <TextField
-                            label="直接输入密钥（可选）"
-                            value={form.credentialValue}
-                            onChange={handleChange('credentialValue')}
-                            fullWidth
-                            multiline
-                            minRows={2}
-                            helperText="直接粘贴 Agent 通信所需的 key/token"
-                        />
-                    </Box>
+                    {showSSHFields ? (
+                        <Box sx={{gridColumn: {xs: 'span 1', sm: 'span 2'}}}>
+                            <TextField
+                                label="凭证引用"
+                                value={form.credentialRef}
+                                onChange={handleChange('credentialRef')}
+                                fullWidth
+                                helperText="引用 server 端保存的密钥/凭证 ID"
+                            />
+                        </Box>
+                    ) : null}
                     <Box sx={{gridColumn: {xs: 'span 1', sm: 'span 2'}}}>
                         <TextField
                             label="标签（逗号分隔）"

@@ -233,7 +233,7 @@ export interface ISyncNode {
     sshPort?: number;
     authType?: string;
     credentialRef?: string;
-    credentialValue?: string;
+    agentToken?: string;
     ignoreDefaults: boolean;
     ignorePatterns: string[];
     ignoreFile?: string;

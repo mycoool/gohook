@@ -111,6 +111,21 @@ type SyncTask struct {
 	LastError   string `json:"last_error" gorm:"type:text"`
 }
 
+// SyncFileChange represents pending change detected by scanner/watcher
+type SyncFileChange struct {
+	BaseModel
+	Path        string    `json:"path" gorm:"size:500;index"`
+	Type        string    `json:"type" gorm:"size:20"`
+	Size        int64     `json:"size"`
+	Hash        string    `json:"hash" gorm:"size:128"`
+	ModTime     time.Time `json:"mod_time" gorm:"index"`
+	NodeID      uint      `json:"node_id" gorm:"index"`
+	NodeName    string    `json:"node_name" gorm:"size:200"`
+	ProjectName string    `json:"project_name" gorm:"size:200"`
+	Processed   bool      `json:"processed" gorm:"index"`
+	Error       string    `json:"error" gorm:"type:text"`
+}
+
 // LogLevel log level constant
 const (
 	LogLevelDebug = "DEBUG"
