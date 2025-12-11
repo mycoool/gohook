@@ -177,6 +177,7 @@ import Branches from '../version/Branches';
 import Tags from '../version/Tags';
 import EnvFileDialog from '../version/EnvFileDialog';
 import Hooks from '../hook/Hooks';
+import SyncNodesPage from '../sync/SyncNodesPage';
 
 import Plugins from '../plugin/Plugins';
 import PluginDetailView from '../plugin/PluginDetailView';
@@ -783,7 +784,7 @@ const CustomRedirect: React.FC<{to: string}> = ({to}) => {
 };
 
 @observer
-class Layout extends React.Component<Stores<'currentUser' | 'snackManager'>> {
+class Layout extends React.Component<Stores<'currentUser' | 'snackManager' | 'syncNodeStore'>> {
     @observable
     private currentTheme: ThemeKey = 'dark';
     @observable
@@ -819,6 +820,7 @@ class Layout extends React.Component<Stores<'currentUser' | 'snackManager'>> {
                 tryReconnect,
                 connectionErrorMessage,
             },
+            syncNodeStore,
         } = this.props;
         const theme = themeMap[currentTheme];
         const loginRoute = () => (loggedIn ? <CustomRedirect to="/" /> : <Login />);
@@ -894,6 +896,7 @@ class Layout extends React.Component<Stores<'currentUser' | 'snackManager'>> {
                                             navOpen={this.navOpen}
                                             setNavOpen={this.setNavOpen.bind(this)}
                                             user={{admin, role}}
+                                            syncNodeStore={syncNodeStore}
                                         />
                                         <MainContent>
                                             {React.createElement(
@@ -953,6 +956,11 @@ class Layout extends React.Component<Stores<'currentUser' | 'snackManager'>> {
                                                 }),
                                                 React.createElement(Route as any, {
                                                     exact: true,
+                                                    path: '/sync/nodes',
+                                                    component: SyncNodesPage,
+                                                }),
+                                                React.createElement(Route as any, {
+                                                    exact: true,
                                                     path: '/users',
                                                     component: Users,
                                                 }),
@@ -1004,4 +1012,4 @@ class Layout extends React.Component<Stores<'currentUser' | 'snackManager'>> {
     }
 }
 
-export default inject('currentUser', 'snackManager')(Layout);
+export default inject('currentUser', 'snackManager', 'syncNodeStore')(Layout);

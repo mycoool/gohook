@@ -28,6 +28,7 @@
         "hooks": "WebHooks",
         "plugins": "Plugins",
         "logs": "Logs",
+        "syncNodes": "Node Manager",
         "users": "Users",
         "settings": "Settings",
         "systemSettings": "Settings",

@@ -28,6 +28,7 @@
         "hooks": "WebHook",
         "plugins": "插件",
         "logs": "日志管理",
+        "syncNodes": "节点管理",
         "users": "用户",
         "settings": "设置",
         "systemSettings": "设置",

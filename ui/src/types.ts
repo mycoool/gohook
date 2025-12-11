@@ -219,3 +219,27 @@ export interface IHookManageMessage {
     success: boolean; // 是否成功
     error?: string; // 错误信息
 }
+
+export interface ISyncNode {
+    id: number;
+    name: string;
+    address: string;
+    type: string;
+    status: string;
+    health: string;
+    tags: string[];
+    metadata: Record<string, unknown>;
+    sshUser?: string;
+    sshPort?: number;
+    authType?: string;
+    credentialRef?: string;
+    ignoreDefaults: boolean;
+    ignorePatterns: string[];
+    ignoreFile?: string;
+    installStatus?: string;
+    installLog?: string;
+    agentVersion?: string;
+    lastSeen?: string;
+    createdAt?: string;
+    updatedAt?: string;
+}

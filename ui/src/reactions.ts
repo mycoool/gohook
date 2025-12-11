@@ -7,6 +7,7 @@ export const registerReactions = (stores: StoreMapping) => {
         stores.messagesStore.clearAll();
         stores.userStore.clear();
         stores.wsStore.close();
+        stores.syncNodeStore.clear();
     };
     const loadAll = () => {
         stores.wsStore.listen((message) => {
@@ -22,6 +23,7 @@ export const registerReactions = (stores: StoreMapping) => {
         if (stores.currentUser.user.admin || stores.currentUser.user.role === 'admin') {
             stores.userStore.refresh();
         }
+        stores.syncNodeStore.refreshNodes().catch(() => undefined);
     };
 
     reaction(

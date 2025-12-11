@@ -92,7 +92,11 @@ type InstallRequest struct {
 
 // ListNodes returns all nodes with optional filters
 func (s *Service) ListNodes(ctx context.Context, filter NodeListFilter) ([]database.SyncNode, error) {
-	query := s.db.WithContext(ctx).Model(&database.SyncNode{})
+	db, err := s.ensureDB()
+	if err != nil {
+		return nil, err
+	}
+	query := db.WithContext(ctx).Model(&database.SyncNode{})
 
 	if filter.Status != "" {
 		query = query.Where("status = ?", filter.Status)
@@ -114,8 +118,12 @@ func (s *Service) ListNodes(ctx context.Context, filter NodeListFilter) ([]datab
 
 // GetNode fetches a single node
 func (s *Service) GetNode(ctx context.Context, id uint) (*database.SyncNode, error) {
+	db, err := s.ensureDB()
+	if err != nil {
+		return nil, err
+	}
 	var node database.SyncNode
-	if err := s.db.WithContext(ctx).First(&node, id).Error; err != nil {
+	if err := db.WithContext(ctx).First(&node, id).Error; err != nil {
 		return nil, err
 	}
 	return &node, nil
@@ -126,6 +134,10 @@ func (s *Service) CreateNode(ctx context.Context, req CreateNodeRequest) (*datab
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
+	db, err := s.ensureDB()
+	if err != nil {
+		return nil, err
+	}
 	node := &database.SyncNode{
 		Status:        NodeStatusOffline,
 		Health:        NodeHealthUnknown,
@@ -133,7 +145,7 @@ func (s *Service) CreateNode(ctx context.Context, req CreateNodeRequest) (*datab
 	}
 	s.applyCreateRequest(node, req)
 
-	if err := s.db.WithContext(ctx).Create(node).Error; err != nil {
+	if err := db.WithContext(ctx).Create(node).Error; err != nil {
 		return nil, err
 	}
 	return node, nil
@@ -148,7 +160,11 @@ func (s *Service) UpdateNode(ctx context.Context, id uint, req UpdateNodeRequest
 
 	s.applyUpdateRequest(node, req)
 
-	if err := s.db.WithContext(ctx).Save(node).Error; err != nil {
+	db, err := s.ensureDB()
+	if err != nil {
+		return nil, err
+	}
+	if err := db.WithContext(ctx).Save(node).Error; err != nil {
 		return nil, err
 	}
 	return node, nil
@@ -156,7 +172,11 @@ func (s *Service) UpdateNode(ctx context.Context, id uint, req UpdateNodeRequest
 
 // DeleteNode removes a sync node
 func (s *Service) DeleteNode(ctx context.Context, id uint) error {
-	res := s.db.WithContext(ctx).Delete(&database.SyncNode{}, id)
+	db, err := s.ensureDB()
+	if err != nil {
+		return err
+	}
+	res := db.WithContext(ctx).Delete(&database.SyncNode{}, id)
 	if res.Error != nil {
 		return res.Error
 	}
@@ -177,7 +197,11 @@ func (s *Service) TriggerInstall(ctx context.Context, id uint, req InstallReques
 	node.InstallStatus = InstallStatusInstalling
 	node.InstallLog = appendLogLine(node.InstallLog, "Starting Sync Agent installation job")
 
-	if err := s.db.WithContext(ctx).Save(node).Error; err != nil {
+	db, err := s.ensureDB()
+	if err != nil {
+		return nil, err
+	}
+	if err := db.WithContext(ctx).Save(node).Error; err != nil {
 		return nil, err
 	}
 
@@ -220,7 +244,11 @@ func (s *Service) runInstallRoutine(id uint, req InstallRequest) {
 	node.LastSeen = &now
 	node.AgentVersion = "v0.1.0-sync"
 
-	if err := s.db.WithContext(ctx).Save(node).Error; err != nil {
+	db, err := s.ensureDB()
+	if err != nil {
+		return
+	}
+	if err := db.WithContext(ctx).Save(node).Error; err != nil {
 		return
 	}
 }
@@ -380,4 +408,13 @@ func (req CreateNodeRequest) Validate() error {
 		req.Type = NodeTypeAgent
 	}
 	return nil
+}
+func (s *Service) ensureDB() (*gorm.DB, error) {
+	if s.db == nil {
+		s.db = database.GetDB()
+	}
+	if s.db == nil {
+		return nil, errors.New("database not initialized")
+	}
+	return s.db, nil
 }

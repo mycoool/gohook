@@ -17,6 +17,7 @@ import Settings from '@mui/icons-material/Settings';
 
 import AccountTree from '@mui/icons-material/AccountTree';
 import History from '@mui/icons-material/History';
+import StorageIcon from '@mui/icons-material/Storage';
 import React, {Component, CSSProperties} from 'react';
 import {Link as RouterLink} from 'react-router-dom';
 import {observer} from 'mobx-react';
@@ -231,6 +232,15 @@ class Header extends Component<IProps> {
                     </StyledLink>
                 )}
 
+                <StyledLink to="/sync/nodes" id="navigate-sync-nodes">
+                    <ResponsiveButtonWithTranslation
+                        icon={<StorageIcon />}
+                        translationKey="nav.syncNodes"
+                        fallbackLabel="nodes"
+                        width={width}
+                        color="inherit"
+                    />
+                </StyledLink>
                 <StyledLink to="/logs" id="navigate-logs">
                     <ResponsiveButtonWithTranslation
                         icon={<History />}
