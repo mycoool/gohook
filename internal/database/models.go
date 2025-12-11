@@ -75,25 +75,25 @@ type ProjectActivity struct {
 // SyncNode represents a managed sync target node
 type SyncNode struct {
 	BaseModel
-	Name           string     `json:"name" gorm:"size:200;index"`
-	Address        string     `json:"address" gorm:"size:200"`
-	Type           string     `json:"type" gorm:"size:50"`         // ssh | agent | custom
-	Status         string     `json:"status" gorm:"size:50;index"` // ONLINE | OFFLINE | ...
-	Health         string     `json:"health" gorm:"size:50;index"` // HEALTHY | DEGRADED | UNKNOWN
-	LastSeen       *time.Time `json:"last_seen" gorm:"index"`
-	Tags           string     `json:"tags" gorm:"type:text"`     // JSON array
-	Metadata       string     `json:"metadata" gorm:"type:text"` // additional metadata JSON
-	SSHUser        string     `json:"ssh_user" gorm:"size:100"`
-	SSHPort        int        `json:"ssh_port"`
-	AuthType       string     `json:"auth_type" gorm:"size:50"`       // password | key | agent
-	CredentialRef  string     `json:"credential_ref" gorm:"size:200"` // reference to credential storage
-	CredentialValue string    `json:"credential_value" gorm:"type:text"`
-	InstallStatus  string     `json:"install_status" gorm:"size:50"`  // pending | installing | success | failed
-	InstallLog     string     `json:"install_log" gorm:"type:text"`   // installation log
-	AgentVersion   string     `json:"agent_version" gorm:"size:100"`
-	IgnoreDefaults bool       `json:"ignore_defaults"`
-	IgnorePatterns string     `json:"ignore_patterns" gorm:"type:text"` // JSON array of additional ignore patterns
-	IgnoreFile     string     `json:"ignore_file" gorm:"size:200"`
+	Name            string     `json:"name" gorm:"size:200;index"`
+	Address         string     `json:"address" gorm:"size:200"`
+	Type            string     `json:"type" gorm:"size:50"`         // ssh | agent | custom
+	Status          string     `json:"status" gorm:"size:50;index"` // ONLINE | OFFLINE | ...
+	Health          string     `json:"health" gorm:"size:50;index"` // HEALTHY | DEGRADED | UNKNOWN
+	LastSeen        *time.Time `json:"last_seen" gorm:"index"`
+	Tags            string     `json:"tags" gorm:"type:text"`     // JSON array
+	Metadata        string     `json:"metadata" gorm:"type:text"` // additional metadata JSON
+	SSHUser         string     `json:"ssh_user" gorm:"size:100"`
+	SSHPort         int        `json:"ssh_port"`
+	AuthType        string     `json:"auth_type" gorm:"size:50"`       // password | key | agent
+	CredentialRef   string     `json:"credential_ref" gorm:"size:200"` // reference to credential storage
+	CredentialValue string     `json:"credential_value" gorm:"type:text"`
+	InstallStatus   string     `json:"install_status" gorm:"size:50"` // pending | installing | success | failed
+	InstallLog      string     `json:"install_log" gorm:"type:text"`  // installation log
+	AgentVersion    string     `json:"agent_version" gorm:"size:100"`
+	IgnoreDefaults  bool       `json:"ignore_defaults"`
+	IgnorePatterns  string     `json:"ignore_patterns" gorm:"type:text"` // JSON array of additional ignore patterns
+	IgnoreFile      string     `json:"ignore_file" gorm:"size:200"`
 }
 
 // SyncTask represents a sync task dispatch record

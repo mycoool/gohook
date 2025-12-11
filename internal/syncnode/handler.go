@@ -163,6 +163,35 @@ func HandleInstallNode(c *gin.Context) {
 	c.JSON(http.StatusAccepted, mapNode(node))
 }
 
+func HandleHeartbeat(c *gin.Context) {
+	id, err := parseIDParam(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	var req HeartbeatRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	node, err := defaultService.RecordHeartbeat(c.Request.Context(), id, req)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, ErrInvalidToken) {
+			status = http.StatusUnauthorized
+		}
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			status = http.StatusNotFound
+		}
+		c.JSON(status, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, mapNode(node))
+}
+
 func mapNodes(nodes []database.SyncNode) []nodeResponse {
 	result := make([]nodeResponse, 0, len(nodes))
 	for i := range nodes {

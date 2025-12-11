@@ -100,9 +100,9 @@
    - 适合已有 SSH 信任、无需额外客户端的场景。
 
 2. **Sync Agent（默认方案）**
-   - 子节点运行一个轻量二进制（可复用 GoHook 的 HTTP server，裁剪成 `gohook-sync-agent`），负责拉取任务、执行同步并回传状态。
-   - Agent 在启动时向主节点注册，建立长轮询或 WebSocket 通道；若网络受限，可退化为周期性轮询。
-   - 主节点通过 `POST /api/sync/tasks/{id}/dispatch` 将任务下发，Agent 下载压缩包/差异包或通过内置传输从主节点拉取最新内容。
+	- 子节点运行一个轻量二进制（可复用 GoHook 的 HTTP server，裁剪成 `gohook-sync-agent`），负责拉取任务、执行同步并回传状态。
+	- Agent 在启动时向主节点注册，建立长轮询或 WebSocket 通道；若网络受限，可退化为周期性轮询。
+	- 主节点通过 `POST /api/sync/tasks/{id}/dispatch` 将任务下发，Agent 下载压缩包/差异包或通过内置传输从主节点拉取最新内容，并定期 `POST /api/sync/nodes/{id}/heartbeat` 上报状态。
    - Agent 内置 `rsync` 同步语义（权限、增量、删除未使用文件），支持项目级 `include/exclude` 配置，默认忽略 `.git/`、`runtime/`、`tmp/` 等目录，并允许声明额外的忽略文件（如 `sync.ignore`）。
    - 方便做校验、钩子、断点续传，以及在受限网络下（只能出方向）运行。
 

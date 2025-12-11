@@ -270,6 +270,7 @@ func InitRouter() *gin.Engine {
 		nodeAPI.PUT("/:id", syncnode.HandleUpdateNode)
 		nodeAPI.DELETE("/:id", syncnode.HandleDeleteNode)
 		nodeAPI.POST("/:id/install", syncnode.HandleInstallNode)
+		nodeAPI.POST("/:id/heartbeat", syncnode.HandleHeartbeat)
 	}
 
 	// GitHook webhook endpoint

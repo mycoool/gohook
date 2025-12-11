@@ -2,6 +2,7 @@ package syncnode
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -28,6 +29,9 @@ const (
 	InstallStatusSuccess    = "success"
 	InstallStatusFailed     = "failed"
 )
+
+// ErrInvalidToken indicates the agent token was missing or incorrect
+var ErrInvalidToken = errors.New("invalid node token")
 
 // Service provides sync node management helpers
 type Service struct {
@@ -89,6 +93,17 @@ type InstallRequest struct {
 	CredentialRef string `json:"credentialRef"`
 	AuthType      string `json:"authType"`
 	Force         bool   `json:"force"`
+}
+
+// HeartbeatRequest payload sent by sync agents
+type HeartbeatRequest struct {
+	Token        string                 `json:"token" binding:"required"`
+	Status       string                 `json:"status"`
+	Health       string                 `json:"health"`
+	AgentVersion string                 `json:"agentVersion"`
+	Hostname     string                 `json:"hostname"`
+	IPAddresses  []string               `json:"ipAddresses"`
+	Metadata     map[string]interface{} `json:"metadata"`
 }
 
 // ListNodes returns all nodes with optional filters
@@ -207,6 +222,55 @@ func (s *Service) TriggerInstall(ctx context.Context, id uint, req InstallReques
 	}
 
 	go s.runInstallRoutine(id, req)
+
+	return node, nil
+}
+
+// RecordHeartbeat updates node status data from agent heartbeat
+func (s *Service) RecordHeartbeat(ctx context.Context, id uint, req HeartbeatRequest) (*database.SyncNode, error) {
+	if strings.TrimSpace(req.Token) == "" {
+		return nil, ErrInvalidToken
+	}
+
+	node, err := s.GetNode(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	if node.CredentialValue == "" || subtle.ConstantTimeCompare([]byte(node.CredentialValue), []byte(req.Token)) != 1 {
+		return nil, ErrInvalidToken
+	}
+
+	now := time.Now()
+	node.LastSeen = &now
+	node.Status = normalizeNodeStatus(req.Status)
+	node.Health = normalizeNodeHealth(req.Health)
+	if req.AgentVersion != "" {
+		node.AgentVersion = req.AgentVersion
+	}
+	if node.InstallStatus != InstallStatusSuccess {
+		node.InstallStatus = InstallStatusSuccess
+	}
+
+	meta := decodeMap(node.Metadata)
+	agentMeta := map[string]interface{}{
+		"hostname":    req.Hostname,
+		"ipAddresses": req.IPAddresses,
+		"updatedAt":   now.Format(time.RFC3339),
+	}
+	for k, v := range req.Metadata {
+		agentMeta[k] = v
+	}
+	meta["agent"] = agentMeta
+	node.Metadata = encodeMap(meta)
+
+	db, err := s.ensureDB()
+	if err != nil {
+		return nil, err
+	}
+	if err := db.WithContext(ctx).Save(node).Error; err != nil {
+		return nil, err
+	}
 
 	return node, nil
 }
@@ -333,6 +397,26 @@ func normalizeNodeType(value string) string {
 		return value
 	default:
 		return NodeTypeAgent
+	}
+}
+
+func normalizeNodeStatus(value string) string {
+	switch strings.ToUpper(strings.TrimSpace(value)) {
+	case NodeStatusOffline:
+		return NodeStatusOffline
+	default:
+		return NodeStatusOnline
+	}
+}
+
+func normalizeNodeHealth(value string) string {
+	switch strings.ToUpper(strings.TrimSpace(value)) {
+	case NodeHealthDegraded:
+		return NodeHealthDegraded
+	case NodeHealthHealthy:
+		return NodeHealthHealthy
+	default:
+		return NodeHealthUnknown
 	}
 }
 
