@@ -56,28 +56,28 @@ type NodeListFilter struct {
 
 // CreateNodeRequest payload
 type CreateNodeRequest struct {
-	Name           string                 `json:"name" binding:"required"`
-	Address        string                 `json:"address"`
-	Type           string                 `json:"type" binding:"required"`
-	SSHUser        string                 `json:"sshUser"`
-	SSHPort        int                    `json:"sshPort"`
-	AuthType       string                 `json:"authType"`
-	CredentialRef  string                 `json:"credentialRef"`
-	Tags           []string               `json:"tags"`
-	Metadata       map[string]interface{} `json:"metadata"`
+	Name          string                 `json:"name" binding:"required"`
+	Address       string                 `json:"address"`
+	Type          string                 `json:"type" binding:"required"`
+	SSHUser       string                 `json:"sshUser"`
+	SSHPort       int                    `json:"sshPort"`
+	AuthType      string                 `json:"authType"`
+	CredentialRef string                 `json:"credentialRef"`
+	Tags          []string               `json:"tags"`
+	Metadata      map[string]interface{} `json:"metadata"`
 }
 
 // UpdateNodeRequest payload (full replace)
 type UpdateNodeRequest struct {
-	Name           string                 `json:"name"`
-	Address        string                 `json:"address"`
-	Type           string                 `json:"type"`
-	SSHUser        string                 `json:"sshUser"`
-	SSHPort        int                    `json:"sshPort"`
-	AuthType       string                 `json:"authType"`
-	CredentialRef  string                 `json:"credentialRef"`
-	Tags           []string               `json:"tags"`
-	Metadata       map[string]interface{} `json:"metadata"`
+	Name          string                 `json:"name"`
+	Address       string                 `json:"address"`
+	Type          string                 `json:"type"`
+	SSHUser       string                 `json:"sshUser"`
+	SSHPort       int                    `json:"sshPort"`
+	AuthType      string                 `json:"authType"`
+	CredentialRef string                 `json:"credentialRef"`
+	Tags          []string               `json:"tags"`
+	Metadata      map[string]interface{} `json:"metadata"`
 }
 
 // InstallRequest controls agent installation
@@ -168,6 +168,9 @@ func (s *Service) CreateNode(ctx context.Context, req CreateNodeRequest) (*datab
 
 // UpdateNode replaces editable fields
 func (s *Service) UpdateNode(ctx context.Context, id uint, req UpdateNodeRequest) (*database.SyncNode, error) {
+	if err := req.ValidateUpdate(); err != nil {
+		return nil, err
+	}
 	node, err := s.GetNode(ctx, id)
 	if err != nil {
 		return nil, err
@@ -216,6 +219,25 @@ func (s *Service) RotateToken(ctx context.Context, id uint) (*database.SyncNode,
 		return nil, fmt.Errorf("failed to generate node token: %w", err)
 	}
 	node.CredentialValue = token
+	if err := db.WithContext(ctx).Save(node).Error; err != nil {
+		return nil, err
+	}
+	return node, nil
+}
+
+// ResetPairing clears the pinned agent certificate fingerprint so the next TCP connection can re-pair (TOFU).
+func (s *Service) ResetPairing(ctx context.Context, id uint) (*database.SyncNode, error) {
+	db, err := s.ensureDB()
+	if err != nil {
+		return nil, err
+	}
+	node, err := s.GetNode(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	node.AgentCertFingerprint = ""
+	node.Status = NodeStatusOffline
+	node.Health = NodeHealthUnknown
 	if err := db.WithContext(ctx).Save(node).Error; err != nil {
 		return nil, err
 	}
@@ -285,6 +307,68 @@ func (s *Service) RecordHeartbeat(ctx context.Context, id uint, req HeartbeatReq
 	}
 
 	return node, nil
+}
+
+// RecordTCPConnected marks node online based on an authenticated TCP/mTLS connection.
+func (s *Service) RecordTCPConnected(ctx context.Context, nodeID uint, agentName, agentVersion string) error {
+	db, err := s.ensureDB()
+	if err != nil {
+		return err
+	}
+	var node database.SyncNode
+	if err := db.WithContext(ctx).First(&node, nodeID).Error; err != nil {
+		return err
+	}
+	now := time.Now()
+	node.LastSeen = &now
+	node.Status = NodeStatusOnline
+	if node.Health == "" || strings.EqualFold(node.Health, NodeHealthUnknown) {
+		node.Health = NodeHealthHealthy
+	}
+	if strings.TrimSpace(agentVersion) != "" {
+		node.AgentVersion = agentVersion
+	}
+	if node.InstallStatus != InstallStatusSuccess {
+		node.InstallStatus = InstallStatusSuccess
+	}
+
+	meta := decodeMap(node.Metadata)
+	agentMeta := map[string]interface{}{
+		"transport":   "tcp",
+		"connectedAt": now.Format(time.RFC3339),
+	}
+	if strings.TrimSpace(agentName) != "" {
+		agentMeta["hostname"] = agentName
+	}
+	meta["agent"] = agentMeta
+	node.Metadata = encodeMap(meta)
+
+	return db.WithContext(ctx).Save(&node).Error
+}
+
+// TouchTCPHeartbeat updates last_seen while a TCP connection remains alive.
+func (s *Service) TouchTCPHeartbeat(ctx context.Context, nodeID uint) {
+	db, err := s.ensureDB()
+	if err != nil {
+		return
+	}
+	now := time.Now()
+	_ = db.WithContext(ctx).Model(&database.SyncNode{}).Where("id = ?", nodeID).Updates(map[string]interface{}{
+		"last_seen": now,
+		"status":    NodeStatusOnline,
+	}).Error
+}
+
+// RecordTCPDisconnected marks node offline when its TCP connection closes.
+func (s *Service) RecordTCPDisconnected(ctx context.Context, nodeID uint) {
+	db, err := s.ensureDB()
+	if err != nil {
+		return
+	}
+	_ = db.WithContext(ctx).Model(&database.SyncNode{}).Where("id = ?", nodeID).Updates(map[string]interface{}{
+		"status": NodeStatusOffline,
+		"health": NodeHealthUnknown,
+	}).Error
 }
 
 // ValidateAgentToken loads the node and validates agent token.
@@ -539,6 +623,19 @@ func (req CreateNodeRequest) Validate() error {
 	}
 	if strings.TrimSpace(req.Type) == "" {
 		req.Type = NodeTypeAgent
+	}
+	// Scheme B: sync transport is agent-only (TCP/mTLS). Keep existing ssh nodes readable,
+	// but prevent creating new ones to avoid misleading configuration.
+	if normalizeNodeType(req.Type) != NodeTypeAgent {
+		return errors.New("only agent nodes are supported")
+	}
+	return nil
+}
+
+// ValidateUpdate ensures updates won't switch node to unsupported types.
+func (req UpdateNodeRequest) ValidateUpdate() error {
+	if strings.TrimSpace(req.Type) != "" && normalizeNodeType(req.Type) != NodeTypeAgent {
+		return errors.New("only agent nodes are supported")
 	}
 	return nil
 }

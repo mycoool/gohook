@@ -20,10 +20,10 @@ import (
 )
 
 type helloMessage struct {
-	Type        string `json:"type"`
-	NodeID      uint   `json:"nodeId"`
-	Token       string `json:"token"`
-	AgentName   string `json:"agentName,omitempty"`
+	Type         string `json:"type"`
+	NodeID       uint   `json:"nodeId"`
+	Token        string `json:"token"`
+	AgentName    string `json:"agentName,omitempty"`
 	AgentVersion string `json:"agentVersion,omitempty"`
 }
 
@@ -35,7 +35,7 @@ type helloAck struct {
 }
 
 type taskPush struct {
-	Type string `json:"type"`
+	Type string       `json:"type"`
 	Task taskResponse `json:"task"`
 }
 
@@ -52,8 +52,8 @@ type indexBegin struct {
 }
 
 type indexFile struct {
-	Type   string        `json:"type"`
-	TaskID uint          `json:"taskId"`
+	Type   string         `json:"type"`
+	TaskID uint           `json:"taskId"`
 	File   IndexFileEntry `json:"file"`
 }
 
@@ -79,10 +79,10 @@ type blockResponse struct {
 }
 
 type taskReportMsg struct {
-	Type     string `json:"type"`
-	TaskID   uint   `json:"taskId"`
-	Status   string `json:"status"`
-	Logs     string `json:"logs,omitempty"`
+	Type      string `json:"type"`
+	TaskID    uint   `json:"taskId"`
+	Status    string `json:"status"`
+	Logs      string `json:"logs,omitempty"`
 	LastError string `json:"lastError,omitempty"`
 }
 
@@ -177,6 +177,26 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 
 	_ = WriteStreamMessage(conn, helloAck{Type: "hello_ack", OK: true, Server: "gohook"})
 
+	// Heartbeat via TCP connection: mark online on connect, touch periodically, mark offline on close.
+	_ = svc.RecordTCPConnected(ctx, hello.NodeID, hello.AgentName, hello.AgentVersion)
+	touchStop := make(chan struct{})
+	defer close(touchStop)
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-touchStop:
+				return
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				svc.TouchTCPHeartbeat(ctx, hello.NodeID)
+			}
+		}
+	}()
+	defer svc.RecordTCPDisconnected(ctx, hello.NodeID)
+
 	// Single-task loop: push next task, then serve index/blocks until report arrives.
 	for {
 		select {
@@ -200,11 +220,11 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 		}
 
 		// Expect sync_start
-			var start syncStart
-			if err := ReadStreamMessage(conn, &start); err != nil || start.Type != "sync_start" || start.TaskID != task.ID {
-				_, _ = defaultTaskService.ReportTask(ctx, hello.NodeID, task.ID, TaskReport{Status: "failed", LastError: "missing sync_start"})
-				return
-			}
+		var start syncStart
+		if err := ReadStreamMessage(conn, &start); err != nil || start.Type != "sync_start" || start.TaskID != task.ID {
+			_, _ = defaultTaskService.ReportTask(ctx, hello.NodeID, task.ID, TaskReport{Status: "failed", LastError: "missing sync_start"})
+			return
+		}
 
 		// Stream index.
 		_ = WriteStreamMessage(conn, indexBegin{Type: "index_begin", TaskID: task.ID, Project: task.ProjectName, BlockHash: "sha256"})

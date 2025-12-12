@@ -16,25 +16,26 @@ import (
 var defaultService = NewService()
 
 type nodeResponse struct {
-	ID             uint                   `json:"id"`
-	Name           string                 `json:"name"`
-	Address        string                 `json:"address"`
-	Type           string                 `json:"type"`
-	Status         string                 `json:"status"`
-	Health         string                 `json:"health"`
-	Tags           []string               `json:"tags"`
-	Metadata       map[string]interface{} `json:"metadata"`
-	SSHUser        string                 `json:"sshUser"`
-	SSHPort        int                    `json:"sshPort"`
-	AuthType       string                 `json:"authType"`
-	CredentialRef  string                 `json:"credentialRef"`
-	AgentToken     string                 `json:"agentToken,omitempty"`
-	InstallStatus  string                 `json:"installStatus"`
-	InstallLog     string                 `json:"installLog"`
-	AgentVersion   string                 `json:"agentVersion"`
-	LastSeen       *time.Time             `json:"lastSeen"`
-	CreatedAt      time.Time              `json:"createdAt"`
-	UpdatedAt      time.Time              `json:"updatedAt"`
+	ID                   uint                   `json:"id"`
+	Name                 string                 `json:"name"`
+	Address              string                 `json:"address"`
+	Type                 string                 `json:"type"`
+	Status               string                 `json:"status"`
+	Health               string                 `json:"health"`
+	AgentCertFingerprint string                 `json:"agentCertFingerprint"`
+	Tags                 []string               `json:"tags"`
+	Metadata             map[string]interface{} `json:"metadata"`
+	SSHUser              string                 `json:"sshUser"`
+	SSHPort              int                    `json:"sshPort"`
+	AuthType             string                 `json:"authType"`
+	CredentialRef        string                 `json:"credentialRef"`
+	AgentToken           string                 `json:"agentToken,omitempty"`
+	InstallStatus        string                 `json:"installStatus"`
+	InstallLog           string                 `json:"installLog"`
+	AgentVersion         string                 `json:"agentVersion"`
+	LastSeen             *time.Time             `json:"lastSeen"`
+	CreatedAt            time.Time              `json:"createdAt"`
+	UpdatedAt            time.Time              `json:"updatedAt"`
 }
 
 func HandleListNodes(c *gin.Context) {
@@ -180,32 +181,21 @@ func HandleRotateToken(c *gin.Context) {
 	c.JSON(http.StatusOK, mapNode(node))
 }
 
-func HandleHeartbeat(c *gin.Context) {
+func HandleResetPairing(c *gin.Context) {
 	id, err := parseIDParam(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-
-	var req HeartbeatRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	node, err := defaultService.RecordHeartbeat(c.Request.Context(), id, req)
+	node, err := defaultService.ResetPairing(c.Request.Context(), id)
 	if err != nil {
 		status := http.StatusInternalServerError
-		if errors.Is(err, ErrInvalidToken) {
-			status = http.StatusUnauthorized
-		}
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			status = http.StatusNotFound
 		}
 		c.JSON(status, gin.H{"error": err.Error()})
 		return
 	}
-
 	c.JSON(http.StatusOK, mapNode(node))
 }
 
@@ -219,25 +209,26 @@ func mapNodes(nodes []database.SyncNode) []nodeResponse {
 
 func mapNode(node *database.SyncNode) nodeResponse {
 	return nodeResponse{
-		ID:             node.ID,
-		Name:           node.Name,
-		Address:        node.Address,
-		Type:           node.Type,
-		Status:         node.Status,
-		Health:         node.Health,
-		Tags:           decodeStringSlice(node.Tags),
-		Metadata:       decodeMap(node.Metadata),
-		SSHUser:        node.SSHUser,
-		SSHPort:        node.SSHPort,
-		AuthType:       node.AuthType,
-		CredentialRef:  node.CredentialRef,
-		AgentToken:     node.CredentialValue,
-		InstallStatus:  node.InstallStatus,
-		InstallLog:     node.InstallLog,
-		AgentVersion:   node.AgentVersion,
-		LastSeen:       node.LastSeen,
-		CreatedAt:      node.CreatedAt,
-		UpdatedAt:      node.UpdatedAt,
+		ID:                   node.ID,
+		Name:                 node.Name,
+		Address:              node.Address,
+		Type:                 node.Type,
+		Status:               node.Status,
+		Health:               node.Health,
+		AgentCertFingerprint: node.AgentCertFingerprint,
+		Tags:                 decodeStringSlice(node.Tags),
+		Metadata:             decodeMap(node.Metadata),
+		SSHUser:              node.SSHUser,
+		SSHPort:              node.SSHPort,
+		AuthType:             node.AuthType,
+		CredentialRef:        node.CredentialRef,
+		AgentToken:           node.CredentialValue,
+		InstallStatus:        node.InstallStatus,
+		InstallLog:           node.InstallLog,
+		AgentVersion:         node.AgentVersion,
+		LastSeen:             node.LastSeen,
+		CreatedAt:            node.CreatedAt,
+		UpdatedAt:            node.UpdatedAt,
 	}
 }
 

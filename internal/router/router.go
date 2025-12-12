@@ -274,6 +274,7 @@ func InitRouter() *gin.Engine {
 		nodeAPI.PUT("/:id", syncnode.HandleUpdateNode)
 		nodeAPI.DELETE("/:id", syncnode.HandleDeleteNode)
 		nodeAPI.POST("/:id/rotate-token", syncnode.HandleRotateToken)
+		nodeAPI.POST("/:id/reset-pairing", syncnode.HandleResetPairing)
 		nodeAPI.POST("/:id/install", syncnode.HandleInstallNode)
 	}
 
@@ -282,7 +283,6 @@ func InitRouter() *gin.Engine {
 	agentSyncAPI.Use(middleware.DisableLogMiddleware())
 	{
 		agentNodeAPI := agentSyncAPI.Group("/nodes")
-		agentNodeAPI.POST("/:id/heartbeat", syncnode.AgentTokenMiddleware(), syncnode.HandleHeartbeat)
 		agentNodeAPI.GET("/:id/tasks/pull", syncnode.AgentTokenMiddleware(), syncnode.HandlePullTask)
 		agentNodeAPI.POST("/:id/tasks/:taskId/report", syncnode.AgentTokenMiddleware(), syncnode.HandleReportTask)
 		agentNodeAPI.GET("/:id/tasks/:taskId/bundle", syncnode.AgentTokenMiddleware(), syncnode.HandleDownloadBundle)

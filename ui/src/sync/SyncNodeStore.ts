@@ -154,6 +154,28 @@ export class SyncNodeStore {
     };
 
     @action
+    public resetPairing = async (id: number): Promise<ISyncNode> => {
+        this.saving = true;
+        try {
+            const response = await axios.post<ISyncNode>(
+                `${config.get('url')}api/sync/nodes/${id}/reset-pairing`,
+                {},
+                {headers: this.headers}
+            );
+            this.snack('已重置配对，等待 Agent 重新连接');
+            await this.refreshNodes();
+            return response.data;
+        } catch (error: unknown) {
+            this.handleError(error, '重置配对失败');
+            throw error;
+        } finally {
+            runInAction(() => {
+                this.saving = false;
+            });
+        }
+    };
+
+    @action
     public triggerInstall = async (id: number, payload?: {sshUser?: string; sshPort?: number}) => {
         this.saving = true;
         try {

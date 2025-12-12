@@ -22,7 +22,7 @@ import AddIcon from '@mui/icons-material/Add';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
-import SyncIcon from '@mui/icons-material/Sync';
+import LinkOffIcon from '@mui/icons-material/LinkOff';
 import DefaultPage from '../common/DefaultPage';
 import ConfirmDialog from '../common/ConfirmDialog';
 import {inject, Stores} from '../inject';
@@ -46,6 +46,8 @@ const healthColor = (health: string) => {
             return 'info';
     }
 };
+
+const pairingLabel = (node: ISyncNode) => (node.agentCertFingerprint ? 'PAIRED' : 'UNPAIRED');
 
 const formatTime = (value?: string) => {
     if (!value) {
@@ -107,10 +109,6 @@ const SyncNodesPage: React.FC<Props> = ({syncNodeStore, currentUser}) => {
         setDeleteTarget(null);
     };
 
-    const triggerInstall = async (node: ISyncNode) => {
-        await syncNodeStore.triggerInstall(node.id);
-    };
-
     return (
         <DefaultPage
             title="节点管理"
@@ -137,7 +135,7 @@ const SyncNodesPage: React.FC<Props> = ({syncNodeStore, currentUser}) => {
                                     <TableCell>名称</TableCell>
                                     <TableCell>地址</TableCell>
                                     <TableCell>健康状态</TableCell>
-                                    <TableCell>同步状态</TableCell>
+                                    <TableCell>配对状态</TableCell>
                                     <TableCell>最后心跳</TableCell>
                                     <TableCell>标签</TableCell>
                                     <TableCell align="right">操作</TableCell>
@@ -170,7 +168,7 @@ const SyncNodesPage: React.FC<Props> = ({syncNodeStore, currentUser}) => {
                                                         color="textSecondary">
                                                         {node.type === 'agent'
                                                             ? 'Sync Agent'
-                                                            : 'SSH/rsync'}
+                                                            : 'LEGACY'}
                                                     </Typography>
                                                 </Stack>
                                             </TableCell>
@@ -185,7 +183,7 @@ const SyncNodesPage: React.FC<Props> = ({syncNodeStore, currentUser}) => {
                                             <TableCell>
                                                 <Stack spacing={0.5}>
                                                     <Chip
-                                                        label={node.installStatus || 'pending'}
+                                                        label={pairingLabel(node)}
                                                         variant="outlined"
                                                         size="small"
                                                     />
@@ -212,13 +210,15 @@ const SyncNodesPage: React.FC<Props> = ({syncNodeStore, currentUser}) => {
                                                     : '--'}
                                             </TableCell>
                                             <TableCell align="right">
-                                                <Tooltip title="重新安装/推送 Agent">
+                                                <Tooltip title="重置配对（清空 mTLS 指纹，等待 Agent 重新连接）">
                                                     <span>
                                                         <IconButton
                                                             size="small"
-                                                            onClick={() => triggerInstall(node)}
+                                                            onClick={() =>
+                                                                syncNodeStore.resetPairing(node.id)
+                                                            }
                                                             disabled={syncNodeStore.saving}>
-                                                            <SyncIcon fontSize="small" />
+                                                            <LinkOffIcon fontSize="small" />
                                                         </IconButton>
                                                     </span>
                                                 </Tooltip>

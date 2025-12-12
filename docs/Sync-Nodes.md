@@ -41,8 +41,8 @@
 
 1. **节点管理（主节点）**
    - 数据模型：`sync_nodes`/`sync_tasks`/`sync_file_changes` 已加入并自动迁移。
-   - API：节点 CRUD、安装触发、心跳、Token 刷新（`POST /api/sync/nodes/:id/rotate-token`）。
-   - 鉴权：Agent 心跳接口使用节点 Token 认证；管理接口使用管理员 JWT。
+   - API：节点 CRUD、Token 刷新（`POST /api/sync/nodes/:id/rotate-token`）、配对重置（`POST /api/sync/nodes/:id/reset-pairing`）。
+   - 鉴权：Agent 通过 TCP `hello(token)` 鉴权并维持在线状态；管理接口使用管理员 JWT。
    - UI：节点管理页、创建/编辑弹窗展示 Token、复制/显隐/刷新。
 
 2. **项目级同步配置（版本管理）**
@@ -81,7 +81,7 @@
 
 1. **节点管理与安全**
    - 节点 Token 自动生成、显示/复制/刷新。
-   - Agent 心跳与长连接统一使用节点 Token 认证。
+   - Agent 通过 TCP `hello(token)` 完成认证并维持在线状态（不再使用 HTTP 心跳）。
    - 新增 mTLS 长连接与证书指纹配对（`agent_cert_fingerprint`），支持 TOFU + pin 校验。
 
 2. **项目级同步配置**
@@ -114,7 +114,7 @@
 | --- | --- |
 | id | 节点 ID，UI/配置引用此值 |
 | name/address/type | 节点标识与用途（`type`：`ssh|agent|custom`；当前同步链路仅使用 `agent`） |
-| status/health/last_seen | 健康与心跳信息（Agent 通过 HTTP 心跳上报） |
+| status/health/last_seen | 健康与在线信息（由 TCP 长连接维护 last_seen/status） |
 | credential_ref/credential_value | 凭证引用与存储值（Agent Token 存在 `credential_value`） |
 | agent_cert_fingerprint | Agent 证书指纹（sha256 hex），用于 mTLS 配对与防冒充 |
 | install_status/install_log | 自动安装状态（目前为 stub） |
@@ -147,7 +147,7 @@
 ### 节点管理器（Node Manager）
 
 - REST API：`GET/POST/GET/PUT/DELETE /api/sync/nodes`，并支持 Token 轮换 `POST /api/sync/nodes/:id/rotate-token`。
-- Agent 心跳：子节点定期 `POST /api/sync/nodes/:id/heartbeat` 上报状态。
+- 在线状态：由 TCP 长连接连接/断开与定时 touch 维护（不再提供 HTTP 心跳接口）。
 - 凭证存储：Agent Token 以节点维度保存（`credential_value`），避免在配置文件中明文长期存放。
 - UI：新增“节点管理”页，显示状态、项目绑定数、最近同步结果，支持一键测试连通性。
 - 自动安装：当前为 stub（记录日志并标记成功），后续再补齐实际下发与回滚。
@@ -301,7 +301,7 @@
 
 5. **验证链路**
    - 手动触发：`POST /api/sync/projects/:name/run`（临时入口，后续由 Controller 替换）。
-   - 观察：节点状态（心跳）、任务状态（数据库/日志），以及子节点目标目录文件变更。
+   - 观察：节点状态（TCP 在线/last_seen）、任务状态（数据库/日志），以及子节点目标目录文件变更。
 
 > 说明：Syncthing 的实现采用非 MIT 许可，GoHook 这里将“参考算法与接口设计”自行实现，不直接拷贝其源码到仓库中，避免许可证污染。
 

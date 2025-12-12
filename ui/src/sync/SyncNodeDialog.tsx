@@ -6,7 +6,6 @@ import {
     DialogActions,
     TextField,
     Button,
-    MenuItem,
     Box,
     Typography,
     InputAdornment,
@@ -35,22 +34,12 @@ interface SyncNodeDialogProps {
 interface FormState {
     name: string;
     address: string;
-    type: string;
-    sshUser: string;
-    sshPort: string;
-    authType: string;
-    credentialRef: string;
     tags: string;
 }
 
 const defaultState: FormState = {
     name: '',
     address: '',
-    type: 'agent',
-    sshUser: '',
-    sshPort: '',
-    authType: 'key',
-    credentialRef: '',
     tags: '',
 };
 
@@ -82,11 +71,6 @@ const SyncNodeDialog: React.FC<SyncNodeDialogProps> = ({
             setForm({
                 name: node.name,
                 address: node.address,
-                type: node.type || 'agent',
-                sshUser: node.sshUser || 'root',
-                sshPort: node.sshPort ? String(node.sshPort) : '22',
-                authType: node.authType || 'key',
-                credentialRef: node.credentialRef || '',
                 tags: (node.tags || []).join(', '),
             });
             setCreatedNode(null);
@@ -118,20 +102,11 @@ const SyncNodeDialog: React.FC<SyncNodeDialogProps> = ({
             setForm((prev) => ({...prev, [key]: value}));
         };
 
-    const handleSwitchChange = (key: keyof FormState) => (_: React.ChangeEvent, checked: boolean) =>
-        setForm((prev) => ({...prev, [key]: checked}));
-
-    const showSSHFields = form.type === 'ssh';
-
     const handleSubmit = async () => {
         const payload: SyncNodePayload = {
             name: form.name.trim(),
-            type: form.type,
-            address: showSSHFields ? form.address.trim() : undefined,
-            sshUser: showSSHFields ? form.sshUser.trim() : undefined,
-            sshPort: showSSHFields ? Number(form.sshPort) || undefined : undefined,
-            authType: showSSHFields ? form.authType.trim() : undefined,
-            credentialRef: showSSHFields ? form.credentialRef.trim() : undefined,
+            type: 'agent',
+            address: form.address.trim(),
             tags: parseList(form.tags),
         };
 
@@ -170,72 +145,15 @@ const SyncNodeDialog: React.FC<SyncNodeDialogProps> = ({
                             required
                         />
                     </Box>
-                    {showSSHFields ? (
-                        <Box sx={{gridColumn: {xs: 'span 1', sm: 'span 2'}}}>
-                            <TextField
-                                label={t('syncNodes.address')}
-                                value={form.address}
-                                onChange={handleChange('address')}
-                                fullWidth
-                                required
-                                helperText={t('syncNodes.addressHelp')}
-                            />
-                        </Box>
-                    ) : null}
-                    <Box>
+                    <Box sx={{gridColumn: {xs: 'span 1', sm: 'span 2'}}}>
                         <TextField
-                            select
-                            label={t('syncNodes.type')}
-                            value={form.type}
-                            onChange={handleChange('type')}
-                            fullWidth>
-                            <MenuItem value="agent">{t('syncNodes.typeAgent')}</MenuItem>
-                            <MenuItem value="ssh">{t('syncNodes.typeSSH')}</MenuItem>
-                        </TextField>
+                            label={t('syncNodes.address')}
+                            value={form.address}
+                            onChange={handleChange('address')}
+                            fullWidth
+                            helperText={t('syncNodes.addressHelp')}
+                        />
                     </Box>
-                    {showSSHFields ? (
-                        <Box>
-                            <TextField
-                                label={t('syncNodes.authType')}
-                                value={form.authType}
-                                onChange={handleChange('authType')}
-                                fullWidth
-                                placeholder="key/password"
-                            />
-                        </Box>
-                    ) : null}
-                    {showSSHFields ? (
-                        <>
-                            <Box>
-                                <TextField
-                                    label={t('syncNodes.sshUser')}
-                                    value={form.sshUser}
-                                    onChange={handleChange('sshUser')}
-                                    fullWidth
-                                />
-                            </Box>
-                            <Box>
-                                <TextField
-                                    label={t('syncNodes.sshPort')}
-                                    value={form.sshPort}
-                                    onChange={handleChange('sshPort')}
-                                    type="number"
-                                    fullWidth
-                                />
-                            </Box>
-                        </>
-                    ) : null}
-                    {showSSHFields ? (
-                        <Box sx={{gridColumn: {xs: 'span 1', sm: 'span 2'}}}>
-                            <TextField
-                                label={t('syncNodes.credentialRef')}
-                                value={form.credentialRef}
-                                onChange={handleChange('credentialRef')}
-                                fullWidth
-                                helperText={t('syncNodes.credentialRefHelp')}
-                            />
-                        </Box>
-                    ) : null}
                     <Box sx={{gridColumn: {xs: 'span 1', sm: 'span 2'}}}>
                         <TextField
                             label={t('syncNodes.tags')}
@@ -336,6 +254,15 @@ const SyncNodeDialog: React.FC<SyncNodeDialogProps> = ({
                                 {t('syncNodes.tokenCreateHelp')}
                             </Typography>
                         ) : null}
+                        {currentNode?.agentCertFingerprint ? (
+                            <Typography variant="caption" color="textSecondary" display="block">
+                                mTLS 指纹：{currentNode.agentCertFingerprint}
+                            </Typography>
+                        ) : (
+                            <Typography variant="caption" color="textSecondary" display="block">
+                                mTLS 指纹：未配对（等待 Agent 首次连接）
+                            </Typography>
+                        )}
                     </Box>
                 ) : null}
             </DialogContent>
