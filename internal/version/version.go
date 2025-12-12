@@ -682,9 +682,10 @@ func HandleEditProject(c *gin.Context) {
 	projectName := c.Param("name")
 
 	var req struct {
-		Name        string `json:"name" binding:"required"`
-		Path        string `json:"path" binding:"required"`
-		Description string `json:"description"`
+		Name        string                 `json:"name" binding:"required"`
+		Path        string                 `json:"path" binding:"required"`
+		Description string                 `json:"description"`
+		Sync        *types.ProjectSyncConfig `json:"sync,omitempty"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -735,11 +736,16 @@ func HandleEditProject(c *gin.Context) {
 		Name:        req.Name,
 		Path:        req.Path,
 		Description: req.Description,
-		Enabled:     currentProject.Enabled,    // preserve enabled status
-		Enhook:      currentProject.Enhook,     // preserve hook configuration
-		Hookmode:    currentProject.Hookmode,   // preserve hook mode
-		Hookbranch:  currentProject.Hookbranch, // preserve hook branch
-		Hooksecret:  currentProject.Hooksecret, // preserve hook secret
+		Enabled:     currentProject.Enabled,
+		Enhook:      currentProject.Enhook,
+		Hookmode:    currentProject.Hookmode,
+		Hookbranch:  currentProject.Hookbranch,
+		Hooksecret:  currentProject.Hooksecret,
+		ForceSync:   currentProject.ForceSync,
+		Sync:        currentProject.Sync,
+	}
+	if req.Sync != nil {
+		types.GoHookVersionData.Projects[projectIndex].Sync = req.Sync
 	}
 
 	// save config file
@@ -781,9 +787,10 @@ func HandleEditProject(c *gin.Context) {
 // AddProject add project
 func HandleAddProject(c *gin.Context) {
 	var req struct {
-		Name        string `json:"name" binding:"required"`
-		Path        string `json:"path" binding:"required"`
-		Description string `json:"description"`
+		Name        string                  `json:"name" binding:"required"`
+		Path        string                  `json:"path" binding:"required"`
+		Description string                  `json:"description"`
+		Sync        *types.ProjectSyncConfig `json:"sync,omitempty"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -816,6 +823,7 @@ func HandleAddProject(c *gin.Context) {
 		Path:        req.Path,
 		Description: req.Description,
 		Enabled:     true,
+		Sync:        req.Sync,
 	}
 
 	types.GoHookVersionData.Projects = append(types.GoHookVersionData.Projects, newProject)
@@ -1666,6 +1674,7 @@ func HandleGetProjects(c *gin.Context) {
 				Description: proj.Description,
 				Mode:        "none",
 				Status:      "not-git",
+				Sync:        proj.Sync,
 			})
 			continue
 		}
@@ -1678,6 +1687,7 @@ func HandleGetProjects(c *gin.Context) {
 		gitStatus.Hookbranch = proj.Hookbranch
 		gitStatus.Hooksecret = proj.Hooksecret
 		gitStatus.ForceSync = proj.ForceSync
+		gitStatus.Sync = proj.Sync
 		projects = append(projects, *gitStatus)
 	}
 

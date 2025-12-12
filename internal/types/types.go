@@ -80,6 +80,7 @@ type ProjectSyncConfig struct {
 	IgnoreDefaults   bool                    `yaml:"ignore_defaults,omitempty" json:"ignoreDefaults,omitempty"`      // include built-in ignore set (.git/, runtime/, tmp/)
 	IgnorePatterns   []string                `yaml:"ignore_patterns,omitempty" json:"ignorePatterns,omitempty"`      // extra ignore globs
 	IgnoreFile       string                  `yaml:"ignore_file,omitempty" json:"ignoreFile,omitempty"`              // optional ignore file path
+	IgnorePermissions bool                   `yaml:"ignore_permissions,omitempty" json:"ignorePermissions,omitempty"` // do not sync chmod/chown
 	Nodes            []ProjectSyncNodeConfig `yaml:"nodes,omitempty" json:"nodes,omitempty"`
 }
 

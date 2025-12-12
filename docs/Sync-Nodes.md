@@ -118,11 +118,17 @@
     enabled: true
     driver: "agent"          # agent / rsync / inherit
     max_parallel_nodes: 2
+    ignore_defaults: true    # 默认忽略 .git/runtime/tmp
+    ignore_patterns:
+      - "node_modules/**"
+      - "*.log"
+    ignore_file: "sync.ignore"        # 可选，额外忽略文件
+    ignore_permissions: true          # 忽略 chmod/chown 等权限变更
     nodes:
-      - node_id: "node-01"
+      - node_id: "1"
         target_path: "/srv/project-a"
         strategy: "mirror"
-      - node_id: "node-02"
+      - node_id: "2"
         target_path: "/srv/project-a"
         include:
           - "dist/**"
@@ -161,7 +167,8 @@
 ## Web UI/REST 变更
 
 - 复用左侧原有的 “All Projects” 侧边栏空白区域展示“节点管理”入口：点击后列表区域显示节点清单、健康状态和操作按钮，下方切换到节点详情/最近同步任务等子页，右侧主面板仍用于项目内容。
-- 项目编辑表单里添加“同步节点”区域，支持选择节点、设置目标路径与策略。
+- 节点管理仅维护节点连通性与认证（SSH/Agent token），不再配置忽略规则。
+- 项目编辑表单里添加“同步”区域：开启同步、选择节点、设置目标路径/策略，并配置项目级忽略文件/目录与是否忽略权限变更。
 - 新增“同步任务”列表页或面板，支持按项目/节点过滤并查看日志。
 - API 文档需要新增节点、任务相关的端点说明。
 

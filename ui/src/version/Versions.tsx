@@ -37,12 +37,12 @@ import GitHookDialog, {GitHookConfig} from './GitHookDialog';
 import {observer} from 'mobx-react';
 import {observable} from 'mobx';
 import {inject, Stores} from '../inject';
-import {IVersion} from '../types';
+import {IProjectSyncConfig, IVersion} from '../types';
 import {withRouter, RouteComponentProps} from 'react-router-dom';
 import useTranslation from '../i18n/useTranslation';
 
 @observer
-class Versions extends Component<RouteComponentProps & Stores<'versionStore' | 'currentUser'>> {
+class Versions extends Component<RouteComponentProps & Stores<'versionStore' | 'currentUser' | 'syncNodeStore'>> {
     @observable
     private showAddDialog = false;
     @observable
@@ -68,6 +68,7 @@ class Versions extends Component<RouteComponentProps & Stores<'versionStore' | '
         // 只在用户已登录时才进行 API 调用
         if (this.props.currentUser.loggedIn) {
             this.props.versionStore.refreshProjects();
+            this.props.syncNodeStore.refreshNodes().catch(() => undefined);
         }
     }
 
@@ -143,6 +144,7 @@ class Versions extends Component<RouteComponentProps & Stores<'versionStore' | '
                 <EditProjectDialog
                     open={this.editProjectDialog !== null}
                     project={this.editProjectDialog}
+                    availableNodes={this.props.syncNodeStore.all}
                     onClose={() => (this.editProjectDialog = null)}
                     onSubmit={this.handleEditProject}
                 />
@@ -247,9 +249,10 @@ class Versions extends Component<RouteComponentProps & Stores<'versionStore' | '
         originalName: string,
         name: string,
         path: string,
-        description: string
+        description: string,
+        sync?: IProjectSyncConfig
     ) => {
-        await this.props.versionStore.editProject(originalName, name, path, description);
+        await this.props.versionStore.editProject(originalName, name, path, description, sync);
     };
 }
 
@@ -721,4 +724,6 @@ const VersionsContainer: React.FC<{
     );
 };
 
-export default (withRouter as any)((inject as any)('versionStore', 'currentUser')(Versions));
+export default (withRouter as any)(
+    (inject as any)('versionStore', 'currentUser', 'syncNodeStore')(Versions)
+);

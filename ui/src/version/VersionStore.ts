@@ -2,7 +2,7 @@ import axios from 'axios';
 import * as config from '../config';
 import {action, observable} from 'mobx';
 import {SnackReporter} from '../snack/SnackManager';
-import {IVersion, IBranch, ITag, ITagsResponse} from '../types';
+import {IVersion, IBranch, ITag, ITagsResponse, IProjectSyncConfig} from '../types';
 import {GitHookConfig} from './GitHookDialog';
 import translate from '../i18n/translator';
 
@@ -163,7 +163,8 @@ export class VersionStore {
         originalName: string,
         name: string,
         path: string,
-        description: string
+        description: string,
+        sync?: IProjectSyncConfig
     ): Promise<void> => {
         try {
             const response = await axios.put(
@@ -172,6 +173,7 @@ export class VersionStore {
                     name,
                     path,
                     description,
+                    ...(sync ? {sync} : {}),
                 },
                 {
                     headers: {'X-GoHook-Key': this.tokenProvider()},

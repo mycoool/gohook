@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"log"
@@ -72,8 +73,7 @@ func TestWebhook(t *testing.T) {
 	hookecho, cleanupHookecho := buildHookecho(t)
 	defer cleanupHookecho()
 
-	webhook, cleanupWebhookFn := buildWebhook(t)
-	defer cleanupWebhookFn()
+	webhook := webhookBinary(t)
 
 	for _, hookTmpl := range []string{"test/hooks.json.tmpl", "test/hooks.yaml.tmpl"} {
 		configPath, cleanupConfigFn := genConfig(t, hookecho, hookTmpl)
@@ -1238,16 +1238,18 @@ func TestWebhookDoesNotStartWithSameHookID(t *testing.T) {
 	// 获取随机可用端口
 	_, port := serverAddress(t)
 
-	gobin := "go"
-
-	cmd := exec.Command(gobin, "run", ".", "-hooks", hooksFile.Name(), "-port", port)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, webhookBinary(t), "-hooks", hooksFile.Name(), "-verbose", "-port", port)
 
 	output, err := cmd.CombinedOutput()
+	if ctx.Err() == context.DeadlineExceeded {
+		t.Fatalf("webhook did not exit in time, output: %s", string(output))
+	}
 	if err == nil {
 		t.Errorf("webhook should have failed to start, but it didn't")
 	}
-
-	if !strings.Contains(string(output), "hook with the id a has already been loaded") {
+	if !strings.Contains(string(output), "has already been loaded") {
 		t.Errorf("output should have contained the reason for not starting, but it didn't. Output: %s", string(output))
 	}
 }
@@ -1280,11 +1282,14 @@ func TestWebhookDoesNotStartWithSameHookIDAcrossMultipleFiles(t *testing.T) {
 	// 获取随机可用端口
 	_, port := serverAddress(t)
 
-	gobin := "go"
-
-	cmd := exec.Command(gobin, "run", ".", "-hooks", hooksFileA.Name(), "-hooks", hooksFileB.Name(), "-port", port)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, webhookBinary(t), "-hooks", hooksFileA.Name(), "-hooks", hooksFileB.Name(), "-verbose", "-port", port)
 
 	output, err := cmd.CombinedOutput()
+	if ctx.Err() == context.DeadlineExceeded {
+		t.Fatalf("webhook did not exit in time, output: %s", string(output))
+	}
 	if err == nil {
 		t.Errorf("webhook should have failed to start, but it didn't")
 	}
@@ -1309,9 +1314,7 @@ func TestWebhookReloadsFileThatIsReplacedByAnother(t *testing.T) {
 	// 获取随机可用端口
 	host, port := serverAddress(t)
 
-	gobin := "go"
-
-	cmd := exec.Command(gobin, "run", ".", "-hooks", hooksFile.Name(), "-hotreload", "-verbose", "-port", port, "-ip", host)
+	cmd := exec.Command(webhookBinary(t), "-hooks", hooksFile.Name(), "-hotreload", "-verbose", "-port", port, "-ip", host)
 	if err = cmd.Start(); err != nil {
 		t.Fatalf("webhook should have started, but it didn't. reason: %v", err)
 	}

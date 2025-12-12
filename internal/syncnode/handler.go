@@ -29,9 +29,6 @@ type nodeResponse struct {
 	AuthType       string                 `json:"authType"`
 	CredentialRef  string                 `json:"credentialRef"`
 	AgentToken     string                 `json:"agentToken,omitempty"`
-	IgnoreDefaults bool                   `json:"ignoreDefaults"`
-	IgnorePatterns []string               `json:"ignorePatterns"`
-	IgnoreFile     string                 `json:"ignoreFile"`
 	InstallStatus  string                 `json:"installStatus"`
 	InstallLog     string                 `json:"installLog"`
 	AgentVersion   string                 `json:"agentVersion"`
@@ -163,6 +160,26 @@ func HandleInstallNode(c *gin.Context) {
 	c.JSON(http.StatusAccepted, mapNode(node))
 }
 
+func HandleRotateToken(c *gin.Context) {
+	id, err := parseIDParam(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	node, err := defaultService.RotateToken(c.Request.Context(), id)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			status = http.StatusNotFound
+		}
+		c.JSON(status, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, mapNode(node))
+}
+
 func HandleHeartbeat(c *gin.Context) {
 	id, err := parseIDParam(c.Param("id"))
 	if err != nil {
@@ -215,9 +232,6 @@ func mapNode(node *database.SyncNode) nodeResponse {
 		AuthType:       node.AuthType,
 		CredentialRef:  node.CredentialRef,
 		AgentToken:     node.CredentialValue,
-		IgnoreDefaults: node.IgnoreDefaults,
-		IgnorePatterns: decodeStringSlice(node.IgnorePatterns),
-		IgnoreFile:     node.IgnoreFile,
 		InstallStatus:  node.InstallStatus,
 		InstallLog:     node.InstallLog,
 		AgentVersion:   node.AgentVersion,

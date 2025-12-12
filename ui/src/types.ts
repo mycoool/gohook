@@ -84,6 +84,29 @@ export interface IVersion {
     hookbranch?: string; // 具体分支名或'*'表示任意分支
     hooksecret?: string; // webhook密码
     forcesync?: boolean; // GitHook 是否使用强制同步
+    sync?: IProjectSyncConfig;
+}
+
+export interface IProjectSyncNodeConfig {
+    nodeId: string;
+    targetPath: string;
+    strategy?: string;
+    driver?: string;
+    include?: string[];
+    exclude?: string[];
+    ignoreFile?: string;
+    ignorePatterns?: string[];
+}
+
+export interface IProjectSyncConfig {
+    enabled: boolean;
+    driver?: string;
+    maxParallelNodes?: number;
+    ignoreDefaults?: boolean;
+    ignorePatterns?: string[];
+    ignoreFile?: string;
+    ignorePermissions?: boolean;
+    nodes?: IProjectSyncNodeConfig[];
 }
 
 export interface IBranch {
@@ -234,9 +257,6 @@ export interface ISyncNode {
     authType?: string;
     credentialRef?: string;
     agentToken?: string;
-    ignoreDefaults: boolean;
-    ignorePatterns: string[];
-    ignoreFile?: string;
     installStatus?: string;
     installLog?: string;
     agentVersion?: string;

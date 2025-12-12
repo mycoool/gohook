@@ -452,8 +452,15 @@ func WatchForFileChange(watcher *fsnotify.Watcher, loadedHooksFromFiles *map[str
 	for {
 		select {
 		case event := <-(*watcher).Events:
+			if !isWatchedHooksFile(event.Name, hooksFiles) {
+				continue
+			}
 			if event.Op&fsnotify.Write == fsnotify.Write {
 				log.Printf("hooks file %s modified\n", event.Name)
+				reloadHooks(event.Name, asTemplate)
+			} else if event.Op&fsnotify.Create == fsnotify.Create {
+				log.Printf("hooks file %s created\n", event.Name)
+				_ = (*watcher).Add(event.Name)
 				reloadHooks(event.Name, asTemplate)
 			} else if event.Op&fsnotify.Remove == fsnotify.Remove {
 				if _, err := os.Stat(event.Name); os.IsNotExist(err) {
@@ -488,6 +495,16 @@ func WatchForFileChange(watcher *fsnotify.Watcher, loadedHooksFromFiles *map[str
 			log.Println("watcher error:", err)
 		}
 	}
+}
+
+func isWatchedHooksFile(path string, hooksFiles []string) bool {
+	path = filepath.Clean(path)
+	for _, f := range hooksFiles {
+		if filepath.Clean(f) == path {
+			return true
+		}
+	}
+	return false
 }
 
 // makeHumanPattern builds a human-friendly URL for display.

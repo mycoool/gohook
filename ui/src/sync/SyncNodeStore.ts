@@ -14,9 +14,6 @@ export interface SyncNodePayload {
     credentialRef?: string;
     tags?: string[];
     metadata?: Record<string, unknown>;
-    ignoreDefaults?: boolean;
-    ignorePatterns?: string[];
-    ignoreFile?: string;
 }
 
 export type SyncNodeUpdatePayload = SyncNodePayload;
@@ -122,6 +119,28 @@ export class SyncNodeStore {
             await this.refreshNodes();
         } catch (error: unknown) {
             this.handleError(error, '删除节点失败');
+            throw error;
+        } finally {
+            runInAction(() => {
+                this.saving = false;
+            });
+        }
+    };
+
+    @action
+    public rotateToken = async (id: number): Promise<ISyncNode> => {
+        this.saving = true;
+        try {
+            const response = await axios.post<ISyncNode>(
+                `${config.get('url')}api/sync/nodes/${id}/rotate-token`,
+                {},
+                {headers: this.headers}
+            );
+            this.snack('Token 已刷新');
+            await this.refreshNodes();
+            return response.data;
+        } catch (error: unknown) {
+            this.handleError(error, '刷新 Token 失败');
             throw error;
         } finally {
             runInAction(() => {

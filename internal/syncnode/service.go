@@ -65,9 +65,6 @@ type CreateNodeRequest struct {
 	CredentialRef  string                 `json:"credentialRef"`
 	Tags           []string               `json:"tags"`
 	Metadata       map[string]interface{} `json:"metadata"`
-	IgnoreDefaults bool                   `json:"ignoreDefaults"`
-	IgnorePatterns []string               `json:"ignorePatterns"`
-	IgnoreFile     string                 `json:"ignoreFile"`
 }
 
 // UpdateNodeRequest payload (full replace)
@@ -81,9 +78,6 @@ type UpdateNodeRequest struct {
 	CredentialRef  string                 `json:"credentialRef"`
 	Tags           []string               `json:"tags"`
 	Metadata       map[string]interface{} `json:"metadata"`
-	IgnoreDefaults bool                   `json:"ignoreDefaults"`
-	IgnorePatterns []string               `json:"ignorePatterns"`
-	IgnoreFile     string                 `json:"ignoreFile"`
 }
 
 // InstallRequest controls agent installation
@@ -205,6 +199,27 @@ func (s *Service) DeleteNode(ctx context.Context, id uint) error {
 		return gorm.ErrRecordNotFound
 	}
 	return nil
+}
+
+// RotateToken regenerates and persists a new agent token.
+func (s *Service) RotateToken(ctx context.Context, id uint) (*database.SyncNode, error) {
+	db, err := s.ensureDB()
+	if err != nil {
+		return nil, err
+	}
+	node, err := s.GetNode(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	token, err := GenerateNodeToken()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate node token: %w", err)
+	}
+	node.CredentialValue = token
+	if err := db.WithContext(ctx).Save(node).Error; err != nil {
+		return nil, err
+	}
+	return node, nil
 }
 
 // TriggerInstall sets install status and asynchronously installs agent
@@ -346,9 +361,6 @@ func (s *Service) applyCreateRequest(node *database.SyncNode, req CreateNodeRequ
 	}
 	node.AuthType = normalizeAuthType(node.Type, req.AuthType)
 	node.CredentialRef = req.CredentialRef
-	node.IgnoreDefaults = req.IgnoreDefaults
-	node.IgnoreFile = req.IgnoreFile
-	node.IgnorePatterns = encodeStringSlice(req.IgnorePatterns)
 	node.Tags = encodeStringSlice(req.Tags)
 	node.Metadata = encodeMap(req.Metadata)
 }
@@ -383,13 +395,6 @@ func (s *Service) applyUpdateRequest(node *database.SyncNode, req UpdateNodeRequ
 	}
 	if req.CredentialRef != "" {
 		node.CredentialRef = req.CredentialRef
-	}
-	node.IgnoreDefaults = req.IgnoreDefaults
-	if req.IgnoreFile != "" {
-		node.IgnoreFile = req.IgnoreFile
-	}
-	if req.IgnorePatterns != nil {
-		node.IgnorePatterns = encodeStringSlice(req.IgnorePatterns)
 	}
 	if req.Tags != nil {
 		node.Tags = encodeStringSlice(req.Tags)

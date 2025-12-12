@@ -7,12 +7,20 @@ import {
     TextField,
     Button,
     MenuItem,
-    FormControlLabel,
-    Switch,
     Box,
+    Typography,
+    InputAdornment,
+    IconButton,
+    Tooltip,
 } from '@mui/material';
 import {SyncNodePayload} from './SyncNodeStore';
 import {ISyncNode} from '../types';
+import useTranslation from '../i18n/useTranslation';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
+import RefreshIcon from '@mui/icons-material/Refresh';
 
 interface SyncNodeDialogProps {
     open: boolean;
@@ -20,7 +28,8 @@ interface SyncNodeDialogProps {
     mode: 'create' | 'edit';
     node?: ISyncNode | null;
     onClose: () => void;
-    onSubmit: (payload: SyncNodePayload, nodeId?: number) => Promise<void>;
+    onSubmit: (payload: SyncNodePayload, nodeId?: number) => Promise<ISyncNode | undefined>;
+    onRotateToken: (id: number) => Promise<ISyncNode>;
 }
 
 interface FormState {
@@ -32,9 +41,6 @@ interface FormState {
     authType: string;
     credentialRef: string;
     tags: string;
-    ignoreDefaults: boolean;
-    ignorePatterns: string;
-    ignoreFile: string;
 }
 
 const defaultState: FormState = {
@@ -46,9 +52,6 @@ const defaultState: FormState = {
     authType: 'key',
     credentialRef: '',
     tags: '',
-    ignoreDefaults: true,
-    ignorePatterns: '.git,runtime,tmp',
-    ignoreFile: '',
 };
 
 const parseList = (value: string): string[] =>
@@ -57,8 +60,22 @@ const parseList = (value: string): string[] =>
         .map((item) => item.trim())
         .filter((item) => item.length > 0);
 
-const SyncNodeDialog: React.FC<SyncNodeDialogProps> = ({open, loading, mode, node, onClose, onSubmit}) => {
+const SyncNodeDialog: React.FC<SyncNodeDialogProps> = ({
+    open,
+    loading,
+    mode,
+    node,
+    onClose,
+    onSubmit,
+    onRotateToken,
+}) => {
+    const {t} = useTranslation();
     const [form, setForm] = useState<FormState>(defaultState);
+    const [createdNode, setCreatedNode] = useState<ISyncNode | null>(null);
+    const [token, setToken] = useState<string | null>(null);
+    const [tokenVisible, setTokenVisible] = useState(false);
+    const [tokenCopied, setTokenCopied] = useState(false);
+    const [copyError, setCopyError] = useState(false);
 
     useEffect(() => {
         if (node && mode === 'edit') {
@@ -71,14 +88,26 @@ const SyncNodeDialog: React.FC<SyncNodeDialogProps> = ({open, loading, mode, nod
                 authType: node.authType || 'key',
                 credentialRef: node.credentialRef || '',
                 tags: (node.tags || []).join(', '),
-                ignoreDefaults: node.ignoreDefaults ?? true,
-                ignorePatterns: (node.ignorePatterns || []).join(', '),
-                ignoreFile: node.ignoreFile || '',
             });
+            setCreatedNode(null);
+            setToken(node.agentToken || null);
+            setTokenVisible(false);
+            setTokenCopied(false);
+            setCopyError(false);
         } else if (!open) {
             setForm(defaultState);
+            setCreatedNode(null);
+            setToken(null);
+            setTokenVisible(false);
+            setTokenCopied(false);
+            setCopyError(false);
         } else {
             setForm(defaultState);
+            setCreatedNode(null);
+            setToken(null);
+            setTokenVisible(false);
+            setTokenCopied(false);
+            setCopyError(false);
         }
     }, [node, mode, open]);
 
@@ -104,18 +133,28 @@ const SyncNodeDialog: React.FC<SyncNodeDialogProps> = ({open, loading, mode, nod
             authType: showSSHFields ? form.authType.trim() : undefined,
             credentialRef: showSSHFields ? form.credentialRef.trim() : undefined,
             tags: parseList(form.tags),
-            ignoreDefaults: form.ignoreDefaults,
-            ignorePatterns: parseList(form.ignorePatterns),
-            ignoreFile: form.ignoreFile.trim() || undefined,
         };
 
-        await onSubmit(payload, node?.id);
+        const result = await onSubmit(payload, node?.id);
+        if (mode === 'create' && result) {
+            setCreatedNode(result);
+            setToken(result.agentToken || null);
+            return;
+        }
+        if (mode === 'edit' && result) {
+            setToken(result.agentToken || null);
+        }
         onClose();
     };
 
+    const currentNode = createdNode || node || null;
+    const showTokenSection = !!token && !!currentNode;
+
     return (
         <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-            <DialogTitle>{mode === 'create' ? '新增节点' : '编辑节点'}</DialogTitle>
+            <DialogTitle>
+                {mode === 'create' ? t('syncNodes.createTitle') : t('syncNodes.editTitle')}
+            </DialogTitle>
             <DialogContent dividers>
                 <Box
                     display="grid"
@@ -124,7 +163,7 @@ const SyncNodeDialog: React.FC<SyncNodeDialogProps> = ({open, loading, mode, nod
                     sx={{mt: 1}}>
                     <Box>
                         <TextField
-                            label="节点名称"
+                            label={t('syncNodes.name')}
                             value={form.name}
                             onChange={handleChange('name')}
                             fullWidth
@@ -134,30 +173,30 @@ const SyncNodeDialog: React.FC<SyncNodeDialogProps> = ({open, loading, mode, nod
                     {showSSHFields ? (
                         <Box sx={{gridColumn: {xs: 'span 1', sm: 'span 2'}}}>
                             <TextField
-                                label="节点地址"
+                                label={t('syncNodes.address')}
                                 value={form.address}
                                 onChange={handleChange('address')}
                                 fullWidth
                                 required
-                                helperText="可填写 IP 或 DNS"
+                                helperText={t('syncNodes.addressHelp')}
                             />
                         </Box>
                     ) : null}
                     <Box>
                         <TextField
                             select
-                            label="类型"
+                            label={t('syncNodes.type')}
                             value={form.type}
                             onChange={handleChange('type')}
                             fullWidth>
-                            <MenuItem value="agent">Sync Agent</MenuItem>
-                            <MenuItem value="ssh">SSH / rsync</MenuItem>
+                            <MenuItem value="agent">{t('syncNodes.typeAgent')}</MenuItem>
+                            <MenuItem value="ssh">{t('syncNodes.typeSSH')}</MenuItem>
                         </TextField>
                     </Box>
                     {showSSHFields ? (
                         <Box>
                             <TextField
-                                label="认证方式"
+                                label={t('syncNodes.authType')}
                                 value={form.authType}
                                 onChange={handleChange('authType')}
                                 fullWidth
@@ -169,7 +208,7 @@ const SyncNodeDialog: React.FC<SyncNodeDialogProps> = ({open, loading, mode, nod
                         <>
                             <Box>
                                 <TextField
-                                    label="SSH 用户"
+                                    label={t('syncNodes.sshUser')}
                                     value={form.sshUser}
                                     onChange={handleChange('sshUser')}
                                     fullWidth
@@ -177,7 +216,7 @@ const SyncNodeDialog: React.FC<SyncNodeDialogProps> = ({open, loading, mode, nod
                             </Box>
                             <Box>
                                 <TextField
-                                    label="SSH 端口"
+                                    label={t('syncNodes.sshPort')}
                                     value={form.sshPort}
                                     onChange={handleChange('sshPort')}
                                     type="number"
@@ -189,59 +228,121 @@ const SyncNodeDialog: React.FC<SyncNodeDialogProps> = ({open, loading, mode, nod
                     {showSSHFields ? (
                         <Box sx={{gridColumn: {xs: 'span 1', sm: 'span 2'}}}>
                             <TextField
-                                label="凭证引用"
+                                label={t('syncNodes.credentialRef')}
                                 value={form.credentialRef}
                                 onChange={handleChange('credentialRef')}
                                 fullWidth
-                                helperText="引用 server 端保存的密钥/凭证 ID"
+                                helperText={t('syncNodes.credentialRefHelp')}
                             />
                         </Box>
                     ) : null}
                     <Box sx={{gridColumn: {xs: 'span 1', sm: 'span 2'}}}>
                         <TextField
-                            label="标签（逗号分隔）"
+                            label={t('syncNodes.tags')}
                             value={form.tags}
                             onChange={handleChange('tags')}
                             fullWidth
                         />
                     </Box>
-                    <Box sx={{gridColumn: {xs: 'span 1', sm: 'span 2'}}}>
-                        <TextField
-                            label="忽略模式（逗号分隔）"
-                            value={form.ignorePatterns}
-                            onChange={handleChange('ignorePatterns')}
-                            fullWidth
-                            helperText="默认忽略 .git、runtime、tmp 等目录"
-                        />
-                    </Box>
-                    <Box sx={{gridColumn: {xs: 'span 1', sm: 'span 2'}}}>
-                        <TextField
-                            label="忽略文件路径"
-                            value={form.ignoreFile}
-                            onChange={handleChange('ignoreFile')}
-                            fullWidth
-                            placeholder="可选，远程节点上的 ignore 文件"
-                        />
-                    </Box>
-                    <Box sx={{gridColumn: {xs: 'span 1', sm: 'span 2'}}}>
-                        <FormControlLabel
-                            control={
-                                <Switch
-                                    checked={form.ignoreDefaults}
-                                    onChange={handleSwitchChange('ignoreDefaults')}
-                                />
-                            }
-                            label="启用默认忽略列表 (.git、runtime、tmp)"
-                        />
-                    </Box>
                 </Box>
+
+                {showTokenSection ? (
+                    <Box sx={{mt: 2}}>
+                        <TextField
+                            label={t('syncNodes.tokenLabel')}
+                            value={token || ''}
+                            type={tokenVisible ? 'text' : 'password'}
+                            InputProps={{
+                                readOnly: true,
+                                endAdornment: (
+                                    <InputAdornment position="end">
+                                        <Tooltip
+                                            title={
+                                                tokenCopied
+                                                    ? t('syncNodes.copied')
+                                                    : copyError
+                                                    ? t('syncNodes.copyFailed')
+                                                    : t('syncNodes.copyToken')
+                                            }>
+                                            <IconButton
+                                                edge="end"
+                                                onClick={async () => {
+                                                    if (!token) return;
+                                                    try {
+                                                        await navigator.clipboard.writeText(token);
+                                                        setCopyError(false);
+                                                        setTokenCopied(true);
+                                                        window.setTimeout(
+                                                            () => setTokenCopied(false),
+                                                            1500
+                                                        );
+                                                    } catch (err) {
+                                                        console.warn('Failed to copy token', err);
+                                                        setCopyError(true);
+                                                        window.setTimeout(
+                                                            () => setCopyError(false),
+                                                            1500
+                                                        );
+                                                    }
+                                                }}>
+                                                {tokenCopied ? (
+                                                    <CheckCircleOutlineIcon fontSize="small" />
+                                                ) : (
+                                                    <ContentCopyIcon fontSize="small" />
+                                                )}
+                                            </IconButton>
+                                        </Tooltip>
+                                        <Tooltip
+                                            title={
+                                                tokenVisible
+                                                    ? t('syncNodes.hideToken')
+                                                    : t('syncNodes.showToken')
+                                            }>
+                                            <IconButton
+                                                edge="end"
+                                                onClick={() => setTokenVisible((v) => !v)}>
+                                                {tokenVisible ? (
+                                                    <VisibilityOffIcon fontSize="small" />
+                                                ) : (
+                                                    <VisibilityIcon fontSize="small" />
+                                                )}
+                                            </IconButton>
+                                        </Tooltip>
+                                        <Tooltip title={t('syncNodes.refreshToken')}>
+                                            <IconButton
+                                                edge="end"
+                                                disabled={loading}
+                                                onClick={async () => {
+                                                    if (!currentNode) return;
+                                                    const updated = await onRotateToken(currentNode.id);
+                                                    if (mode === 'create') {
+                                                        setCreatedNode(updated);
+                                                    }
+                                                    setToken(updated.agentToken || null);
+                                                    setTokenVisible(true);
+                                                }}>
+                                                <RefreshIcon fontSize="small" />
+                                            </IconButton>
+                                        </Tooltip>
+                                    </InputAdornment>
+                                ),
+                            }}
+                            fullWidth
+                        />
+                        {mode === 'create' ? (
+                            <Typography variant="caption" color="textSecondary">
+                                {t('syncNodes.tokenCreateHelp')}
+                            </Typography>
+                        ) : null}
+                    </Box>
+                ) : null}
             </DialogContent>
             <DialogActions>
                 <Button onClick={onClose} color="secondary">
-                    取消
+                    {t('common.cancel')}
                 </Button>
                 <Button onClick={handleSubmit} color="primary" variant="contained" disabled={loading}>
-                    {loading ? '保存中...' : '保存'}
+                    {loading ? t('common.saving') : t('common.save')}
                 </Button>
             </DialogActions>
         </Dialog>

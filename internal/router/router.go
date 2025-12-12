@@ -269,6 +269,7 @@ func InitRouter() *gin.Engine {
 		nodeAPI.GET("/:id", syncnode.HandleGetNode)
 		nodeAPI.PUT("/:id", syncnode.HandleUpdateNode)
 		nodeAPI.DELETE("/:id", syncnode.HandleDeleteNode)
+		nodeAPI.POST("/:id/rotate-token", syncnode.HandleRotateToken)
 		nodeAPI.POST("/:id/install", syncnode.HandleInstallNode)
 	}
 

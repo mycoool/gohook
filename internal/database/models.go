@@ -91,9 +91,6 @@ type SyncNode struct {
 	InstallStatus   string     `json:"install_status" gorm:"size:50"` // pending | installing | success | failed
 	InstallLog      string     `json:"install_log" gorm:"type:text"`  // installation log
 	AgentVersion    string     `json:"agent_version" gorm:"size:100"`
-	IgnoreDefaults  bool       `json:"ignore_defaults"`
-	IgnorePatterns  string     `json:"ignore_patterns" gorm:"type:text"` // JSON array of additional ignore patterns
-	IgnoreFile      string     `json:"ignore_file" gorm:"size:200"`
 }
 
 // SyncTask represents a sync task dispatch record

@@ -3,10 +3,6 @@ import {
     Box,
     Button,
     Chip,
-    Dialog,
-    DialogActions,
-    DialogContent,
-    DialogTitle,
     IconButton,
     Paper,
     Stack,
@@ -31,7 +27,6 @@ import DefaultPage from '../common/DefaultPage';
 import ConfirmDialog from '../common/ConfirmDialog';
 import {inject, Stores} from '../inject';
 import {ISyncNode} from '../types';
-import * as config from '../config';
 import {observer} from 'mobx-react';
 import SyncNodeDialog from './SyncNodeDialog';
 import {SyncNodePayload} from './SyncNodeStore';
@@ -68,7 +63,6 @@ const SyncNodesPage: React.FC<Props> = ({syncNodeStore, currentUser}) => {
     const [dialogMode, setDialogMode] = useState<'create' | 'edit'>('create');
     const [selectedNode, setSelectedNode] = useState<ISyncNode | null>(null);
     const [deleteTarget, setDeleteTarget] = useState<ISyncNode | null>(null);
-    const [tokenInfo, setTokenInfo] = useState<{id: number; name: string; token?: string} | null>(null);
 
     const location = useLocation();
     const highlightId = useMemo(() => {
@@ -85,12 +79,6 @@ const SyncNodesPage: React.FC<Props> = ({syncNodeStore, currentUser}) => {
 
     const nodes = syncNodeStore.all;
 
-    const apiBase = useMemo(() => {
-        const base = config.get('url') || `${window.location.origin}/`;
-        const normalized = base.endsWith('/') ? base.slice(0, -1) : base;
-        return `${normalized}/api`;
-    }, []);
-
     const openCreateDialog = () => {
         setSelectedNode(null);
         setDialogMode('create');
@@ -106,11 +94,10 @@ const SyncNodesPage: React.FC<Props> = ({syncNodeStore, currentUser}) => {
     const handleSubmit = async (payload: SyncNodePayload, nodeId?: number) => {
         if (dialogMode === 'edit' && nodeId) {
             await syncNodeStore.updateNode(nodeId, payload);
+            const updated = syncNodeStore.all.find((n) => n.id === nodeId);
+            return updated;
         } else {
-            const created = await syncNodeStore.createNode(payload);
-            if (created) {
-                setTokenInfo({id: created.id, name: created.name, token: created.agentToken});
-            }
+            return await syncNodeStore.createNode(payload);
         }
     };
 
@@ -259,6 +246,7 @@ const SyncNodesPage: React.FC<Props> = ({syncNodeStore, currentUser}) => {
                 node={selectedNode}
                 onClose={() => setDialogOpen(false)}
                 onSubmit={handleSubmit}
+                onRotateToken={(id) => syncNodeStore.rotateToken(id)}
             />
 
             {deleteTarget ? (
@@ -270,48 +258,6 @@ const SyncNodesPage: React.FC<Props> = ({syncNodeStore, currentUser}) => {
                 />
             ) : null}
 
-            {tokenInfo ? (
-                <Dialog open onClose={() => setTokenInfo(null)} maxWidth="sm" fullWidth>
-                    <DialogTitle>节点 Token</DialogTitle>
-                    <DialogContent dividers>
-                        <Stack spacing={2}>
-                            <Typography>
-                                节点 <strong>{tokenInfo.name}</strong> 的通信 Token 已生成，请复制后配置到子节点客户端。
-                            </Typography>
-                            <TextField
-                                label="SYNC_NODE_TOKEN"
-                                value={tokenInfo.token || '生成失败'}
-                                InputProps={{readOnly: true}}
-                                fullWidth
-                            />
-                            <Typography variant="body2" color="textSecondary">
-                                将以下环境变量设置到同步客户端（例如执行 <code>scripts/agent-env.sh</code>）：
-                            </Typography>
-                            <Box
-                                component="pre"
-                                sx={{
-                                    p: 1.5,
-                                    bgcolor: 'grey.100',
-                                    borderRadius: 1,
-                                    fontFamily: 'monospace',
-                                    whiteSpace: 'pre-wrap',
-                                }}>
-                                {`SYNC_NODE_ID=${tokenInfo.id}
-SYNC_NODE_TOKEN=${tokenInfo.token || ''}
-SYNC_API_BASE=${apiBase}`}
-                            </Box>
-                            <Typography variant="body2" color="textSecondary">
-                                客户端需要能够访问上方 API 地址（包含正确的服务器 IP 和端口）。
-                            </Typography>
-                        </Stack>
-                    </DialogContent>
-                    <DialogActions>
-                        <Button onClick={() => setTokenInfo(null)} autoFocus>
-                            我已复制
-                        </Button>
-                    </DialogActions>
-                </Dialog>
-            ) : null}
         </DefaultPage>
     );
 };
