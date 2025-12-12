@@ -233,17 +233,9 @@ func (s *Service) TriggerInstall(ctx context.Context, id uint, req InstallReques
 
 // RecordHeartbeat updates node status data from agent heartbeat
 func (s *Service) RecordHeartbeat(ctx context.Context, id uint, req HeartbeatRequest) (*database.SyncNode, error) {
-	if strings.TrimSpace(req.Token) == "" {
-		return nil, ErrInvalidToken
-	}
-
-	node, err := s.GetNode(ctx, id)
+	node, err := s.ValidateAgentToken(ctx, id, req.Token)
 	if err != nil {
 		return nil, err
-	}
-
-	if node.CredentialValue == "" || subtle.ConstantTimeCompare([]byte(node.CredentialValue), []byte(req.Token)) != 1 {
-		return nil, ErrInvalidToken
 	}
 
 	now := time.Now()
@@ -277,6 +269,21 @@ func (s *Service) RecordHeartbeat(ctx context.Context, id uint, req HeartbeatReq
 		return nil, err
 	}
 
+	return node, nil
+}
+
+// ValidateAgentToken loads the node and validates agent token.
+func (s *Service) ValidateAgentToken(ctx context.Context, id uint, token string) (*database.SyncNode, error) {
+	if strings.TrimSpace(token) == "" {
+		return nil, ErrInvalidToken
+	}
+	node, err := s.GetNode(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if node.CredentialValue == "" || subtle.ConstantTimeCompare([]byte(node.CredentialValue), []byte(token)) != 1 {
+		return nil, ErrInvalidToken
+	}
 	return node, nil
 }
 

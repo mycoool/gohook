@@ -259,7 +259,7 @@ func InitRouter() *gin.Engine {
 		versionAPI.DELETE("/:name", version.HandleDeleteProject)
 	}
 
-	// sync node management API
+	// sync node management API (user-authenticated)
 	syncAPI := g.Group("/api/sync")
 	syncAPI.Use(middleware.AuthMiddleware(), middleware.DisableLogMiddleware())
 	{
@@ -270,7 +270,14 @@ func InitRouter() *gin.Engine {
 		nodeAPI.PUT("/:id", syncnode.HandleUpdateNode)
 		nodeAPI.DELETE("/:id", syncnode.HandleDeleteNode)
 		nodeAPI.POST("/:id/install", syncnode.HandleInstallNode)
-		nodeAPI.POST("/:id/heartbeat", syncnode.HandleHeartbeat)
+	}
+
+	// sync agent endpoints (agent-token authenticated)
+	agentSyncAPI := g.Group("/api/sync")
+	agentSyncAPI.Use(middleware.DisableLogMiddleware())
+	{
+		agentNodeAPI := agentSyncAPI.Group("/nodes")
+		agentNodeAPI.POST("/:id/heartbeat", syncnode.AgentTokenMiddleware(), syncnode.HandleHeartbeat)
 	}
 
 	// GitHook webhook endpoint

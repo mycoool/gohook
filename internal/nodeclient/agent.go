@@ -77,6 +77,7 @@ func (a *Agent) sendHeartbeat(ctx context.Context) {
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Sync-Token", a.cfg.Token)
 
 	resp, err := a.http.Do(req)
 	if err != nil {
