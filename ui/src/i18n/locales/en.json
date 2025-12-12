@@ -29,6 +29,7 @@
         "plugins": "Plugins",
         "logs": "Logs",
         "syncNodes": "Node Manager",
+        "syncProjects": "Sync",
         "users": "Users",
         "settings": "Settings",
         "systemSettings": "Settings",

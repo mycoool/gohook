@@ -227,8 +227,61 @@
 - 复用左侧原有的 “All Projects” 侧边栏空白区域展示“节点管理”入口：点击后列表区域显示节点清单、健康状态和操作按钮，下方切换到节点详情/最近同步任务等子页，右侧主面板仍用于项目内容。
 - 节点管理仅维护节点连通性与认证（SSH/Agent token），不再配置忽略规则。
 - 项目编辑表单里添加“同步”区域：开启同步、选择节点、设置目标路径/策略，并配置项目级忽略文件/目录与是否忽略权限变更。
-- 新增“同步任务”列表页或面板，支持按项目/节点过滤并查看日志。
+- 新增“同步管理（Sync Projects）”菜单与页面：
+  - 列表展示所有 `sync.enabled=true` 的项目（等同 Syncthing 的 Folder 概念）。
+  - 展示字段：项目名称、主节点目录（与版本管理展示方式一致）、同步状态、最后同步时间、已绑定节点数。
+  - 进入详情可管理：绑定节点及每节点 `target_path` 覆盖、项目级 ignore/ignore_permissions。
+- 新增“同步任务”列表页或面板，支持按项目/节点过滤并查看日志与重试。
 - API 文档需要新增节点、任务相关的端点说明。
+
+## 同步项目（Folder）管理设计
+
+本节描述“同步管理”能力的目标与落地步骤。GoHook 的同步是**单向**：主节点仅发送、子节点仅接收，不提供方向切换。
+
+### 数据来源与模型
+
+- 同步项目不新增独立表：直接由“版本管理项目”中 `sync.enabled=true` 的项目生成。
+- 每个同步项目对应一个 `ProjectSyncConfig`：
+  - 项目级 ignore：`ignoreDefaults / ignorePatterns / ignoreFile / ignorePermissions`
+  - 绑定节点与覆盖目录：`nodes[{nodeId,targetPath}]`
+- 状态/最后同步时间从 `sync_tasks` 汇总：
+  - `lastSyncAt`：该项目所有节点最近一次 `success` 的任务时间（取 max）。
+  - `status`：按最近任务与节点健康聚合（如有任一节点 `failed` 或 OFFLINE → `DEGRADED`）。
+
+### Syncthing 逻辑对齐与优化建议
+
+- **忽略规则语义**：参考 Syncthing 的 `.stignore` 语法（glob、`!` 反选、`#` 注释）。
+  - GoHook 中 ignore 由主节点权威生成索引；Agent 端仅按索引落盘，因此天然保持单向一致性。
+  - 当前已支持的语法子集：`#` 注释、`!` 反选、`**` 跨目录匹配、无 `/` 的规则默认匹配任意目录层级。
+- **默认目标目录**：新增节点时默认 `target_path = project.path`（主/子节点路径一致的常见场景）；允许每节点手动覆盖为不同目录。
+- **只接收模式**：不提供“send/receive only”切换；可在 UI 上显式标注“单向同步”避免误解。
+
+### 实施步骤（建议分两档）
+
+#### Step A（MVP：列表 + 跳转编辑）
+
+1. **后端汇总 API**
+   - 新增 `GET /api/sync/projects`（JWT）。
+   - 返回：`[{projectName,path,sync,status,lastSyncAt,nodes:[{nodeId,nodeName,targetPath,lastStatus,lastSyncAt}]}]`
+   - `sync` 字段直接复用项目的 `ProjectSyncConfig`。
+
+2. **UI：同步管理页面**
+   - 新增菜单入口 `nav.syncProjects`，路由 `/sync/projects`。
+   - 列表展示同步项目（过滤 `sync.enabled=true`），字段与版本管理一致。
+   - 操作：
+     - “查看/管理同步配置” → 直接打开现有“版本管理-编辑项目”弹窗并定位到“同步”区域。
+     - “立即同步” → 调用临时接口 `POST /api/sync/projects/:name/run`。
+
+> Step A 不需要新增编辑 API，复用版本管理保存逻辑。
+
+#### Step B（增强：独立管理对话框）
+
+1. **UI 抽离 SyncConfigDialog**
+   - 将 `EditProjectDialog` 中的 Sync 区域抽成 `SyncConfigDialog`（仅展示同步相关字段）。
+   - 同步管理页使用该对话框进行编辑；版本管理页也复用同一组件。
+
+2. **专用保存端点（已实现）**
+   - `PUT /api/sync/projects/:name/config`：仅更新项目的 `sync` 段（避免覆盖项目其他字段）。
 
 ## 实施步骤（当前可用）
 
@@ -244,7 +297,7 @@
    - 可选：`SYNC_AGENT_TLS_DIR` / `SYNC_SERVER_FINGERPRINT`
 
 4. **主节点：项目开启同步**
-   - 版本管理 → 编辑项目 → 同步：启用、选择节点、设置 `target_path`、配置 ignore 与 `ignore_permissions`。
+   - 版本管理 → 项目行“同步配置”按钮：启用、选择节点、设置 `target_path`、配置 ignore 与 `ignore_permissions`。
 
 5. **验证链路**
    - 手动触发：`POST /api/sync/projects/:name/run`（临时入口，后续由 Controller 替换）。

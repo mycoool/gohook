@@ -27,6 +27,7 @@ import CloudQueue from '@mui/icons-material/CloudQueue';
 import GitHubIcon from '@mui/icons-material/GitHub';
 import Settings from '@mui/icons-material/SettingsApplications';
 import Link from '@mui/icons-material/Link';
+import SyncAltIcon from '@mui/icons-material/SyncAlt';
 import React, {Component} from 'react';
 import DefaultPage from '../common/DefaultPage';
 import ConfirmDialog from '../common/ConfirmDialog';
@@ -37,12 +38,16 @@ import GitHookDialog, {GitHookConfig} from './GitHookDialog';
 import {observer} from 'mobx-react';
 import {observable} from 'mobx';
 import {inject, Stores} from '../inject';
-import {IProjectSyncConfig, IVersion} from '../types';
+import {IVersion} from '../types';
 import {withRouter, RouteComponentProps} from 'react-router-dom';
 import useTranslation from '../i18n/useTranslation';
+import SyncConfigDialog from '../sync/SyncConfigDialog';
 
 @observer
-class Versions extends Component<RouteComponentProps & Stores<'versionStore' | 'currentUser' | 'syncNodeStore'>> {
+class Versions extends Component<
+    RouteComponentProps &
+        Stores<'versionStore' | 'currentUser' | 'syncNodeStore' | 'syncProjectStore'>
+> {
     @observable
     private showAddDialog = false;
     @observable
@@ -63,6 +68,8 @@ class Versions extends Component<RouteComponentProps & Stores<'versionStore' | '
     private gitHookDialogProject: IVersion | null = null;
     @observable
     private editProjectDialog: IVersion | null = null;
+    @observable
+    private syncConfigDialogProject: IVersion | null = null;
 
     public componentDidMount() {
         // 只在用户已登录时才进行 API 调用
@@ -103,6 +110,7 @@ class Versions extends Component<RouteComponentProps & Stores<'versionStore' | '
                     onHideAddDialog={() => (this.showAddDialog = false)}
                     onAddProject={this.handleAddProject}
                     onEditProject={(project) => (this.editProjectDialog = project)}
+                    onManageSync={(project) => (this.syncConfigDialogProject = project)}
                     onRefreshProjects={this.refreshProjects}
                     onReloadConfig={this.reloadConfig}
                     onViewBranches={this.handleViewBranches}
@@ -144,10 +152,27 @@ class Versions extends Component<RouteComponentProps & Stores<'versionStore' | '
                 <EditProjectDialog
                     open={this.editProjectDialog !== null}
                     project={this.editProjectDialog}
-                    availableNodes={this.props.syncNodeStore.all}
                     onClose={() => (this.editProjectDialog = null)}
                     onSubmit={this.handleEditProject}
                 />
+
+                {this.syncConfigDialogProject ? (
+                    <SyncConfigDialog
+                        open={true}
+                        projectName={this.syncConfigDialogProject.name}
+                        projectPath={this.syncConfigDialogProject.path}
+                        availableNodes={this.props.syncNodeStore.all}
+                        initialSync={this.syncConfigDialogProject.sync}
+                        saving={this.props.syncProjectStore.saving}
+                        onClose={() => (this.syncConfigDialogProject = null)}
+                        onSave={async (sync) => {
+                            const projectName = this.syncConfigDialogProject?.name || '';
+                            await this.props.syncProjectStore.updateSyncConfig(projectName, sync);
+                            await this.props.versionStore.refreshProjects();
+                            this.syncConfigDialogProject = null;
+                        }}
+                    />
+                ) : null}
             </>
         );
     }
@@ -249,10 +274,9 @@ class Versions extends Component<RouteComponentProps & Stores<'versionStore' | '
         originalName: string,
         name: string,
         path: string,
-        description: string,
-        sync?: IProjectSyncConfig
+        description: string
     ) => {
-        await this.props.versionStore.editProject(originalName, name, path, description, sync);
+        await this.props.versionStore.editProject(originalName, name, path, description);
     };
 }
 
@@ -262,6 +286,7 @@ interface IRowProps {
     onViewTags: (projectName: string) => void;
     onEditEnv: (projectName: string) => void;
     onConfigGitHook: (project: IVersion) => void;
+    onManageSync: (project: IVersion) => void;
     onEditProject: (project: IVersion) => void;
     onDelete: (projectName: string) => void;
     onInitGit: (projectName: string) => void;
@@ -275,6 +300,7 @@ const Row: React.FC<IRowProps> = observer(
         onViewTags,
         onEditEnv,
         onConfigGitHook,
+        onManageSync,
         onEditProject,
         onDelete,
         onInitGit,
@@ -345,6 +371,15 @@ const Row: React.FC<IRowProps> = observer(
                     <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
                         <IconButton
                             size="small"
+                            onClick={() => onManageSync(project)}
+                            title="同步配置"
+                            style={{
+                                color: project.sync?.enabled ? '#4caf50' : '#666',
+                            }}>
+                            <SyncAltIcon />
+                        </IconButton>
+                        <IconButton
+                            size="small"
                             onClick={() => onEditEnv(project.name)}
                             title={t('version.env.manage')}>
                             <Settings />
@@ -405,6 +440,15 @@ const Row: React.FC<IRowProps> = observer(
                                 color: project.enhook ? '#4caf50' : '#666',
                             }}>
                             <Link />
+                        </IconButton>
+                        <IconButton
+                            size="small"
+                            onClick={() => onManageSync(project)}
+                            title="同步配置"
+                            style={{
+                                color: project.sync?.enabled ? '#4caf50' : '#666',
+                            }}>
+                            <SyncAltIcon />
                         </IconButton>
                         <IconButton
                             size="small"
@@ -507,6 +551,7 @@ const VersionsContainer: React.FC<{
     onHideAddDialog: () => void;
     onAddProject: (name: string, path: string, description: string) => Promise<void>;
     onEditProject: (project: IVersion) => void;
+    onManageSync: (project: IVersion) => void;
     onRefreshProjects: () => void;
     onReloadConfig: () => void;
     onViewBranches: (projectName: string) => void;
@@ -536,6 +581,7 @@ const VersionsContainer: React.FC<{
     onHideAddDialog,
     onAddProject,
     onEditProject,
+    onManageSync,
     onRefreshProjects,
     onReloadConfig,
     onViewBranches,
@@ -603,6 +649,7 @@ const VersionsContainer: React.FC<{
                                     onViewTags={() => onViewTags(project.name)}
                                     onEditEnv={() => onEditEnv(project.name)}
                                     onConfigGitHook={() => onConfigGitHook(project)}
+                                    onManageSync={() => onManageSync(project)}
                                     onEditProject={() => onEditProject(project)}
                                     onDelete={() => onDelete(project.name)}
                                     onInitGit={() => onInitGit(project.name)}
@@ -725,5 +772,5 @@ const VersionsContainer: React.FC<{
 };
 
 export default (withRouter as any)(
-    (inject as any)('versionStore', 'currentUser', 'syncNodeStore')(Versions)
+    (inject as any)('versionStore', 'currentUser', 'syncNodeStore', 'syncProjectStore')(Versions)
 );

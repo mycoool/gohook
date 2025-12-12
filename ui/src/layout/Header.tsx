@@ -18,6 +18,7 @@ import Settings from '@mui/icons-material/Settings';
 import AccountTree from '@mui/icons-material/AccountTree';
 import History from '@mui/icons-material/History';
 import StorageIcon from '@mui/icons-material/Storage';
+import SyncAltIcon from '@mui/icons-material/SyncAlt';
 import React, {Component, CSSProperties} from 'react';
 import {Link as RouterLink} from 'react-router-dom';
 import {observer} from 'mobx-react';
@@ -237,6 +238,15 @@ class Header extends Component<IProps> {
                         icon={<StorageIcon />}
                         translationKey="nav.syncNodes"
                         fallbackLabel="nodes"
+                        width={width}
+                        color="inherit"
+                    />
+                </StyledLink>
+                <StyledLink to="/sync/projects" id="navigate-sync-projects">
+                    <ResponsiveButtonWithTranslation
+                        icon={<SyncAltIcon />}
+                        translationKey="nav.syncProjects"
+                        fallbackLabel="sync"
                         width={width}
                         color="inherit"
                     />

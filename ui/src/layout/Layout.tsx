@@ -178,6 +178,7 @@ import Tags from '../version/Tags';
 import EnvFileDialog from '../version/EnvFileDialog';
 import Hooks from '../hook/Hooks';
 import SyncNodesPage from '../sync/SyncNodesPage';
+import SyncProjectsPage from '../sync/SyncProjectsPage';
 
 import Plugins from '../plugin/Plugins';
 import PluginDetailView from '../plugin/PluginDetailView';
@@ -958,6 +959,11 @@ class Layout extends React.Component<Stores<'currentUser' | 'snackManager' | 'sy
                                                     exact: true,
                                                     path: '/sync/nodes',
                                                     component: SyncNodesPage,
+                                                }),
+                                                React.createElement(Route as any, {
+                                                    exact: true,
+                                                    path: '/sync/projects',
+                                                    component: SyncProjectsPage,
                                                 }),
                                                 React.createElement(Route as any, {
                                                     exact: true,

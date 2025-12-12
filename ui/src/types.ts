@@ -109,6 +109,25 @@ export interface IProjectSyncConfig {
     nodes?: IProjectSyncNodeConfig[];
 }
 
+export interface ISyncProjectNodeSummary {
+    nodeId: number;
+    nodeName: string;
+    health: string;
+    targetPath: string;
+    lastStatus?: string;
+    lastTaskAt?: string;
+    lastSuccessAt?: string;
+}
+
+export interface ISyncProjectSummary {
+    projectName: string;
+    path: string;
+    sync: IProjectSyncConfig;
+    status: string;
+    lastSyncAt?: string;
+    nodes: ISyncProjectNodeSummary[];
+}
+
 export interface IBranch {
     name: string;
     isCurrent: boolean;

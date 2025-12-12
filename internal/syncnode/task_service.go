@@ -2,12 +2,11 @@ package syncnode
 
 import (
 	"archive/tar"
-	"bufio"
 	"compress/gzip"
 	"context"
 	"crypto/sha256"
-	"encoding/json"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -17,6 +16,7 @@ import (
 	"strings"
 
 	"github.com/mycoool/gohook/internal/database"
+	syncignore "github.com/mycoool/gohook/internal/syncnode/ignore"
 	"github.com/mycoool/gohook/internal/types"
 	"gorm.io/gorm"
 )
@@ -46,6 +46,7 @@ type TaskPayload struct {
 	IgnoreDefaults    bool     `json:"ignoreDefaults"`
 	IgnorePatterns    []string `json:"ignorePatterns,omitempty"`
 	IgnoreFile        string   `json:"ignoreFile,omitempty"`
+	IgnoreFiles       []string `json:"ignoreFiles,omitempty"`
 	IgnorePermissions bool     `json:"ignorePermissions"`
 }
 
@@ -118,8 +119,8 @@ func (s *TaskService) CreateProjectTasks(ctx context.Context, projectName string
 			TargetPath:        nodeCfg.TargetPath,
 			Strategy:          defaultStrategy(nodeCfg.Strategy),
 			IgnoreDefaults:    project.Sync.IgnoreDefaults,
-			IgnorePatterns:    project.Sync.IgnorePatterns,
-			IgnoreFile:        project.Sync.IgnoreFile,
+			IgnorePatterns:    append(append([]string{}, project.Sync.IgnorePatterns...), nodeCfg.IgnorePatterns...),
+			IgnoreFiles:       []string{project.Sync.IgnoreFile, nodeCfg.IgnoreFile},
 			IgnorePermissions: project.Sync.IgnorePermissions,
 		}
 		raw, _ := json.Marshal(payload)
@@ -231,7 +232,7 @@ func (s *TaskService) StreamBundle(ctx context.Context, w io.Writer, task databa
 	tw := tar.NewWriter(gw)
 	defer tw.Close()
 
-	ig := newIgnoreMatcher(payload.IgnoreDefaults, payload.IgnorePatterns, payload.IgnoreFile, root)
+	ig := newIgnoreMatcher(payload, root)
 	var bytesWritten int64
 
 	return filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
@@ -307,7 +308,7 @@ func (s *TaskService) StreamIndex(ctx context.Context, task database.SyncTask, e
 		return fmt.Errorf("project path invalid: %s", root)
 	}
 
-	ig := newIgnoreMatcher(payload.IgnoreDefaults, payload.IgnorePatterns, payload.IgnoreFile, root)
+	ig := newIgnoreMatcher(payload, root)
 
 	return filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
@@ -437,85 +438,22 @@ func findProject(name string) *types.ProjectConfig {
 }
 
 type ignoreMatcher struct {
-	defaults bool
-	patterns []string
-	filePath string
-	root     string
+	m *syncignore.Matcher
 }
 
-func newIgnoreMatcher(ignoreDefaults bool, patterns []string, ignoreFile string, root string) *ignoreMatcher {
-	m := &ignoreMatcher{
-		defaults: ignoreDefaults,
-		patterns: append([]string{}, patterns...),
-		filePath: ignoreFile,
-		root:     root,
+func newIgnoreMatcher(payload TaskPayload, root string) *ignoreMatcher {
+	files := append([]string{}, payload.IgnoreFiles...)
+	if strings.TrimSpace(payload.IgnoreFile) != "" {
+		files = append(files, payload.IgnoreFile)
 	}
-	if ignoreFile != "" {
-		m.patterns = append(m.patterns, loadIgnoreFile(root, ignoreFile)...)
+	return &ignoreMatcher{
+		m: syncignore.New(root, payload.IgnoreDefaults, payload.IgnorePatterns, files...),
 	}
-	return m
 }
 
 func (m *ignoreMatcher) Match(rel string, isDir bool) bool {
-	if rel == "" || rel == "." {
+	if m == nil || m.m == nil {
 		return false
 	}
-	if m.defaults {
-		for _, p := range []string{".git/**", "runtime/**", "tmp/**"} {
-			if matchGlob(p, rel, isDir) {
-				return true
-			}
-		}
-	}
-	for _, p := range m.patterns {
-		if matchGlob(p, rel, isDir) {
-			return true
-		}
-	}
-	return false
-}
-
-func matchGlob(pattern, rel string, isDir bool) bool {
-	pattern = strings.TrimSpace(pattern)
-	if pattern == "" || strings.HasPrefix(pattern, "#") {
-		return false
-	}
-	pattern = filepath.ToSlash(pattern)
-	rel = filepath.ToSlash(rel)
-
-	if isDir && !strings.ContainsAny(pattern, "*?[]") {
-		p := strings.TrimSuffix(pattern, "/")
-		return rel == p || strings.HasPrefix(rel, p+"/")
-	}
-	ok, _ := filepath.Match(pattern, rel)
-	if ok {
-		return true
-	}
-	if strings.HasSuffix(pattern, "/**") {
-		prefix := strings.TrimSuffix(pattern, "/**")
-		return rel == prefix || strings.HasPrefix(rel, prefix+"/")
-	}
-	return false
-}
-
-func loadIgnoreFile(projectRoot, ignorePath string) []string {
-	path := ignorePath
-	if !filepath.IsAbs(path) {
-		path = filepath.Join(projectRoot, ignorePath)
-	}
-	f, err := os.Open(path)
-	if err != nil {
-		return nil
-	}
-	defer f.Close()
-	var patterns []string
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		patterns = append(patterns, line)
-	}
-	return patterns
+	return m.m.Match(rel, isDir)
 }

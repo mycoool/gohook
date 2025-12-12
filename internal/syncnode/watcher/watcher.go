@@ -1,7 +1,6 @@
 package watcher
 
 import (
-	"bufio"
 	"crypto/sha1"
 	"encoding/json"
 	"fmt"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/mycoool/gohook/internal/database"
+	syncignore "github.com/mycoool/gohook/internal/syncnode/ignore"
 	"github.com/mycoool/gohook/internal/types"
 )
 
@@ -27,14 +27,14 @@ type FileSnapshot struct {
 
 // Scanner monitors a project directory and enqueues detected changes.
 type Scanner struct {
-	project   types.ProjectConfig
-	queue     ChangeQueue
-	nodeID    uint
-	nodeName  string
-	watcher   *fsnotify.Watcher
-	root      string
-	ignore    *ignoreMatcher
-	mux       sync.Mutex
+	project  types.ProjectConfig
+	queue    ChangeQueue
+	nodeID   uint
+	nodeName string
+	watcher  *fsnotify.Watcher
+	root     string
+	ignore   *syncignore.Matcher
+	mux      sync.Mutex
 }
 
 // ChangeQueue defines storage interface for detected file changes.
@@ -49,12 +49,12 @@ func NewScanner(project types.ProjectConfig, node database.SyncNode, queue Chang
 		return nil, err
 	}
 	s := &Scanner{
-		project:   project,
-		queue:     queue,
-		nodeID:    node.ID,
-		nodeName:  node.Name,
-		watcher:   watcher,
-		ignore:    buildIgnoreMatcher(project, node),
+		project:  project,
+		queue:    queue,
+		nodeID:   node.ID,
+		nodeName: node.Name,
+		watcher:  watcher,
+		ignore:   buildIgnoreMatcher(project),
 	}
 	return s, nil
 }
@@ -187,91 +187,15 @@ func hashFile(path string) (string, error) {
 	return fmt.Sprintf("%x", h.Sum(nil)), nil
 }
 
-type ignoreMatcher struct {
-	defaults []string
-	patterns []string
-}
-
-func buildIgnoreMatcher(project types.ProjectConfig, node database.SyncNode) *ignoreMatcher {
-	var patterns []string
-	if project.Sync != nil {
-		patterns = append(patterns, project.Sync.IgnorePatterns...)
-		if project.Sync.IgnoreFile != "" {
-			patterns = append(patterns, loadIgnoreFile(project.Path, project.Sync.IgnoreFile)...)
-		}
+func buildIgnoreMatcher(project types.ProjectConfig) *syncignore.Matcher {
+	if project.Sync == nil {
+		return syncignore.New(project.Path, false, nil)
 	}
-
-	defaults := []string{}
-	if project.Sync != nil && project.Sync.IgnoreDefaults {
-		defaults = []string{".git/**", "runtime/**", "tmp/**"}
+	files := []string{}
+	if strings.TrimSpace(project.Sync.IgnoreFile) != "" {
+		files = append(files, project.Sync.IgnoreFile)
 	}
-
-	return &ignoreMatcher{defaults: defaults, patterns: patterns}
-}
-
-func (m *ignoreMatcher) Match(rel string, isDir bool) bool {
-	if rel == "" || rel == "." {
-		return false
-	}
-	rel = filepath.ToSlash(rel)
-	for _, p := range m.defaults {
-		if matchGlob(p, rel, isDir) {
-			return true
-		}
-	}
-	for _, p := range m.patterns {
-		if matchGlob(p, rel, isDir) {
-			return true
-		}
-	}
-	return false
-}
-
-func matchGlob(pattern, rel string, isDir bool) bool {
-	pattern = strings.TrimSpace(pattern)
-	if pattern == "" || strings.HasPrefix(pattern, "#") {
-		return false
-	}
-	pattern = filepath.ToSlash(pattern)
-	// Allow directory patterns without glob suffix.
-	if isDir && !strings.ContainsAny(pattern, "*?[]") {
-		if strings.HasPrefix(rel, strings.TrimSuffix(pattern, "/")+"/") || rel == strings.TrimSuffix(pattern, "/") {
-			return true
-		}
-	}
-	ok, _ := filepath.Match(pattern, rel)
-	if ok {
-		return true
-	}
-	// If pattern targets a directory, match prefix.
-	if strings.HasSuffix(pattern, "/**") {
-		prefix := strings.TrimSuffix(pattern, "/**")
-		return rel == prefix || strings.HasPrefix(rel, prefix+"/")
-	}
-	return false
-}
-
-func loadIgnoreFile(projectRoot, ignorePath string) []string {
-	path := ignorePath
-	if !filepath.IsAbs(path) {
-		path = filepath.Join(projectRoot, ignorePath)
-	}
-	f, err := os.Open(path)
-	if err != nil {
-		return nil
-	}
-	defer f.Close()
-
-	var patterns []string
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		patterns = append(patterns, line)
-	}
-	return patterns
+	return syncignore.New(project.Path, project.Sync.IgnoreDefaults, project.Sync.IgnorePatterns, files...)
 }
 
 func decodeStringSlice(raw string) []string {

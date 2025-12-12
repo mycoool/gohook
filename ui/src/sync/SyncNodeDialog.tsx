@@ -314,7 +314,9 @@ const SyncNodeDialog: React.FC<SyncNodeDialogProps> = ({
                                                 disabled={loading}
                                                 onClick={async () => {
                                                     if (!currentNode) return;
-                                                    const updated = await onRotateToken(currentNode.id);
+                                                    const updated = await onRotateToken(
+                                                        currentNode.id
+                                                    );
                                                     if (mode === 'create') {
                                                         setCreatedNode(updated);
                                                     }
@@ -341,7 +343,11 @@ const SyncNodeDialog: React.FC<SyncNodeDialogProps> = ({
                 <Button onClick={onClose} color="secondary">
                     {t('common.cancel')}
                 </Button>
-                <Button onClick={handleSubmit} color="primary" variant="contained" disabled={loading}>
+                <Button
+                    onClick={handleSubmit}
+                    color="primary"
+                    variant="contained"
+                    disabled={loading}>
                     {loading ? t('common.saving') : t('common.save')}
                 </Button>
             </DialogActions>

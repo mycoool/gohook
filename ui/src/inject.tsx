@@ -11,6 +11,7 @@ import {WebSocketStore} from './message/WebSocketStore';
 import {PluginStore} from './plugin/PluginStore';
 import {AppConfigStore} from './app/AppConfigStore';
 import {SyncNodeStore} from './sync/SyncNodeStore';
+import {SyncProjectStore} from './sync/SyncProjectStore';
 
 export interface StoreMapping {
     userStore: UserStore;
@@ -23,6 +24,7 @@ export interface StoreMapping {
     wsStore: WebSocketStore;
     appConfigStore: AppConfigStore;
     syncNodeStore: SyncNodeStore;
+    syncProjectStore: SyncProjectStore;
 }
 
 export type AllStores = Extract<keyof StoreMapping, string>;

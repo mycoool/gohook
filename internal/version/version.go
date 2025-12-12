@@ -16,6 +16,7 @@ import (
 	"github.com/mycoool/gohook/internal/database"
 	"github.com/mycoool/gohook/internal/middleware"
 	"github.com/mycoool/gohook/internal/stream"
+	"github.com/mycoool/gohook/internal/syncnode"
 	"github.com/mycoool/gohook/internal/types"
 )
 
@@ -682,9 +683,9 @@ func HandleEditProject(c *gin.Context) {
 	projectName := c.Param("name")
 
 	var req struct {
-		Name        string                 `json:"name" binding:"required"`
-		Path        string                 `json:"path" binding:"required"`
-		Description string                 `json:"description"`
+		Name        string                   `json:"name" binding:"required"`
+		Path        string                   `json:"path" binding:"required"`
+		Description string                   `json:"description"`
 		Sync        *types.ProjectSyncConfig `json:"sync,omitempty"`
 	}
 
@@ -781,15 +782,18 @@ func HandleEditProject(c *gin.Context) {
 	}
 	stream.Global.Broadcast(wsMessage)
 
+	// Refresh sync watchers so config changes take effect without restart.
+	syncnode.RefreshProjectWatchers()
+
 	c.JSON(http.StatusOK, gin.H{"message": "Project updated successfully"})
 }
 
 // AddProject add project
 func HandleAddProject(c *gin.Context) {
 	var req struct {
-		Name        string                  `json:"name" binding:"required"`
-		Path        string                  `json:"path" binding:"required"`
-		Description string                  `json:"description"`
+		Name        string                   `json:"name" binding:"required"`
+		Path        string                   `json:"path" binding:"required"`
+		Description string                   `json:"description"`
 		Sync        *types.ProjectSyncConfig `json:"sync,omitempty"`
 	}
 
@@ -872,6 +876,9 @@ func HandleAddProject(c *gin.Context) {
 	}
 	stream.Global.Broadcast(wsMessage)
 
+	// Refresh sync watchers so newly enabled sync projects start watching without restart.
+	syncnode.RefreshProjectWatchers()
+
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Project added successfully",
 		"project": newProject,
@@ -929,6 +936,9 @@ func HandleDeleteProject(c *gin.Context) {
 		},
 	}
 	stream.Global.Broadcast(wsMessage)
+
+	// Refresh sync watchers so removed projects stop watching without restart.
+	syncnode.RefreshProjectWatchers()
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Project deleted successfully",

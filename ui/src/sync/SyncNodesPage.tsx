@@ -132,110 +132,118 @@ const SyncNodesPage: React.FC<Props> = ({syncNodeStore, currentUser}) => {
                 <Paper elevation={6} sx={{mt: 0, width: '100%', overflowX: 'auto'}}>
                     <TableContainer>
                         <Table size="small" sx={{minWidth: 960}}>
-                        <TableHead>
-                            <TableRow>
-                                <TableCell>名称</TableCell>
-                                <TableCell>地址</TableCell>
-                                <TableCell>健康状态</TableCell>
-                                <TableCell>同步状态</TableCell>
-                                <TableCell>最后心跳</TableCell>
-                                <TableCell>标签</TableCell>
-                                <TableCell align="right">操作</TableCell>
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {nodes.length === 0 ? (
+                            <TableHead>
                                 <TableRow>
-                                    <TableCell colSpan={7}>
-                                        <Typography align="center" color="textSecondary">
-                                            {syncNodeStore.loading
-                                                ? '加载节点中...'
-                                                : '暂无节点，请点击“新增节点”'}
-                                        </Typography>
-                                    </TableCell>
+                                    <TableCell>名称</TableCell>
+                                    <TableCell>地址</TableCell>
+                                    <TableCell>健康状态</TableCell>
+                                    <TableCell>同步状态</TableCell>
+                                    <TableCell>最后心跳</TableCell>
+                                    <TableCell>标签</TableCell>
+                                    <TableCell align="right">操作</TableCell>
                                 </TableRow>
-                            ) : (
-                                nodes.map((node) => (
-                                    <TableRow
-                                        key={node.id}
-                                        selected={highlightId === node.id}
-                                        hover>
-                                        <TableCell>
-                                            <Stack spacing={0.5}>
-                                                <Typography variant="subtitle2">{node.name}</Typography>
-                                                <Typography variant="caption" color="textSecondary">
-                                                    {node.type === 'agent' ? 'Sync Agent' : 'SSH/rsync'}
-                                                </Typography>
-                                            </Stack>
-                                        </TableCell>
-                                        <TableCell>{node.address}</TableCell>
-                                        <TableCell>
-                                            <Chip
-                                                label={node.health || 'UNKNOWN'}
-                                                color={healthColor(node.health)}
-                                                size="small"
-                                            />
-                                        </TableCell>
-                                        <TableCell>
-                                            <Stack spacing={0.5}>
-                                                <Chip
-                                                    label={node.installStatus || 'pending'}
-                                                    variant="outlined"
-                                                    size="small"
-                                                />
-                                                {node.agentVersion ? (
-                                                    <Typography variant="caption" color="textSecondary">
-                                                        {node.agentVersion}
-                                                    </Typography>
-                                                ) : null}
-                                            </Stack>
-                                        </TableCell>
-                                        <TableCell>{formatTime(node.lastSeen)}</TableCell>
-                                        <TableCell>
-                                            {node.tags?.length
-                                                ? node.tags.map((tag) => (
-                                                      <Chip
-                                                          key={tag}
-                                                          label={tag}
-                                                          size="small"
-                                                          sx={{mr: 0.5, mb: 0.5}}
-                                                      />
-                                                  ))
-                                                : '--'}
-                                        </TableCell>
-                                        <TableCell align="right">
-                                            <Tooltip title="重新安装/推送 Agent">
-                                                <span>
-                                                    <IconButton
-                                                        size="small"
-                                                        onClick={() => triggerInstall(node)}
-                                                        disabled={syncNodeStore.saving}>
-                                                        <SyncIcon fontSize="small" />
-                                                    </IconButton>
-                                                </span>
-                                            </Tooltip>
-                                            <Tooltip title="编辑节点">
-                                                <IconButton
-                                                    size="small"
-                                                    onClick={() => openEditDialog(node)}>
-                                                    <EditIcon fontSize="small" />
-                                                </IconButton>
-                                            </Tooltip>
-                                            <Tooltip title="删除节点">
-                                                <IconButton
-                                                    size="small"
-                                                    color="error"
-                                                    onClick={() => setDeleteTarget(node)}>
-                                                    <DeleteIcon fontSize="small" />
-                                                </IconButton>
-                                            </Tooltip>
+                            </TableHead>
+                            <TableBody>
+                                {nodes.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={7}>
+                                            <Typography align="center" color="textSecondary">
+                                                {syncNodeStore.loading
+                                                    ? '加载节点中...'
+                                                    : '暂无节点，请点击“新增节点”'}
+                                            </Typography>
                                         </TableCell>
                                     </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
-                </TableContainer>
+                                ) : (
+                                    nodes.map((node) => (
+                                        <TableRow
+                                            key={node.id}
+                                            selected={highlightId === node.id}
+                                            hover>
+                                            <TableCell>
+                                                <Stack spacing={0.5}>
+                                                    <Typography variant="subtitle2">
+                                                        {node.name}
+                                                    </Typography>
+                                                    <Typography
+                                                        variant="caption"
+                                                        color="textSecondary">
+                                                        {node.type === 'agent'
+                                                            ? 'Sync Agent'
+                                                            : 'SSH/rsync'}
+                                                    </Typography>
+                                                </Stack>
+                                            </TableCell>
+                                            <TableCell>{node.address}</TableCell>
+                                            <TableCell>
+                                                <Chip
+                                                    label={node.health || 'UNKNOWN'}
+                                                    color={healthColor(node.health)}
+                                                    size="small"
+                                                />
+                                            </TableCell>
+                                            <TableCell>
+                                                <Stack spacing={0.5}>
+                                                    <Chip
+                                                        label={node.installStatus || 'pending'}
+                                                        variant="outlined"
+                                                        size="small"
+                                                    />
+                                                    {node.agentVersion ? (
+                                                        <Typography
+                                                            variant="caption"
+                                                            color="textSecondary">
+                                                            {node.agentVersion}
+                                                        </Typography>
+                                                    ) : null}
+                                                </Stack>
+                                            </TableCell>
+                                            <TableCell>{formatTime(node.lastSeen)}</TableCell>
+                                            <TableCell>
+                                                {node.tags?.length
+                                                    ? node.tags.map((tag) => (
+                                                          <Chip
+                                                              key={tag}
+                                                              label={tag}
+                                                              size="small"
+                                                              sx={{mr: 0.5, mb: 0.5}}
+                                                          />
+                                                      ))
+                                                    : '--'}
+                                            </TableCell>
+                                            <TableCell align="right">
+                                                <Tooltip title="重新安装/推送 Agent">
+                                                    <span>
+                                                        <IconButton
+                                                            size="small"
+                                                            onClick={() => triggerInstall(node)}
+                                                            disabled={syncNodeStore.saving}>
+                                                            <SyncIcon fontSize="small" />
+                                                        </IconButton>
+                                                    </span>
+                                                </Tooltip>
+                                                <Tooltip title="编辑节点">
+                                                    <IconButton
+                                                        size="small"
+                                                        onClick={() => openEditDialog(node)}>
+                                                        <EditIcon fontSize="small" />
+                                                    </IconButton>
+                                                </Tooltip>
+                                                <Tooltip title="删除节点">
+                                                    <IconButton
+                                                        size="small"
+                                                        color="error"
+                                                        onClick={() => setDeleteTarget(node)}>
+                                                        <DeleteIcon fontSize="small" />
+                                                    </IconButton>
+                                                </Tooltip>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
                 </Paper>
             </Grid>
 
@@ -257,7 +265,6 @@ const SyncNodesPage: React.FC<Props> = ({syncNodeStore, currentUser}) => {
                     fOnSubmit={handleDelete}
                 />
             ) : null}
-
         </DefaultPage>
     );
 };

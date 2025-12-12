@@ -73,9 +73,13 @@ export class SyncNodeStore {
     public createNode = async (payload: SyncNodePayload): Promise<ISyncNode | undefined> => {
         this.saving = true;
         try {
-            const response = await axios.post<ISyncNode>(`${config.get('url')}api/sync/nodes`, payload, {
-                headers: this.headers,
-            });
+            const response = await axios.post<ISyncNode>(
+                `${config.get('url')}api/sync/nodes`,
+                payload,
+                {
+                    headers: this.headers,
+                }
+            );
             this.snack('节点创建成功');
             await this.refreshNodes();
             return response.data;

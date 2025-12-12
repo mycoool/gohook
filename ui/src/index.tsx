@@ -19,6 +19,7 @@ import {PluginStore} from './plugin/PluginStore';
 import {AppConfigStore} from './app/AppConfigStore';
 import {registerReactions} from './reactions';
 import {SyncNodeStore} from './sync/SyncNodeStore';
+import {SyncProjectStore} from './sync/SyncProjectStore';
 import './i18n';
 
 const devUrl = 'http://localhost:3000/';
@@ -37,6 +38,7 @@ const initStores = (): StoreMapping => {
     const hookStore = new HookStore(snackManager.snack, () => currentUser.token());
     const versionStore = new VersionStore(snackManager.snack, () => currentUser.token());
     const syncNodeStore = new SyncNodeStore(snackManager.snack, () => currentUser.token());
+    const syncProjectStore = new SyncProjectStore(snackManager.snack, () => currentUser.token());
     const userStore = new UserStore(snackManager.snack, () => currentUser.token());
     const messagesStore = new MessagesStore(snackManager.snack, () => currentUser.token());
     const appConfigStore = new AppConfigStore(() => currentUser.token(), snackManager.snack);
@@ -55,6 +57,7 @@ const initStores = (): StoreMapping => {
         pluginStore,
         appConfigStore,
         syncNodeStore,
+        syncProjectStore,
     };
 };
 

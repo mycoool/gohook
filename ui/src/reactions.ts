@@ -8,6 +8,7 @@ export const registerReactions = (stores: StoreMapping) => {
         stores.userStore.clear();
         stores.wsStore.close();
         stores.syncNodeStore.clear();
+        stores.syncProjectStore.clear();
     };
     const loadAll = () => {
         stores.wsStore.listen((message) => {
