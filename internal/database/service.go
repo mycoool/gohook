@@ -57,6 +57,10 @@ func (s *LogService) CreateSystemLog(level, category, message string, details in
 	if s.db == nil {
 		return nil
 	}
+
+	if s.db == nil {
+		return nil
+	}
 	var detailsJSON string
 	if details != nil {
 		detailsBytes, _ := json.Marshal(details)
@@ -79,6 +83,10 @@ func (s *LogService) CreateSystemLog(level, category, message string, details in
 // CreateUserActivity create user activity record
 func (s *LogService) CreateUserActivity(username, action, resource, description,
 	ipAddress, userAgent string, success bool, details interface{}) error {
+
+	if s.db == nil {
+		return nil
+	}
 
 	if s.db == nil {
 		return nil
@@ -106,6 +114,10 @@ func (s *LogService) CreateUserActivity(username, action, resource, description,
 // CreateProjectActivity create project activity record
 func (s *LogService) CreateProjectActivity(projectName, action, oldValue, newValue,
 	username string, success bool, error, commitHash, description, ipAddress string) error {
+
+	if s.db == nil {
+		return nil
+	}
 
 	if s.db == nil {
 		return nil
