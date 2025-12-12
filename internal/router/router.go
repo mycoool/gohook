@@ -279,6 +279,15 @@ func InitRouter() *gin.Engine {
 	{
 		agentNodeAPI := agentSyncAPI.Group("/nodes")
 		agentNodeAPI.POST("/:id/heartbeat", syncnode.AgentTokenMiddleware(), syncnode.HandleHeartbeat)
+		agentNodeAPI.GET("/:id/tasks/pull", syncnode.AgentTokenMiddleware(), syncnode.HandlePullTask)
+		agentNodeAPI.POST("/:id/tasks/:taskId/report", syncnode.AgentTokenMiddleware(), syncnode.HandleReportTask)
+		agentNodeAPI.GET("/:id/tasks/:taskId/bundle", syncnode.AgentTokenMiddleware(), syncnode.HandleDownloadBundle)
+	}
+
+	// sync tasks (admin/manual)
+	syncTaskAPI := syncAPI.Group("/projects")
+	{
+		syncTaskAPI.POST("/:name/run", syncnode.HandleRunProjectSync)
 	}
 
 	// GitHook webhook endpoint

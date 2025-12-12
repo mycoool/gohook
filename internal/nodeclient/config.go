@@ -10,4 +10,5 @@ type RuntimeConfig struct {
 	Interval time.Duration
 	NodeName string
 	Version  string
+	WorkDir  string
 }

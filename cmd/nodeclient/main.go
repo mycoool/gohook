@@ -25,6 +25,7 @@ func main() {
 		Interval: cfg.Interval,
 		NodeName: cfg.NodeName,
 		Version:  cfg.Version,
+		WorkDir:  cfg.WorkDir,
 	})
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -55,6 +56,7 @@ func loadConfig() nodeclient.RuntimeConfig {
 		Interval: interval,
 		NodeName: getenvDefault("SYNC_NODE_NAME", hostnameFallback()),
 		Version:  version,
+		WorkDir:  os.Getenv("SYNC_WORK_DIR"),
 	}
 }
 

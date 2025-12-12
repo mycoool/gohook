@@ -25,6 +25,7 @@ type Config struct {
 	Interval time.Duration
 	NodeName string
 	Version  string
+	WorkDir  string
 }
 
 // HTTPClient defines the http.Client subset required by Agent.
@@ -50,6 +51,7 @@ func (a *Agent) Run(ctx context.Context) {
 	defer ticker.Stop()
 
 	a.sendHeartbeat(ctx)
+	go a.pollAndRunTasks(ctx)
 	for {
 		select {
 		case <-ctx.Done():

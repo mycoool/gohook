@@ -35,6 +35,42 @@
 5. Executor 根据驱动执行同步：默认通过 Sync Agent 下发任务，也可退化为 `ssh + rsync` 直接复制。
 6. 节点/任务状态写回数据库，并通过 WebSocket 通知 UI。
 
+## 当前实现进度（截至 2025-12）
+
+已完成：
+
+1. **节点管理（主节点）**
+   - 数据模型：`sync_nodes`/`sync_tasks`/`sync_file_changes` 已加入并自动迁移。
+   - API：节点 CRUD、安装触发、心跳、Token 刷新（`POST /api/sync/nodes/:id/rotate-token`）。
+   - 鉴权：Agent 心跳接口使用节点 Token 认证；管理接口使用管理员 JWT。
+   - UI：节点管理页、创建/编辑弹窗展示 Token、复制/显隐/刷新。
+
+2. **项目级同步配置（版本管理）**
+   - 类型定义：`ProjectSyncConfig`/`ProjectSyncNodeConfig` 已支持项目级 ignore 与 `ignore_permissions`。
+   - API：项目列表返回 `sync` 配置；编辑项目支持保存 `sync`。
+   - UI：版本管理“编辑项目”中新增“同步”区域：开启同步、选择节点、目标目录、忽略规则与忽略权限开关。
+
+3. **变更监听与落库（主节点）**
+   - 基于 `fsnotify` 的目录监听与递归 watch。
+   - 变更写入 `sync_file_changes`，含 path/hash/mtime/size/type。
+   - watcher 仅在项目 `sync.enabled=true` 时启动。
+
+未完成（核心缺口）：
+
+1. **Sync Controller**
+   - 未把 GitHook/Watcher 事件转为 `sync_tasks`。
+   - 未实现按项目并发/重试策略。
+
+2. **Sync Executor**
+   - 未实现 `ssh+rsync` 或 agent 驱动的实际同步执行。
+   - 未写回任务状态/日志/错误。
+
+3. **Sync Agent 执行侧**
+   - 目前只有心跳上报，没有拉取任务、文件/块传输、结果回传。
+
+4. **自动安装真实流程**
+   - 安装流程仍为 stub（记录日志并标记成功）。
+
 ## 数据模型（建议）
 
 ### sync_nodes
@@ -171,6 +207,73 @@
 - 项目编辑表单里添加“同步”区域：开启同步、选择节点、设置目标路径/策略，并配置项目级忽略文件/目录与是否忽略权限变更。
 - 新增“同步任务”列表页或面板，支持按项目/节点过滤并查看日志。
 - API 文档需要新增节点、任务相关的端点说明。
+
+## 实施步骤（建议按阶段落地）
+
+### Phase 0：基础配置与节点上线（已完成）
+
+1. 在“节点管理”创建节点（agent 或 ssh），保存后复制 `SYNC_NODE_TOKEN`。
+2. 在子节点部署 `gohook-sync-agent`（当前只需心跳），设置：
+   - `SYNC_NODE_ID`
+   - `SYNC_NODE_TOKEN`
+   - `SYNC_API_BASE`
+3. 在“版本管理 → 编辑项目”开启同步、选择节点并设置目标目录与 ignore。
+
+### Phase 1：Controller + 任务生成（下一步）
+
+目标：把“变更/Hook 成功事件”转成 `sync_tasks`。
+
+1. 定义任务生成入口：
+   - GitHook 成功后触发（现有 hook 执行回调点）。
+   - 或 watcher 检测到变更后触发（读取 `sync_file_changes`）。
+2. 实现 `SyncController`：
+   - 读取项目 `sync` 配置展开节点列表。
+   - 生成 `sync_tasks(status=pending)`，写入 payload（项目名、根目录、变更列表/commit）。
+3. 增加任务 API：
+   - `GET /api/sync/tasks`（分页+过滤）
+   - `GET /api/sync/tasks/:id`
+4. UI 增加任务列表页（最小可用：按项目/节点过滤、显示状态与日志摘要）。
+
+### Phase 2：Executor（ssh+rsync 优先）
+
+目标：让主节点能真正把目录同步到子节点（不依赖 agent 执行侧）。
+
+1. 实现 rsync 驱动：
+   - 根据项目/节点 `include/exclude/ignore` 生成 rsync 参数。
+   - 若 `ignore_permissions=true`，关闭 `-p/-o/-g` 或使用 `--no-perms --no-owner --no-group`。
+2. Executor 拉取 pending 任务并执行：
+   - 更新任务状态 `running→success/failed`。
+   - 写入 stdout/stderr 到 `sync_tasks.logs` 与 `last_error`。
+3. Controller 按 `max_parallel_nodes` 进行并发控制与失败重试（指数退避）。
+
+### Phase 3：Agent 执行侧（整文件差量）
+
+目标：agent 驱动替代 ssh，同步任务由子节点执行。
+
+1. Agent 增加任务拉取/回传接口：
+   - `GET /api/sync/nodes/:id/tasks/pull`
+   - `POST /api/sync/nodes/:id/tasks/:taskId/report`
+   - `GET /api/sync/nodes/:id/tasks/:taskId/bundle`
+2. 主节点实现任务创建与打包：
+   - 管理端临时接口：`POST /api/sync/projects/:name/run` 创建 pending 任务（后续由 Controller 替换）。
+   - bundle 采用 `tar.gz`（按项目级 ignore 过滤），供 Agent 下载。
+3. Agent 侧实现：
+   - 心跳 + 轮询拉取任务。
+   - 下载 bundle → 解压到临时目录 → 按策略落地：
+     - `mirror`：目录整体替换（swap）
+     - `overlay`：覆盖写入（不删除旧文件）
+   - 成功/失败回传任务状态与错误信息。
+
+### Phase 4：块级传输（Syncthing 关键能力）
+
+目标：只传输缺失/变化的块，降低带宽与时间。
+
+1. 引入分块与块索引：
+   - 固定或滚动分块，记录 `block hash list`。
+2. 主节点/Agent 交换块索引，计算差集。
+3. 仅传输缺失块并重组文件，校验完成后更新快照。
+
+> 说明：Syncthing 的实现采用非 MIT 许可，GoHook 这里将“参考算法与接口设计”自行实现，不直接拷贝其源码到仓库中，避免许可证污染。
 
 ## 部署建议
 

@@ -1,0 +1,374 @@
+package syncnode
+
+import (
+	"archive/tar"
+	"bufio"
+	"compress/gzip"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+
+	"github.com/mycoool/gohook/internal/database"
+	"github.com/mycoool/gohook/internal/types"
+	"gorm.io/gorm"
+)
+
+const (
+	TaskStatusPending  = "pending"
+	TaskStatusRunning  = "running"
+	TaskStatusSuccess  = "success"
+	TaskStatusFailed   = "failed"
+	TaskDriverAgent    = "agent"
+	TaskDriverRsync    = "rsync"
+	defaultBundleLimit = int64(1024 * 1024 * 1024) // 1GiB safety cap
+)
+
+type TaskService struct {
+	db *gorm.DB
+}
+
+func NewTaskService() *TaskService {
+	return &TaskService{db: database.GetDB()}
+}
+
+type TaskPayload struct {
+	ProjectName       string   `json:"projectName"`
+	TargetPath        string   `json:"targetPath"`
+	Strategy          string   `json:"strategy"` // mirror | overlay
+	IgnoreDefaults    bool     `json:"ignoreDefaults"`
+	IgnorePatterns    []string `json:"ignorePatterns,omitempty"`
+	IgnoreFile        string   `json:"ignoreFile,omitempty"`
+	IgnorePermissions bool     `json:"ignorePermissions"`
+}
+
+type TaskReport struct {
+	Status    string `json:"status" binding:"required"` // success | failed
+	Logs      string `json:"logs"`
+	LastError string `json:"lastError"`
+}
+
+func (s *TaskService) ensureDB() (*gorm.DB, error) {
+	if s.db == nil {
+		s.db = database.GetDB()
+	}
+	if s.db == nil {
+		return nil, errors.New("database not initialized")
+	}
+	return s.db, nil
+}
+
+func (s *TaskService) CreateProjectTasks(ctx context.Context, projectName string) ([]database.SyncTask, error) {
+	if types.GoHookVersionData == nil {
+		return nil, errors.New("version config not loaded")
+	}
+	var project *types.ProjectConfig
+	for i := range types.GoHookVersionData.Projects {
+		if types.GoHookVersionData.Projects[i].Name == projectName {
+			project = &types.GoHookVersionData.Projects[i]
+			break
+		}
+	}
+	if project == nil {
+		return nil, fmt.Errorf("project not found: %s", projectName)
+	}
+	if project.Sync == nil || !project.Sync.Enabled {
+		return nil, fmt.Errorf("project sync not enabled: %s", projectName)
+	}
+	if len(project.Sync.Nodes) == 0 {
+		return nil, fmt.Errorf("project has no sync nodes: %s", projectName)
+	}
+
+	db, err := s.ensureDB()
+	if err != nil {
+		return nil, err
+	}
+
+	var created []database.SyncTask
+	for _, nodeCfg := range project.Sync.Nodes {
+		id64, parseErr := strconv.ParseUint(strings.TrimSpace(nodeCfg.NodeID), 10, 64)
+		if parseErr != nil || id64 == 0 {
+			return nil, fmt.Errorf("invalid node_id: %s", nodeCfg.NodeID)
+		}
+		nodeID := uint(id64)
+
+		var node database.SyncNode
+		if err := db.WithContext(ctx).First(&node, nodeID).Error; err != nil {
+			return nil, err
+		}
+
+		payload := TaskPayload{
+			ProjectName:       projectName,
+			TargetPath:        nodeCfg.TargetPath,
+			Strategy:          defaultStrategy(nodeCfg.Strategy),
+			IgnoreDefaults:    project.Sync.IgnoreDefaults,
+			IgnorePatterns:    project.Sync.IgnorePatterns,
+			IgnoreFile:        project.Sync.IgnoreFile,
+			IgnorePermissions: project.Sync.IgnorePermissions,
+		}
+		raw, _ := json.Marshal(payload)
+
+		task := database.SyncTask{
+			ProjectName: projectName,
+			NodeID:      nodeID,
+			NodeName:    node.Name,
+			Driver:      TaskDriverAgent,
+			Status:      TaskStatusPending,
+			Payload:     string(raw),
+		}
+		if err := db.WithContext(ctx).Create(&task).Error; err != nil {
+			return nil, err
+		}
+		created = append(created, task)
+	}
+
+	return created, nil
+}
+
+func defaultStrategy(v string) string {
+	v = strings.ToLower(strings.TrimSpace(v))
+	switch v {
+	case "overlay":
+		return "overlay"
+	default:
+		return "mirror"
+	}
+}
+
+func (s *TaskService) PullNextTask(ctx context.Context, nodeID uint) (*database.SyncTask, error) {
+	db, err := s.ensureDB()
+	if err != nil {
+		return nil, err
+	}
+
+	var task database.SyncTask
+	err = db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		q := tx.Where("node_id = ? AND status = ?", nodeID, TaskStatusPending).
+			Order("created_at ASC").
+			First(&task)
+		if q.Error != nil {
+			return q.Error
+		}
+		task.Status = TaskStatusRunning
+		task.Attempt += 1
+		return tx.Save(&task).Error
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &task, nil
+}
+
+func (s *TaskService) ReportTask(ctx context.Context, nodeID, taskID uint, report TaskReport) (*database.SyncTask, error) {
+	db, err := s.ensureDB()
+	if err != nil {
+		return nil, err
+	}
+
+	var task database.SyncTask
+	if err := db.WithContext(ctx).First(&task, taskID).Error; err != nil {
+		return nil, err
+	}
+	if task.NodeID != nodeID {
+		return nil, errors.New("task does not belong to node")
+	}
+
+	status := strings.ToLower(strings.TrimSpace(report.Status))
+	switch status {
+	case "success":
+		task.Status = TaskStatusSuccess
+	case "failed":
+		task.Status = TaskStatusFailed
+	default:
+		return nil, fmt.Errorf("invalid status: %s", report.Status)
+	}
+	if report.Logs != "" {
+		task.Logs = appendLogLine(task.Logs, report.Logs)
+	}
+	task.LastError = report.LastError
+	if err := db.WithContext(ctx).Save(&task).Error; err != nil {
+		return nil, err
+	}
+	return &task, nil
+}
+
+func (s *TaskService) StreamBundle(ctx context.Context, w io.Writer, task database.SyncTask) error {
+	var payload TaskPayload
+	if err := json.Unmarshal([]byte(task.Payload), &payload); err != nil {
+		return fmt.Errorf("invalid task payload: %w", err)
+	}
+	project := findProject(payload.ProjectName)
+	if project == nil {
+		return fmt.Errorf("project not found: %s", payload.ProjectName)
+	}
+	root := project.Path
+	if root == "" {
+		return fmt.Errorf("project path is empty: %s", payload.ProjectName)
+	}
+	info, err := os.Stat(root)
+	if err != nil || !info.IsDir() {
+		return fmt.Errorf("project path invalid: %s", root)
+	}
+
+	gw := gzip.NewWriter(w)
+	defer gw.Close()
+	tw := tar.NewWriter(gw)
+	defer tw.Close()
+
+	ig := newIgnoreMatcher(payload.IgnoreDefaults, payload.IgnorePatterns, payload.IgnoreFile, root)
+	var bytesWritten int64
+
+	return filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		if rel == "." {
+			return nil
+		}
+		rel = filepath.ToSlash(rel)
+
+		if ig.Match(rel, d.IsDir()) {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		fi, err := d.Info()
+		if err != nil {
+			return err
+		}
+		hdr, err := tar.FileInfoHeader(fi, "")
+		if err != nil {
+			return err
+		}
+		hdr.Name = rel
+
+		// hard cap to avoid streaming huge bundles accidentally
+		if fi.Mode().IsRegular() {
+			bytesWritten += fi.Size()
+			if bytesWritten > defaultBundleLimit {
+				return fmt.Errorf("bundle size exceeds limit")
+			}
+		}
+
+		if err := tw.WriteHeader(hdr); err != nil {
+			return err
+		}
+		if !fi.Mode().IsRegular() {
+			return nil
+		}
+		f, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		_, err = io.Copy(tw, f)
+		return err
+	})
+}
+
+func findProject(name string) *types.ProjectConfig {
+	if types.GoHookVersionData == nil {
+		return nil
+	}
+	for i := range types.GoHookVersionData.Projects {
+		if types.GoHookVersionData.Projects[i].Name == name {
+			return &types.GoHookVersionData.Projects[i]
+		}
+	}
+	return nil
+}
+
+type ignoreMatcher struct {
+	defaults bool
+	patterns []string
+	filePath string
+	root     string
+}
+
+func newIgnoreMatcher(ignoreDefaults bool, patterns []string, ignoreFile string, root string) *ignoreMatcher {
+	m := &ignoreMatcher{
+		defaults: ignoreDefaults,
+		patterns: append([]string{}, patterns...),
+		filePath: ignoreFile,
+		root:     root,
+	}
+	if ignoreFile != "" {
+		m.patterns = append(m.patterns, loadIgnoreFile(root, ignoreFile)...)
+	}
+	return m
+}
+
+func (m *ignoreMatcher) Match(rel string, isDir bool) bool {
+	if rel == "" || rel == "." {
+		return false
+	}
+	if m.defaults {
+		for _, p := range []string{".git/**", "runtime/**", "tmp/**"} {
+			if matchGlob(p, rel, isDir) {
+				return true
+			}
+		}
+	}
+	for _, p := range m.patterns {
+		if matchGlob(p, rel, isDir) {
+			return true
+		}
+	}
+	return false
+}
+
+func matchGlob(pattern, rel string, isDir bool) bool {
+	pattern = strings.TrimSpace(pattern)
+	if pattern == "" || strings.HasPrefix(pattern, "#") {
+		return false
+	}
+	pattern = filepath.ToSlash(pattern)
+	rel = filepath.ToSlash(rel)
+
+	if isDir && !strings.ContainsAny(pattern, "*?[]") {
+		p := strings.TrimSuffix(pattern, "/")
+		return rel == p || strings.HasPrefix(rel, p+"/")
+	}
+	ok, _ := filepath.Match(pattern, rel)
+	if ok {
+		return true
+	}
+	if strings.HasSuffix(pattern, "/**") {
+		prefix := strings.TrimSuffix(pattern, "/**")
+		return rel == prefix || strings.HasPrefix(rel, prefix+"/")
+	}
+	return false
+}
+
+func loadIgnoreFile(projectRoot, ignorePath string) []string {
+	path := ignorePath
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(projectRoot, ignorePath)
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return nil
+	}
+	defer f.Close()
+	var patterns []string
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		patterns = append(patterns, line)
+	}
+	return patterns
+}
