@@ -15,7 +15,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mycoool/gohook/internal/database"
 	"gorm.io/gorm"
 )
 
@@ -167,8 +166,11 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 	// Pairing: first connection stores fingerprint; subsequent must match.
 	if strings.TrimSpace(node.AgentCertFingerprint) == "" {
 		node.AgentCertFingerprint = fp
-		if db := database.GetDB(); db != nil {
-			_ = db.WithContext(ctx).Save(node).Error
+		db, dbErr := svc.ensureDB()
+		if dbErr != nil {
+			log.Printf("syncnode: save pairing fingerprint failed (db): %v", dbErr)
+		} else if err := db.WithContext(ctx).Save(node).Error; err != nil {
+			log.Printf("syncnode: save pairing fingerprint failed: %v", err)
 		}
 	} else if node.AgentCertFingerprint != fp {
 		_ = WriteStreamMessage(conn, helloAck{Type: "hello_ack", OK: false, Error: "fingerprint mismatch"})

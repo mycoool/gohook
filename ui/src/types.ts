@@ -270,6 +270,9 @@ export interface ISyncNode {
     status: string;
     health: string;
     agentCertFingerprint?: string;
+    connectionStatus?: string;
+    syncStatus?: string;
+    lastSyncAt?: string;
     tags: string[];
     metadata: Record<string, unknown>;
     sshUser?: string;

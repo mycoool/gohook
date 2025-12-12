@@ -1,11 +1,13 @@
 package syncnode
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -23,6 +25,9 @@ type nodeResponse struct {
 	Status               string                 `json:"status"`
 	Health               string                 `json:"health"`
 	AgentCertFingerprint string                 `json:"agentCertFingerprint"`
+	ConnectionStatus     string                 `json:"connectionStatus"`
+	SyncStatus           string                 `json:"syncStatus"`
+	LastSyncAt           *time.Time             `json:"lastSyncAt"`
 	Tags                 []string               `json:"tags"`
 	Metadata             map[string]interface{} `json:"metadata"`
 	SSHUser              string                 `json:"sshUser"`
@@ -51,7 +56,8 @@ func HandleListNodes(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, mapNodes(nodes))
+	taskSummary := loadLastTaskSummary(c.Request.Context(), nodes)
+	c.JSON(http.StatusOK, mapNodes(nodes, taskSummary))
 }
 
 func HandleGetNode(c *gin.Context) {
@@ -71,7 +77,8 @@ func HandleGetNode(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, mapNode(node))
+	taskSummary := loadLastTaskSummary(c.Request.Context(), []database.SyncNode{*node})
+	c.JSON(http.StatusOK, mapNode(node, taskSummary[node.ID]))
 }
 
 func HandleCreateNode(c *gin.Context) {
@@ -87,7 +94,7 @@ func HandleCreateNode(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, mapNode(node))
+	c.JSON(http.StatusCreated, mapNode(node, nodeTaskSummary{}))
 }
 
 func HandleUpdateNode(c *gin.Context) {
@@ -113,7 +120,7 @@ func HandleUpdateNode(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, mapNode(node))
+	c.JSON(http.StatusOK, mapNode(node, nodeTaskSummary{}))
 }
 
 func HandleDeleteNode(c *gin.Context) {
@@ -158,7 +165,7 @@ func HandleInstallNode(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusAccepted, mapNode(node))
+	c.JSON(http.StatusAccepted, mapNode(node, nodeTaskSummary{}))
 }
 
 func HandleRotateToken(c *gin.Context) {
@@ -178,7 +185,7 @@ func HandleRotateToken(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, mapNode(node))
+	c.JSON(http.StatusOK, mapNode(node, nodeTaskSummary{}))
 }
 
 func HandleResetPairing(c *gin.Context) {
@@ -196,26 +203,111 @@ func HandleResetPairing(c *gin.Context) {
 		c.JSON(status, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, mapNode(node))
+	c.JSON(http.StatusOK, mapNode(node, nodeTaskSummary{}))
 }
 
-func mapNodes(nodes []database.SyncNode) []nodeResponse {
+type nodeTaskSummary struct {
+	Status    string
+	UpdatedAt *time.Time
+}
+
+func loadLastTaskSummary(ctx context.Context, nodes []database.SyncNode) map[uint]nodeTaskSummary {
+	out := map[uint]nodeTaskSummary{}
+	if len(nodes) == 0 {
+		return out
+	}
+	db := database.GetDB()
+	if db == nil {
+		return out
+	}
+
+	ids := make([]uint, 0, len(nodes))
+	for i := range nodes {
+		ids = append(ids, nodes[i].ID)
+	}
+
+	type row struct {
+		NodeID    uint      `gorm:"column:node_id"`
+		Status    string    `gorm:"column:status"`
+		UpdatedAt time.Time `gorm:"column:updated_at"`
+	}
+	var rows []row
+	_ = db.WithContext(ctx).Raw(
+		`SELECT t.node_id, t.status, t.updated_at
+		   FROM sync_tasks t
+		   JOIN (SELECT node_id, MAX(id) AS max_id
+		           FROM sync_tasks
+		          WHERE node_id IN (?)
+		          GROUP BY node_id) x
+		     ON x.max_id = t.id`,
+		ids,
+	).Scan(&rows).Error
+
+	for i := range rows {
+		t := rows[i].UpdatedAt
+		out[rows[i].NodeID] = nodeTaskSummary{Status: rows[i].Status, UpdatedAt: &t}
+	}
+	return out
+}
+
+func mapNodes(nodes []database.SyncNode, summary map[uint]nodeTaskSummary) []nodeResponse {
 	result := make([]nodeResponse, 0, len(nodes))
 	for i := range nodes {
-		result = append(result, mapNode(&nodes[i]))
+		result = append(result, mapNode(&nodes[i], summary[nodes[i].ID]))
 	}
 	return result
 }
 
-func mapNode(node *database.SyncNode) nodeResponse {
+func mapNode(node *database.SyncNode, summary nodeTaskSummary) nodeResponse {
+	// ConnectionStatus merges pairing + lastSeen:
+	// - UNPAIRED: never connected (no lastSeen and no fingerprint)
+	// - CONNECTED: lastSeen within TTL
+	// - DISCONNECTED: has history but lastSeen stale
+	//
+	// Note: lastSeen is maintained by the TCP long connection (touch every ~30s).
+	const ttl = 90 * time.Second
+	now := time.Now()
+	lastSeen := node.LastSeen
+	hasHistory := lastSeen != nil || strings.TrimSpace(node.AgentCertFingerprint) != ""
+	connected := lastSeen != nil && now.Sub(*lastSeen) <= ttl
+
+	connectionStatus := "UNPAIRED"
+	if connected {
+		connectionStatus = "CONNECTED"
+	} else if hasHistory {
+		connectionStatus = "DISCONNECTED"
+	}
+
+	// Normalize status/health for UI consistency.
+	status := node.Status
+	health := node.Health
+	if connected {
+		status = NodeStatusOnline
+		health = NodeHealthHealthy
+	} else {
+		// When not connected, don't show stale HEALTHY from old install routines.
+		status = NodeStatusOffline
+		health = NodeHealthUnknown
+	}
+
+	syncStatus := "IDLE"
+	lastSyncAt := (*time.Time)(nil)
+	if strings.TrimSpace(summary.Status) != "" {
+		syncStatus = strings.ToUpper(summary.Status)
+		lastSyncAt = summary.UpdatedAt
+	}
+
 	return nodeResponse{
 		ID:                   node.ID,
 		Name:                 node.Name,
 		Address:              node.Address,
 		Type:                 node.Type,
-		Status:               node.Status,
-		Health:               node.Health,
+		Status:               status,
+		Health:               health,
 		AgentCertFingerprint: node.AgentCertFingerprint,
+		ConnectionStatus:     connectionStatus,
+		SyncStatus:           syncStatus,
+		LastSyncAt:           lastSyncAt,
 		Tags:                 decodeStringSlice(node.Tags),
 		Metadata:             decodeMap(node.Metadata),
 		SSHUser:              node.SSHUser,

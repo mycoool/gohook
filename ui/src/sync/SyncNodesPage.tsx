@@ -34,20 +34,40 @@ import {useLocation} from 'react-router-dom';
 
 type Props = Stores<'syncNodeStore' | 'currentUser'>;
 
-const healthColor = (health: string) => {
-    switch (health) {
-        case 'HEALTHY':
+const connectionColor = (status?: string) => {
+    switch (status) {
+        case 'CONNECTED':
             return 'success';
-        case 'DEGRADED':
-            return 'warning';
-        case 'OFFLINE':
+        case 'DISCONNECTED':
             return 'default';
+        case 'UNPAIRED':
+            return 'warning';
         default:
             return 'info';
     }
 };
 
-const pairingLabel = (node: ISyncNode) => (node.agentCertFingerprint ? 'PAIRED' : 'UNPAIRED');
+const connectionLabel = (node: ISyncNode) => node.connectionStatus || 'UNKNOWN';
+
+const syncColor = (status?: string) => {
+    switch ((status || '').toUpperCase()) {
+        case 'SUCCESS':
+            return 'success';
+        case 'FAILED':
+            return 'error';
+        case 'RUNNING':
+            return 'info';
+        case 'RETRYING':
+        case 'PENDING':
+            return 'warning';
+        case 'IDLE':
+            return 'default';
+        default:
+            return 'default';
+    }
+};
+
+const syncLabel = (node: ISyncNode) => (node.syncStatus || 'IDLE').toUpperCase();
 
 const formatTime = (value?: string) => {
     if (!value) {
@@ -134,9 +154,8 @@ const SyncNodesPage: React.FC<Props> = ({syncNodeStore, currentUser}) => {
                                 <TableRow>
                                     <TableCell>名称</TableCell>
                                     <TableCell>地址</TableCell>
-                                    <TableCell>健康状态</TableCell>
-                                    <TableCell>配对状态</TableCell>
-                                    <TableCell>最后心跳</TableCell>
+                                    <TableCell>连接状态</TableCell>
+                                    <TableCell>同步状态</TableCell>
                                     <TableCell>标签</TableCell>
                                     <TableCell align="right">操作</TableCell>
                                 </TableRow>
@@ -144,7 +163,7 @@ const SyncNodesPage: React.FC<Props> = ({syncNodeStore, currentUser}) => {
                             <TableBody>
                                 {nodes.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={7}>
+                                        <TableCell colSpan={6}>
                                             <Typography align="center" color="textSecondary">
                                                 {syncNodeStore.loading
                                                     ? '加载节点中...'
@@ -175,28 +194,28 @@ const SyncNodesPage: React.FC<Props> = ({syncNodeStore, currentUser}) => {
                                             <TableCell>{node.address}</TableCell>
                                             <TableCell>
                                                 <Chip
-                                                    label={node.health || 'UNKNOWN'}
-                                                    color={healthColor(node.health)}
+                                                    label={connectionLabel(node)}
+                                                    variant="outlined"
                                                     size="small"
+                                                    color={connectionColor(node.connectionStatus)}
                                                 />
                                             </TableCell>
                                             <TableCell>
                                                 <Stack spacing={0.5}>
                                                     <Chip
-                                                        label={pairingLabel(node)}
-                                                        variant="outlined"
+                                                        label={syncLabel(node)}
                                                         size="small"
+                                                        color={syncColor(node.syncStatus)}
                                                     />
-                                                    {node.agentVersion ? (
+                                                    {node.lastSyncAt ? (
                                                         <Typography
                                                             variant="caption"
                                                             color="textSecondary">
-                                                            {node.agentVersion}
+                                                            {formatTime(node.lastSyncAt)}
                                                         </Typography>
                                                     ) : null}
                                                 </Stack>
                                             </TableCell>
-                                            <TableCell>{formatTime(node.lastSeen)}</TableCell>
                                             <TableCell>
                                                 {node.tags?.length
                                                     ? node.tags.map((tag) => (
