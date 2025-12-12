@@ -5,7 +5,9 @@ import (
 	"bufio"
 	"compress/gzip"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -45,6 +47,15 @@ type TaskPayload struct {
 	IgnorePatterns    []string `json:"ignorePatterns,omitempty"`
 	IgnoreFile        string   `json:"ignoreFile,omitempty"`
 	IgnorePermissions bool     `json:"ignorePermissions"`
+}
+
+type IndexFileEntry struct {
+	Path      string   `json:"path"`
+	Size      int64    `json:"size"`
+	Mode      uint32   `json:"mode"`
+	MtimeUnix int64    `json:"mtime"`
+	BlockSize int64    `json:"blockSize"`
+	Blocks    []string `json:"blocks"`
 }
 
 type TaskReport struct {
@@ -275,6 +286,142 @@ func (s *TaskService) StreamBundle(ctx context.Context, w io.Writer, task databa
 		_, err = io.Copy(tw, f)
 		return err
 	})
+}
+
+// StreamIndex streams file index with per-block hashes to the writer via callback.
+func (s *TaskService) StreamIndex(ctx context.Context, task database.SyncTask, emit func(IndexFileEntry) error) error {
+	var payload TaskPayload
+	if err := json.Unmarshal([]byte(task.Payload), &payload); err != nil {
+		return fmt.Errorf("invalid task payload: %w", err)
+	}
+	project := findProject(payload.ProjectName)
+	if project == nil {
+		return fmt.Errorf("project not found: %s", payload.ProjectName)
+	}
+	root := project.Path
+	if root == "" {
+		return fmt.Errorf("project path is empty: %s", payload.ProjectName)
+	}
+	info, err := os.Stat(root)
+	if err != nil || !info.IsDir() {
+		return fmt.Errorf("project path invalid: %s", root)
+	}
+
+	ig := newIgnoreMatcher(payload.IgnoreDefaults, payload.IgnorePatterns, payload.IgnoreFile, root)
+
+	return filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		if rel == "." {
+			return nil
+		}
+		rel = filepath.ToSlash(rel)
+		if ig.Match(rel, d.IsDir()) {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		fi, err := d.Info()
+		if err != nil {
+			return err
+		}
+		if fi.IsDir() {
+			return nil
+		}
+		if !fi.Mode().IsRegular() {
+			return nil
+		}
+
+		blockSize := adaptiveBlockSize(fi.Size())
+		hashes, err := hashFileBlocks(path, blockSize)
+		if err != nil {
+			return err
+		}
+
+		entry := IndexFileEntry{
+			Path:      rel,
+			Size:      fi.Size(),
+			Mode:      uint32(fi.Mode().Perm()),
+			MtimeUnix: fi.ModTime().Unix(),
+			BlockSize: blockSize,
+			Blocks:    hashes,
+		}
+		return emit(entry)
+	})
+}
+
+func adaptiveBlockSize(size int64) int64 {
+	const min = 128 * 1024
+	const max = 4 * 1024 * 1024
+	block := int64(min)
+	// Keep blocks per file <= 256, doubling as needed.
+	for block < max && size/block > 256 {
+		block *= 2
+	}
+	if block > max {
+		block = max
+	}
+	return block
+}
+
+func hashFileBlocks(path string, blockSize int64) ([]string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	var hashes []string
+	buf := make([]byte, blockSize)
+	for {
+		n, err := io.ReadFull(f, buf)
+		if err != nil {
+			if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+				if n > 0 {
+					sum := sha256.Sum256(buf[:n])
+					hashes = append(hashes, hex.EncodeToString(sum[:]))
+				}
+				break
+			}
+			return nil, err
+		}
+		sum := sha256.Sum256(buf[:n])
+		hashes = append(hashes, hex.EncodeToString(sum[:]))
+	}
+	return hashes, nil
+}
+
+func (s *TaskService) ReadBlock(task database.SyncTask, entry IndexFileEntry, index int) ([]byte, error) {
+	var payload TaskPayload
+	if err := json.Unmarshal([]byte(task.Payload), &payload); err != nil {
+		return nil, err
+	}
+	proj := findProject(payload.ProjectName)
+	if proj == nil {
+		return nil, fmt.Errorf("project not found")
+	}
+	root := proj.Path
+	full := filepath.Join(root, filepath.FromSlash(entry.Path))
+	f, err := os.Open(full)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	offset := int64(index) * entry.BlockSize
+	if _, err := f.Seek(offset, io.SeekStart); err != nil {
+		return nil, err
+	}
+	buf := make([]byte, entry.BlockSize)
+	n, err := f.Read(buf)
+	if err != nil && !errors.Is(err, io.EOF) {
+		return nil, err
+	}
+	return buf[:n], nil
 }
 
 func findProject(name string) *types.ProjectConfig {

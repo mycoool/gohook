@@ -51,12 +51,9 @@ func (a *Agent) Run(ctx context.Context) {
 	defer ticker.Stop()
 
 	a.sendHeartbeat(ctx)
-	// Prefer TCP push transport if configured, otherwise fall back to HTTP polling.
+	// Force TCP transport for sync tasks (no HTTP fallback).
 	go func() {
-		if a.connectAndServeTCP(ctx) {
-			return
-		}
-		a.pollAndRunTasks(ctx)
+		a.serveTCPWithRetry(ctx)
 	}()
 	for {
 		select {

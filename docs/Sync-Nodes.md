@@ -10,7 +10,7 @@
 - 在项目（或 Hook）级别声明需要同步的目标节点，并配置目标路径、策略、并发和重试行为。
 - 在主节点完成代码更新后触发同步工作流，确保子节点的目录状态与主节点保持一致。
 - 给 Web UI/REST API 增加可观测性：节点状态、同步任务队列、单节点的执行日志。
-- 同步机制可插拔，默认提供具备 `rsync` 语义的 Sync Agent，并保留纯 `ssh + rsync` 驱动作为回退方案。
+- 同步机制固定为 Sync Agent：基于 TCP 长连接 + mTLS + 块级传输（不回退到 HTTP 轮询或 `ssh+rsync`）。
 
 ## 非目标
 
@@ -23,7 +23,7 @@
 | 角色 | 描述 |
 | --- | --- |
 | 主节点（Primary GoHook） | 当前运行 GoHook Web UI/控制面的实例，负责节点注册、Webhook 执行、同步调度与状态持久化。 |
-| 子节点（Sync Node） | 需要保持代码一致的服务器，运行同步客户端（或开放 SSH）。 |
+| 子节点（Sync Node） | 需要保持代码一致的服务器，运行同步客户端（Sync Agent）。 |
 | Sync Agent | 可选组件。部署在子节点，用于和主节点进行双向认证、接收同步任务、回传状态。 |
 
 ## 架构概览
@@ -32,7 +32,7 @@
 2. 项目配置里声明要同步的节点（`project_nodes` 表）。
 3. 当 Webhook/GitHook 完成拉取或构建后，主节点把成功事件送入 Sync Controller。
 4. Sync Controller 根据策略生成 `sync_tasks`，放入任务队列。
-5. Executor 根据驱动执行同步：默认通过 Sync Agent 下发任务，也可退化为 `ssh + rsync` 直接复制。
+5. 主节点通过 TCP 长连接推送任务，并按需提供索引/块数据；Agent 仅拉取缺失块并落地到目标目录。
 6. 节点/任务状态写回数据库，并通过 WebSocket 通知 UI。
 
 ## 当前实现进度（截至 2025-12）
@@ -55,21 +55,56 @@
    - 变更写入 `sync_file_changes`，含 path/hash/mtime/size/type。
    - watcher 仅在项目 `sync.enabled=true` 时启动。
 
+4. **长连接 + mTLS（主节点/Agent）**
+   - 主节点提供 TCP/TLS 监听（默认 `:9001`），Agent 断线自动重连。
+   - 节点 token 用于应用层鉴权；mTLS 证书指纹用于节点配对（TOFU + 可选 pin）。
+
+5. **块级同步（主节点/Agent）**
+   - 自适应固定块（128KiB 起倍增，最大 4MiB），SHA-256 块哈希。
+   - 索引下发 + 按需拉块 + 二进制帧传输 + 原子落盘。
+
 未完成（核心缺口）：
 
 1. **Sync Controller**
    - 未把 GitHook/Watcher 事件转为 `sync_tasks`。
    - 未实现按项目并发/重试策略。
 
-2. **Sync Executor**
-   - 未实现 `ssh+rsync` 或 agent 驱动的实际同步执行。
-   - 未写回任务状态/日志/错误。
+2. **任务可观测性**
+   - 缺少任务列表/详情 API 与 UI（目前只能通过数据库/日志观测、以及手动触发接口验证链路）。
 
-3. **Sync Agent 执行侧**
-   - 目前只有心跳上报，没有拉取任务、文件/块传输、结果回传。
-
-4. **自动安装真实流程**
+3. **自动安装真实流程**
    - 安装流程仍为 stub（记录日志并标记成功）。
+
+## 本次实现落地记录
+
+本次对话中已落地的关键能力（按时间线汇总）：
+
+1. **节点管理与安全**
+   - 节点 Token 自动生成、显示/复制/刷新。
+   - Agent 心跳与长连接统一使用节点 Token 认证。
+   - 新增 mTLS 长连接与证书指纹配对（`agent_cert_fingerprint`），支持 TOFU + pin 校验。
+
+2. **项目级同步配置**
+   - 忽略规则与权限忽略从“节点级”迁移到“项目 sync 配置”。
+   - 版本管理 UI 支持：开启同步、选择节点与目标目录、ignore/ignore_permissions 配置。
+   - 后端项目编辑 API 支持保存/返回 `sync`。
+
+3. **主节点监听与任务基础设施**
+   - 基于 `fsnotify` 的项目目录监听，变更落库到 `sync_file_changes`。
+   - 任务模型与手动触发接口：`POST /api/sync/projects/:name/run` 生成 pending 任务（后续由 Controller 替换）。
+
+4. **Agent 同步闭环**
+   - Agent 增加任务执行逻辑（早期 tar.gz 原型已弃用，现已升级为块级同步）。
+   - 任务状态回传并写入 `sync_tasks`。
+
+5. **块级同步（Syncthing 同款自适应固定块）**
+   - 自适应块大小（128KiB 起步倍增，最大 4MiB，单文件 ≤ ~256 块）。
+   - 主节点通过长连接下发索引与块数据；Agent 仅请求缺失/变化块。
+   - 块数据使用二进制帧传输。
+   - Agent 强制走 TCP 块传输，不再回退 HTTP 轮询。
+
+6. **工程与测试**
+   - 优化测试：构建一次二进制复用，修复 hooks 初始重复 ID 校验与热重载边界。
 
 ## 数据模型（建议）
 
@@ -77,14 +112,12 @@
 
 | 字段 | 说明 |
 | --- | --- |
-| id/uuid | 节点 ID，UI/配置引用此值 |
-| name | 可读名称 |
-| address | SSH 地址或 Agent API 地址 |
-| type | `ssh` / `agent` / `custom` |
-| tags | JSON/数组，便于按区域/能力过滤 |
-| status | `ONLINE/OFFLINE/DEGRADED` |
-| last_seen | 最近一次心跳 |
-| credential_ref | SSH key、token 等引用 |
+| id | 节点 ID，UI/配置引用此值 |
+| name/address/type | 节点标识与用途（`type`：`ssh|agent|custom`；当前同步链路仅使用 `agent`） |
+| status/health/last_seen | 健康与心跳信息（Agent 通过 HTTP 心跳上报） |
+| credential_ref/credential_value | 凭证引用与存储值（Agent Token 存在 `credential_value`） |
+| agent_cert_fingerprint | Agent 证书指纹（sha256 hex），用于 mTLS 配对与防冒充 |
+| install_status/install_log | 自动安装状态（目前为 stub） |
 
 ### project_nodes
 
@@ -103,21 +136,21 @@
 | id | 任务 ID |
 | project_id / hook_id | 触发源 |
 | node_id | 目标节点 |
-| driver | `rsync` / `agent` |
+| driver | `agent`（当前强制 Agent 块传输；`rsync` 字段仅为历史保留，不作为回退方案） |
 | status | `PENDING/RUNNING/SUCCESS/FAILED/RETRYING` |
 | attempt | 重试次数 |
-| payload | 任务入参（版本号、压缩包路径等） |
+| payload | 任务入参（JSON：项目名/目标路径/忽略配置等） |
 | logs | 执行日志摘要 |
 
 ## 核心模块
 
 ### 节点管理器（Node Manager）
 
-- REST API：`GET/POST/PATCH/DELETE /api/sync/nodes`，支持批量导入、标签过滤。
-- 健康检查：`ssh` 类型通过 `ssh -o BatchMode=yes node "echo ok"` 或 `rsync --list-only` 验证；`agent` 类型则由子节点定期 `POST /api/sync/nodes/{id}/heartbeat`。
-- 凭证存储：复用 `user.yaml` 或数据库凭证表，提供 `credential_id` 引用，避免在配置里明文写 key。
+- REST API：`GET/POST/GET/PUT/DELETE /api/sync/nodes`，并支持 Token 轮换 `POST /api/sync/nodes/:id/rotate-token`。
+- Agent 心跳：子节点定期 `POST /api/sync/nodes/:id/heartbeat` 上报状态。
+- 凭证存储：Agent Token 以节点维度保存（`credential_value`），避免在配置文件中明文长期存放。
 - UI：新增“节点管理”页，显示状态、项目绑定数、最近同步结果，支持一键测试连通性。
-- 自动安装：创建节点时需录入 SSH 信息（用户名、端口、认证方式/密钥），主节点利用该信息无缝推送/更新 Sync Agent、生成配置与注册 token，并在 UI 中回显安装进度和日志。
+- 自动安装：当前为 stub（记录日志并标记成功），后续再补齐实际下发与回滚。
 
 ### 同步控制器（Sync Controller）
 
@@ -128,19 +161,10 @@
 
 ### 执行器（Sync Executor）
 
-两种驱动模式：
+当前执行链路固定为 **Sync Agent（TCP/mTLS + 块级传输）**：
 
-1. **SSH + rsync（默认）**
-   - 主节点需要能通过 SSH 免密连接子节点。
-   - 使用 `rsync -az --delete --exclude-from=... <src> user@node:/target`，提供 include/exclude。
-   - 适合已有 SSH 信任、无需额外客户端的场景。
-
-2. **Sync Agent（默认方案）**
-	- 子节点运行一个轻量二进制（可复用 GoHook 的 HTTP server，裁剪成 `gohook-sync-agent`），负责拉取任务、执行同步并回传状态。
-	- Agent 在启动时向主节点注册，建立长轮询或 WebSocket 通道；若网络受限，可退化为周期性轮询。
-	- 主节点通过 `POST /api/sync/tasks/{id}/dispatch` 将任务下发，Agent 下载压缩包/差异包或通过内置传输从主节点拉取最新内容，并定期 `POST /api/sync/nodes/{id}/heartbeat` 上报状态。
-   - Agent 内置 `rsync` 同步语义（权限、增量、删除未使用文件），支持项目级 `include/exclude` 配置，默认忽略 `.git/`、`runtime/`、`tmp/` 等目录，并允许声明额外的忽略文件（如 `sync.ignore`）。
-   - 方便做校验、钩子、断点续传，以及在受限网络下（只能出方向）运行。
+- 主节点通过 TCP 长连接推送 task，并流式下发索引；Agent 仅请求缺失/变化块。
+- 块数据使用二进制帧传输，Agent 原子落盘并回传任务状态。
 
 ### 项目配置扩展
 
@@ -150,9 +174,9 @@
 - id: project-a
   name: "Project A"
   repo: "git@github.com:org/project-a.git"
-  sync:
+ sync:
     enabled: true
-    driver: "agent"          # agent / rsync / inherit
+    driver: "agent"          # 当前仅支持 agent（TCP/mTLS + 块级传输）
     max_parallel_nodes: 2
     ignore_defaults: true    # 默认忽略 .git/runtime/tmp
     ignore_patterns:
@@ -181,8 +205,7 @@
 3. **生成任务**：Controller 查询项目配置，展开节点列表，写入 `sync_tasks`。
 4. **任务调度**：根据项目/全局的并发限制，将任务分派给执行器。
 5. **执行同步**：
-   - **rsync**：构建 `rsync` 命令，使用 `credential_ref` 对应的 SSH key；执行后记录 stdout/stderr。
-   - **agent（默认）**：打包变更（`tar`/`rsync --dry-run` 生成 patch），或直接通过 Agent 的内置增量同步能力抓取最新内容；Agent 执行前会合并项目配置/节点配置中的 `include/exclude` 列表与 `sync.ignore` 文件，确保 `.git/`、`runtime/` 等目录不被同步，同时覆盖权限/删除语义。
+   - **agent**：主节点下发索引（自适应固定块 + SHA-256），Agent 仅拉取缺失/变化块并重组文件。
 6. **结果回写**：任务状态落库，失败则记录错误、增加重试计数。
 7. **通知**：UI/WebSocket/Gotify 通知任务结果，可在项目页面查看节点同步状态。
 
@@ -196,9 +219,8 @@
 ## 安全设计
 
 - 强制 HTTPS/TLS，对外 API 使用 JWT + 节点专用 token。
-- SSH 凭证单独管理，建议使用机器账户 + 最小权限。
-- Agent 与主节点使用双向 TLS 并定期轮换 token。
-- 为 `rsync` 命令提供默认的 `--safe-links --perms --chmod` 限制，防止覆盖敏感文件。
+- Agent 与主节点使用双向 TLS（mTLS）+ 节点 token（应用层），并通过证书指纹进行配对（TOFU + 可选 pin）。
+- token 轮换使用管理端接口 `POST /api/sync/nodes/:id/rotate-token`；轮换后旧 token 立即失效。
 
 ## Web UI/REST 变更
 
@@ -208,70 +230,25 @@
 - 新增“同步任务”列表页或面板，支持按项目/节点过滤并查看日志。
 - API 文档需要新增节点、任务相关的端点说明。
 
-## 实施步骤（建议按阶段落地）
+## 实施步骤（当前可用）
 
-### Phase 0：基础配置与节点上线（已完成）
+1. **主节点：创建 Sync Node**
+   - UI：节点管理 → 新建节点（`type=agent`）。
+   - 保存后在弹窗中复制 token（后续可刷新）。
 
-1. 在“节点管理”创建节点（agent 或 ssh），保存后复制 `SYNC_NODE_TOKEN`。
-2. 在子节点部署 `gohook-sync-agent`（当前只需心跳），设置：
-   - `SYNC_NODE_ID`
-   - `SYNC_NODE_TOKEN`
-   - `SYNC_API_BASE`
-3. 在“版本管理 → 编辑项目”开启同步、选择节点并设置目标目录与 ignore。
+2. **主节点：开启 TCP/mTLS**
+   - 默认监听 `SYNC_TCP_ADDR=":9001"`，证书目录 `SYNC_TLS_DIR="./sync_tls"`（首次启动自动生成）。
 
-### Phase 1：Controller + 任务生成（下一步）
+3. **子节点：启动 Agent**
+   - 必需：`SYNC_NODE_ID` / `SYNC_NODE_TOKEN` / `SYNC_API_BASE` / `SYNC_TCP_ENDPOINT`
+   - 可选：`SYNC_AGENT_TLS_DIR` / `SYNC_SERVER_FINGERPRINT`
 
-目标：把“变更/Hook 成功事件”转成 `sync_tasks`。
+4. **主节点：项目开启同步**
+   - 版本管理 → 编辑项目 → 同步：启用、选择节点、设置 `target_path`、配置 ignore 与 `ignore_permissions`。
 
-1. 定义任务生成入口：
-   - GitHook 成功后触发（现有 hook 执行回调点）。
-   - 或 watcher 检测到变更后触发（读取 `sync_file_changes`）。
-2. 实现 `SyncController`：
-   - 读取项目 `sync` 配置展开节点列表。
-   - 生成 `sync_tasks(status=pending)`，写入 payload（项目名、根目录、变更列表/commit）。
-3. 增加任务 API：
-   - `GET /api/sync/tasks`（分页+过滤）
-   - `GET /api/sync/tasks/:id`
-4. UI 增加任务列表页（最小可用：按项目/节点过滤、显示状态与日志摘要）。
-
-### Phase 2：Executor（ssh+rsync 优先）
-
-目标：让主节点能真正把目录同步到子节点（不依赖 agent 执行侧）。
-
-1. 实现 rsync 驱动：
-   - 根据项目/节点 `include/exclude/ignore` 生成 rsync 参数。
-   - 若 `ignore_permissions=true`，关闭 `-p/-o/-g` 或使用 `--no-perms --no-owner --no-group`。
-2. Executor 拉取 pending 任务并执行：
-   - 更新任务状态 `running→success/failed`。
-   - 写入 stdout/stderr 到 `sync_tasks.logs` 与 `last_error`。
-3. Controller 按 `max_parallel_nodes` 进行并发控制与失败重试（指数退避）。
-
-### Phase 3：Agent 执行侧（整文件差量）
-
-目标：agent 驱动替代 ssh，同步任务由子节点执行。
-
-1. Agent 增加任务拉取/回传接口：
-   - `GET /api/sync/nodes/:id/tasks/pull`
-   - `POST /api/sync/nodes/:id/tasks/:taskId/report`
-   - `GET /api/sync/nodes/:id/tasks/:taskId/bundle`
-2. 主节点实现任务创建与打包：
-   - 管理端临时接口：`POST /api/sync/projects/:name/run` 创建 pending 任务（后续由 Controller 替换）。
-   - bundle 采用 `tar.gz`（按项目级 ignore 过滤），供 Agent 下载。
-3. Agent 侧实现：
-   - 心跳 + 轮询拉取任务。
-   - 下载 bundle → 解压到临时目录 → 按策略落地：
-     - `mirror`：目录整体替换（swap）
-     - `overlay`：覆盖写入（不删除旧文件）
-   - 成功/失败回传任务状态与错误信息。
-
-### Phase 4：块级传输（Syncthing 关键能力）
-
-目标：只传输缺失/变化的块，降低带宽与时间。
-
-1. 引入分块与块索引：
-   - 固定或滚动分块，记录 `block hash list`。
-2. 主节点/Agent 交换块索引，计算差集。
-3. 仅传输缺失块并重组文件，校验完成后更新快照。
+5. **验证链路**
+   - 手动触发：`POST /api/sync/projects/:name/run`（临时入口，后续由 Controller 替换）。
+   - 观察：节点状态（心跳）、任务状态（数据库/日志），以及子节点目标目录文件变更。
 
 > 说明：Syncthing 的实现采用非 MIT 许可，GoHook 这里将“参考算法与接口设计”自行实现，不直接拷贝其源码到仓库中，避免许可证污染。
 
@@ -301,45 +278,80 @@ GoHook 与 Agent 之间新增 TCP/TLS 长连接，用于任务即时推送与后
    - 推荐预先设置 `SYNC_SERVER_FINGERPRINT="<sha256-hex>"`。
    - 若未设置，Agent 会在首次连接时信任并保存到 `agent_tls/server.fp`（TOFU），后续必须匹配。
 
-连接建立后，任务通过长连接即时下发；若未配置 `SYNC_TCP_ENDPOINT` 则回退到 HTTP 轮询。
+连接建立后，任务通过长连接即时下发；**Agent 不再回退到 HTTP 轮询**，必须配置 `SYNC_TCP_ENDPOINT` 才能执行同步任务。
+当连接中断时，Agent 会自动按指数退避重连（最大 30s 间隔）。
+
+## 块级同步（自适应固定块，已接入长连接）
+
+GoHook 参考 Syncthing 的“自适应固定块 + SHA-256”策略：
+
+- 最小块：128KiB
+- 最大块：4MiB
+- 通过倍增块大小使单文件块数不超过 ~256
+
+### TCP 消息流（简化版）
+
+在 `hello_ack` 之后：
+
+1. 主节点推送任务：`task`
+2. Agent 开始同步：`sync_start`
+3. 主节点下发索引：
+   - `index_begin`
+   - 多条 `index_file`（每条包含：path/size/mtime/mode/blockSize/blocks[sha256]）
+   - `index_end`
+4. Agent 按需拉取缺块：
+   - `block_request`（path + block index）
+   - `block_response_bin`（JSON 头 + 二进制块帧）
+5. Agent 完成后回传：`task_report`
+
+`block_response_bin` 的数据体采用**二进制帧**传输：
+- 先发送 JSON 帧：`block_response_bin`（包含 `size` / `hash`）
+- 再发送一个 raw bytes 帧（长度前缀），内容为该块的原始字节
+
+## 后续任务（Roadmap vNext）
+
+按优先级排序，建议分 3 个迭代完成：
+
+### Iteration 1：Controller + 执行链路闭环
+
+1. **Sync Controller**
+   - 监听 GitHook 成功事件与/或 `sync_file_changes`。
+   - 生成 `sync_tasks`（替换临时 `projects/:name/run`）。
+   - 支持 `max_parallel_nodes` 并发控制与失败重试（指数退避、最大次数）。
+
+2. **任务管理 API + UI**
+   - `GET /api/sync/tasks`/`GET /api/sync/tasks/:id`。
+   - UI 增加任务列表页：状态、节点、日志、失败原因、重试按钮。
+
+3. **清理遗留回退接口（不影响现有链路）**
+   - 将 `GET /api/sync/nodes/:id/tasks/pull` 与 `GET /api/sync/nodes/:id/tasks/:taskId/bundle` 标记为 deprecated，并在实现稳定后移除。
+
+### Iteration 2：块传输性能与可靠性
+
+1. **并发拉块**
+   - Agent 并行请求多个块（带窗口/限速），提高吞吐。
+2. **块缓存与去重**
+   - Agent 侧 LRU 缓存近期块。
+   - 可选：主节点按 hash 提供跨文件去重（保持协议兼容）。
+3. **断点续传**
+   - Agent 在 task 失败/重连后继续从缺块列表恢复。
+
+### Iteration 3：文件语义完善与运维
+
+1. **完整 mirror 语义**
+   - 支持目录/空目录、符号链接、删除策略更精确。
+2. **权限/时间/所有者**
+   - 在 `ignore_permissions=false` 时补齐 owner/group（Linux only）与更严格的 mtime 对齐。
+3. **证书轮换与撤销**
+   - 管理端提供“重置 agent 证书指纹/重新配对”能力。
+4. **安全与可观测**
+   - 任务/块级指标（速率、命中率、失败率）+ 告警。
+   - 长连接心跳/keepalive 与 idle 超时配置。
 
 ## 部署建议
 
-1. **初始化**：在主节点配置 `sync` 开关，录入 SSH key 或部署 Sync Agent。
-2. **节点上线**：通过节点管理 UI 输入 SSH 主机信息并触发“自动安装 Sync Agent”，主节点会上传二进制、生成配置、推送 ignore 列表并自动注册；若环境禁止 SSH 入站，可手动部署 Agent 并提供注册 token。
+1. **初始化**：在主节点开启项目同步配置，并确保 `SYNC_TCP_ADDR` 可被子节点访问。
+2. **节点上线**：通过节点管理 UI 创建节点并复制 token，在子节点配置并启动 Agent；如需更强安全，设置 `SYNC_SERVER_FINGERPRINT` 做 pin。
 3. **项目接入**：在 UI/配置中勾选需要同步的节点，设置路径。
 4. **灰度试跑**：先对某个项目开启同步，观察任务队列与日志。
 5. **全面启用**：结合监控/告警（Prometheus、Grafana 或现有日志系统）观察节点健康。
-
-## 实施计划（建议分阶段）
-
-1. **Phase 1 - Sync Agent 与自动安装**
-   - UI/API 支持节点 CRUD，并在创建节点时采集 SSH 信息完成 Agent 自动部署、注册和基础健康检查。
-   - 项目配置可声明节点及 `include/exclude` 规则，Agent 默认加载 `.git/`、`runtime/` 等忽略目录并允许覆盖。
-   - 完成 Agent 驱动与任务队列，具备日志、重试、忽略策略同步与 UI 可视化。
-2. **Phase 2 - 扩展 rsync/自定义驱动**
-   - 为极简场景维持 `ssh + rsync` 驱动，沿用统一的 ignore 配置格式与 UI。
-   - Agent/主节点新增差分包、断点续传以及并行多进程优化。
-3. **Phase 3 - 高级特性**
-   - 增量同步、断点续传、差分压缩。
-   - 基于标签/区域的调度、版本回放。
-   - 指标/告警打通 Observability。
-
-## 差异化同步落地计划
-
-为满足“非 Git 文件实时同步 + 只传输变更块”的需求，计划在现有 Sync Agent 之上分阶段实现：
-
-1. **文件监听与快照（迭代 1）**
-   - 在主节点和 Agent 端实现目录快照（`path + size + mtime + hash`）。
-   - 集成 `fsnotify` 监听，监听事件触发轻量霍希校验，生成“待同步文件列表”。
-   - 将差异条目写入数据库，提供 API/UI 展示；同步控制器读取这些条目生成任务，不再依赖 GitHook。
-2. **整文件差量传输（迭代 2）**
-   - 在主节点和 Agent 之间新增文件传输 API（HTTP/WebSocket），仅上传变动文件，保留 ACL/mtime 信息。
-   - 在任务生命周期中记录断点信息，确保失败可重试；默认 gzip 压缩以降低带宽。
-3. **块级增量与优化（迭代 3）**
-   - 引入固定/滚动分块（参考 Syncthing/rsync 算法），维护块索引并只传输缺失块。
-    - 支持多通道并发、限速、校验回写；任务完成后更新快照，使下一次扫描增量更小。
-
-上述阶段每完成一步都同步更新 UI/API：先展示差异列表，再提供整文件传输状态，最后细化为块级指标。必要时可参考 Syncthing 的 `lib/scanner`/`lib/protocol` 包实现块索引，但仍保持 GoHook 现有控制面不变。
-
-通过上述设计，GoHook 可以在保持主节点现有能力的同时，为需要多节点部署的场景提供统一的节点管理与代码同步体验，显著降低多环境同步成本。

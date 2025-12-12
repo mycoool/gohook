@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"log"
 	"net"
@@ -36,6 +37,53 @@ type helloAck struct {
 type taskPush struct {
 	Type string `json:"type"`
 	Task taskResponse `json:"task"`
+}
+
+type syncStart struct {
+	Type   string `json:"type"`
+	TaskID uint   `json:"taskId"`
+}
+
+type indexBegin struct {
+	Type      string `json:"type"`
+	TaskID    uint   `json:"taskId"`
+	Project   string `json:"projectName"`
+	BlockHash string `json:"blockHash"`
+}
+
+type indexFile struct {
+	Type   string        `json:"type"`
+	TaskID uint          `json:"taskId"`
+	File   IndexFileEntry `json:"file"`
+}
+
+type indexEnd struct {
+	Type   string `json:"type"`
+	TaskID uint   `json:"taskId"`
+}
+
+type blockRequest struct {
+	Type   string `json:"type"`
+	TaskID uint   `json:"taskId"`
+	Path   string `json:"path"`
+	Index  int    `json:"index"`
+}
+
+type blockResponse struct {
+	Type   string `json:"type"`
+	TaskID uint   `json:"taskId"`
+	Path   string `json:"path"`
+	Index  int    `json:"index"`
+	Hash   string `json:"hash"`
+	Size   int    `json:"size"`
+}
+
+type taskReportMsg struct {
+	Type     string `json:"type"`
+	TaskID   uint   `json:"taskId"`
+	Status   string `json:"status"`
+	Logs     string `json:"logs,omitempty"`
+	LastError string `json:"lastError,omitempty"`
 }
 
 // StartAgentTCPServer starts a TLS-enabled TCP server for agent long connections.
@@ -129,23 +177,102 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 
 	_ = WriteStreamMessage(conn, helloAck{Type: "hello_ack", OK: true, Server: "gohook"})
 
-	// Push loop: poll pending tasks and send to agent.
-	ticker := time.NewTicker(2 * time.Second)
-	defer ticker.Stop()
+	// Single-task loop: push next task, then serve index/blocks until report arrives.
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
-			task, err := defaultTaskService.PullNextTask(ctx, hello.NodeID)
-			if err != nil {
-				if errors.Is(err, gorm.ErrRecordNotFound) {
-					continue
-				}
+		default:
+		}
+
+		task, err := defaultTaskService.PullNextTask(ctx, hello.NodeID)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				time.Sleep(2 * time.Second)
 				continue
 			}
-			_ = WriteStreamMessage(conn, taskPush{Type: "task", Task: mapTask(task)})
+			time.Sleep(2 * time.Second)
+			continue
 		}
+
+		if err := WriteStreamMessage(conn, taskPush{Type: "task", Task: mapTask(task)}); err != nil {
+			return
+		}
+
+		// Expect sync_start
+			var start syncStart
+			if err := ReadStreamMessage(conn, &start); err != nil || start.Type != "sync_start" || start.TaskID != task.ID {
+				_, _ = defaultTaskService.ReportTask(ctx, hello.NodeID, task.ID, TaskReport{Status: "failed", LastError: "missing sync_start"})
+				return
+			}
+
+		// Stream index.
+		_ = WriteStreamMessage(conn, indexBegin{Type: "index_begin", TaskID: task.ID, Project: task.ProjectName, BlockHash: "sha256"})
+		indexEntries := map[string]IndexFileEntry{}
+		_ = defaultTaskService.StreamIndex(ctx, *task, func(entry IndexFileEntry) error {
+			indexEntries[entry.Path] = entry
+			return WriteStreamMessage(conn, indexFile{Type: "index_file", TaskID: task.ID, File: entry})
+		})
+		_ = WriteStreamMessage(conn, indexEnd{Type: "index_end", TaskID: task.ID})
+
+		// Serve block requests until task_report.
+		for {
+			var envelope map[string]any
+			if err := ReadStreamMessage(conn, &envelope); err != nil {
+				return
+			}
+			typ, _ := envelope["type"].(string)
+			switch typ {
+			case "block_request":
+				var req blockRequest
+				raw, _ := json.Marshal(envelope)
+				_ = json.Unmarshal(raw, &req)
+				entry, ok := indexEntries[req.Path]
+				if !ok {
+					_ = WriteStreamMessage(conn, blockResponse{Type: "block_response_bin", TaskID: task.ID, Path: req.Path, Index: req.Index, Hash: "", Size: 0})
+					_ = WriteStreamFrame(conn, []byte{})
+					continue
+				}
+				data, err := defaultTaskService.ReadBlock(*task, entry, req.Index)
+				if err != nil {
+					_ = WriteStreamMessage(conn, blockResponse{Type: "block_response_bin", TaskID: task.ID, Path: req.Path, Index: req.Index, Hash: "", Size: 0})
+					_ = WriteStreamFrame(conn, []byte{})
+					continue
+				}
+				sum := sha256.Sum256(data)
+				resp := blockResponse{
+					Type:   "block_response_bin",
+					TaskID: task.ID,
+					Path:   req.Path,
+					Index:  req.Index,
+					Hash:   hex.EncodeToString(sum[:]),
+					Size:   len(data),
+				}
+				if err := WriteStreamMessage(conn, resp); err != nil {
+					return
+				}
+				if err := WriteStreamFrame(conn, data); err != nil {
+					return
+				}
+			case "task_report":
+				var rep taskReportMsg
+				raw, _ := json.Marshal(envelope)
+				_ = json.Unmarshal(raw, &rep)
+				if rep.TaskID != task.ID {
+					continue
+				}
+				status := "failed"
+				if strings.ToLower(rep.Status) == "success" {
+					status = "success"
+				}
+				_, _ = defaultTaskService.ReportTask(ctx, hello.NodeID, task.ID, TaskReport{Status: status, Logs: rep.Logs, LastError: rep.LastError})
+				goto nextTask
+			default:
+				continue
+			}
+		}
+	nextTask:
+		continue
 	}
 }
 

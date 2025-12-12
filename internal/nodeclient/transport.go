@@ -19,11 +19,11 @@ import (
 )
 
 // connectAndServeTCP tries to establish a long-lived mTLS connection for task push.
-// If connection fails, caller should fall back to polling.
-func (a *Agent) connectAndServeTCP(ctx context.Context) bool {
+// It blocks until the connection breaks or ctx is cancelled.
+func (a *Agent) connectAndServeTCP(ctx context.Context) error {
 	endpoint := os.Getenv("SYNC_TCP_ENDPOINT")
 	if strings.TrimSpace(endpoint) == "" {
-		return false
+		return errors.New("SYNC_TCP_ENDPOINT not set")
 	}
 	tlsDir := os.Getenv("SYNC_AGENT_TLS_DIR")
 	if strings.TrimSpace(tlsDir) == "" {
@@ -33,20 +33,20 @@ func (a *Agent) connectAndServeTCP(ctx context.Context) bool {
 	cfg, err := loadOrCreateClientTLS(tlsDir)
 	if err != nil {
 		log.Printf("nodeclient: tls init failed: %v", err)
-		return false
+		return err
 	}
 
 	dialer := &net.Dialer{Timeout: 5 * time.Second}
 	raw, err := dialer.DialContext(ctx, "tcp", endpoint)
 	if err != nil {
 		log.Printf("nodeclient: tcp connect failed: %v", err)
-		return false
+		return err
 	}
 	conn := tls.Client(raw, cfg)
 	if err := conn.Handshake(); err != nil {
 		log.Printf("nodeclient: tls handshake failed: %v", err)
 		conn.Close()
-		return false
+		return err
 	}
 
 	hello := map[string]any{
@@ -58,7 +58,7 @@ func (a *Agent) connectAndServeTCP(ctx context.Context) bool {
 	}
 	if err := syncnode.WriteStreamMessage(conn, hello); err != nil {
 		conn.Close()
-		return false
+		return err
 	}
 
 	var ack struct {
@@ -69,7 +69,10 @@ func (a *Agent) connectAndServeTCP(ctx context.Context) bool {
 	if err := syncnode.ReadStreamMessage(conn, &ack); err != nil || !ack.OK {
 		log.Printf("nodeclient: hello rejected: %v %s", err, ack.Error)
 		conn.Close()
-		return false
+		if err != nil {
+			return err
+		}
+		return errors.New(ack.Error)
 	}
 
 	log.Printf("nodeclient: tcp connected, waiting for tasks")
@@ -81,7 +84,8 @@ func (a *Agent) connectAndServeTCP(ctx context.Context) bool {
 	for {
 		select {
 		case <-ctx.Done():
-			return true
+			_ = conn.Close()
+			return nil
 		default:
 			var msg struct {
 				Type string        `json:"type"`
@@ -89,10 +93,10 @@ func (a *Agent) connectAndServeTCP(ctx context.Context) bool {
 			}
 			if err := syncnode.ReadStreamMessage(conn, &msg); err != nil {
 				log.Printf("nodeclient: tcp read error: %v", err)
-				return true
+				return err
 			}
 			if msg.Type == "task" && msg.Task.ID != 0 {
-				a.runTask(ctx, &msg.Task)
+				a.runTaskTCP(ctx, conn, &msg.Task)
 			}
 		}
 	}
