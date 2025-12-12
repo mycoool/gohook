@@ -19,6 +19,8 @@ export class WebSocketStore {
     private messageCallbacks: Array<(msg: IWebSocketMessage) => void> = [];
     private reconnectTimer: NodeJS.Timeout | null = null;
     private heartbeatTimer: NodeJS.Timeout | null = null; // 添加心跳定时器
+    private firstHeartbeatTimer: NodeJS.Timeout | null = null; // 首次心跳定时器
+    private initialHeartbeatDelay = 10000; // 首次心跳延迟10秒
     private heartbeatInterval = 30000; // 30秒心跳间隔
     private reconnectAttempts = 0; // 重连尝试次数
     private maxReconnectAttempts = 10; // 最大重连次数
@@ -379,14 +381,27 @@ export class WebSocketStore {
     // 开始心跳
     private startHeartbeat = () => {
         this.stopHeartbeat(); // 确保没有重复的定时器
-        this.heartbeatTimer = setInterval(() => {
-            this.sendPing();
-        }, this.heartbeatInterval);
-        console.log('WebSocket heartbeat started');
+        // 首次心跳提前到连接成功后10秒发送，后续保持30秒间隔
+        this.firstHeartbeatTimer = setTimeout(() => {
+            if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                this.sendPing();
+                this.heartbeatTimer = setInterval(() => {
+                    this.sendPing();
+                }, this.heartbeatInterval);
+                console.log('WebSocket heartbeat started');
+            } else {
+                console.warn('Cannot start heartbeat: WebSocket is not open');
+            }
+        }, this.initialHeartbeatDelay);
+        console.log('WebSocket first heartbeat scheduled');
     };
 
     // 停止心跳
     private stopHeartbeat = () => {
+        if (this.firstHeartbeatTimer) {
+            clearTimeout(this.firstHeartbeatTimer);
+            this.firstHeartbeatTimer = null;
+        }
         if (this.heartbeatTimer) {
             clearInterval(this.heartbeatTimer);
             this.heartbeatTimer = null;

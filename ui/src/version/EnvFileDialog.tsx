@@ -572,6 +572,4 @@ const EnvFileDialogWithTranslation: React.FC<InjectedProps> = (props) => {
 
 const InjectedEnvFileDialog = inject('versionStore', 'snackManager')(EnvFileDialogWithTranslation);
 
-export default withRouter(
-    InjectedEnvFileDialog as unknown as React.ComponentType<IProps>
-);
+export default withRouter(InjectedEnvFileDialog as unknown as React.ComponentType<IProps>);
