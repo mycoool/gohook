@@ -275,6 +275,34 @@
 
 > 说明：Syncthing 的实现采用非 MIT 许可，GoHook 这里将“参考算法与接口设计”自行实现，不直接拷贝其源码到仓库中，避免许可证污染。
 
+## 长连接与 mTLS（已实施）
+
+GoHook 与 Agent 之间新增 TCP/TLS 长连接，用于任务即时推送与后续块级数据面传输。
+
+### 主节点
+
+1. 启动后自动监听 TCP（默认 `:9001`），可通过环境变量修改：
+   - `SYNC_TCP_ADDR=":9001"`
+2. 首次启动会在 `SYNC_TLS_DIR` 目录生成自签服务端证书：
+   - `SYNC_TLS_DIR="./sync_tls"`
+   - 生成 `server.crt` / `server.key`
+3. 连接建立后，Agent 先发送 `hello(nodeId, token, agentVersion)`；主节点验证 token，
+   - 如果该节点 `agent_cert_fingerprint` 为空，则写入本次连接的证书指纹（配对/TOFU）。
+   - 否则必须匹配已登记指纹。
+
+### Agent
+
+1. 设置 TCP 端点（必须）：
+   - `SYNC_TCP_ENDPOINT="10.0.0.10:9001"`
+2. Agent 首次启动会在 `SYNC_AGENT_TLS_DIR` 生成自签客户端证书：
+   - `SYNC_AGENT_TLS_DIR="./agent_tls"`
+   - 生成 `client.crt` / `client.key`
+3. 服务端指纹校验：
+   - 推荐预先设置 `SYNC_SERVER_FINGERPRINT="<sha256-hex>"`。
+   - 若未设置，Agent 会在首次连接时信任并保存到 `agent_tls/server.fp`（TOFU），后续必须匹配。
+
+连接建立后，任务通过长连接即时下发；若未配置 `SYNC_TCP_ENDPOINT` 则回退到 HTTP 轮询。
+
 ## 部署建议
 
 1. **初始化**：在主节点配置 `sync` 开关，录入 SSH key 或部署 Sync Agent。

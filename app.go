@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"flag"
@@ -386,6 +387,13 @@ func main() {
 
 		// Start sync project file watchers (primary node).
 		syncnode.StartProjectWatchers()
+
+		// Start agent TCP mTLS transport (primary node).
+		go func() {
+			if err := syncnode.StartAgentTCPServer(context.Background()); err != nil {
+				log.Printf("syncnode: agent TCP server error: %v", err)
+			}
+		}()
 
 		// Initialize global log service
 		database.InitLogService()

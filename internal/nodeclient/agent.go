@@ -51,7 +51,13 @@ func (a *Agent) Run(ctx context.Context) {
 	defer ticker.Stop()
 
 	a.sendHeartbeat(ctx)
-	go a.pollAndRunTasks(ctx)
+	// Prefer TCP push transport if configured, otherwise fall back to HTTP polling.
+	go func() {
+		if a.connectAndServeTCP(ctx) {
+			return
+		}
+		a.pollAndRunTasks(ctx)
+	}()
 	for {
 		select {
 		case <-ctx.Done():

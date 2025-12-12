@@ -88,6 +88,7 @@ type SyncNode struct {
 	AuthType        string     `json:"auth_type" gorm:"size:50"`       // password | key | agent
 	CredentialRef   string     `json:"credential_ref" gorm:"size:200"` // reference to credential storage
 	CredentialValue string     `json:"credential_value" gorm:"type:text"`
+	AgentCertFingerprint string `json:"agent_cert_fingerprint" gorm:"size:128;index"` // sha256 fingerprint (hex)
 	InstallStatus   string     `json:"install_status" gorm:"size:50"` // pending | installing | success | failed
 	InstallLog      string     `json:"install_log" gorm:"type:text"`  // installation log
 	AgentVersion    string     `json:"agent_version" gorm:"size:100"`
