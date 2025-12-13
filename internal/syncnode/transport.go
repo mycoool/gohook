@@ -12,6 +12,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -126,6 +127,28 @@ func StartAgentTCPServer(ctx context.Context) error {
 	}
 	tln := tls.NewListener(ln, cfg)
 	log.Printf("syncnode: agent TCP server listening on %s", addr)
+
+	// Task reaper: prevent RUNNING tasks from being stuck forever.
+	go func() {
+		timeout := 30 * time.Minute
+		if raw := strings.TrimSpace(os.Getenv("SYNC_TASK_TIMEOUT")); raw != "" {
+			if d, err := time.ParseDuration(raw); err == nil && d > 0 {
+				timeout = d
+			} else if sec, err := strconv.Atoi(raw); err == nil && sec > 0 {
+				timeout = time.Duration(sec) * time.Second
+			}
+		}
+		ticker := time.NewTicker(2 * time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				defaultTaskService.FailStaleRunningTasks(ctx, timeout)
+			}
+		}
+	}()
 
 	go func() {
 		<-ctx.Done()
@@ -287,26 +310,81 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 			return
 		}
 
-		// Expect sync_start
-		var start syncStart
-		if err := ReadStreamMessage(conn, &start); err != nil || start.Type != "sync_start" || start.TaskID != task.ID {
-			_, _ = defaultTaskService.ReportTask(ctx, hello.NodeID, task.ID, TaskReport{Status: "failed", LastError: "missing sync_start", ErrorCode: "PROTO"})
-			return
+		indexEntries := map[string]IndexFileEntry{}
+
+		// Expect sync_start (or an immediate task_report when agent fails preflight).
+		_ = conn.SetReadDeadline(time.Now().Add(30 * time.Second))
+		for {
+			var envelope map[string]any
+			if err := ReadStreamMessage(conn, &envelope); err != nil {
+				_ = conn.SetReadDeadline(time.Time{})
+				msg := "sync_start read failed: " + err.Error()
+				if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
+					msg = "sync_start timeout"
+				}
+				_, _ = defaultTaskService.ReportTask(ctx, hello.NodeID, task.ID, TaskReport{Status: "failed", LastError: msg, ErrorCode: "PROTO"})
+				goto nextTask
+			}
+
+			typ, _ := envelope["type"].(string)
+			switch typ {
+			case "sync_start":
+				var start syncStart
+				raw, _ := json.Marshal(envelope)
+				_ = json.Unmarshal(raw, &start)
+				if start.TaskID != task.ID {
+					continue
+				}
+				_ = conn.SetReadDeadline(time.Time{})
+				goto started
+			case "task_report":
+				var rep taskReportMsg
+				raw, _ := json.Marshal(envelope)
+				_ = json.Unmarshal(raw, &rep)
+				if rep.TaskID != task.ID {
+					continue
+				}
+				_ = conn.SetReadDeadline(time.Time{})
+				status := "failed"
+				if strings.ToLower(rep.Status) == "success" {
+					status = "success"
+				}
+				_, _ = defaultTaskService.ReportTask(ctx, hello.NodeID, task.ID, TaskReport{
+					Status:    status,
+					Logs:      rep.Logs,
+					LastError: rep.LastError,
+					ErrorCode: rep.ErrorCode,
+				})
+				goto nextTask
+			default:
+				continue
+			}
 		}
+	started:
+		_ = conn.SetReadDeadline(time.Time{})
 
 		// Stream index.
-		_ = WriteStreamMessage(conn, indexBegin{Type: "index_begin", TaskID: task.ID, Project: task.ProjectName, BlockHash: "sha256"})
-		indexEntries := map[string]IndexFileEntry{}
-		_ = defaultTaskService.StreamIndex(ctx, *task, func(entry IndexFileEntry) error {
+		if err := WriteStreamMessage(conn, indexBegin{Type: "index_begin", TaskID: task.ID, Project: task.ProjectName, BlockHash: "sha256"}); err != nil {
+			_, _ = defaultTaskService.ReportTask(ctx, hello.NodeID, task.ID, TaskReport{Status: "failed", LastError: "index_begin write failed: " + err.Error(), ErrorCode: "PROTO"})
+			return
+		}
+		if err := defaultTaskService.StreamIndex(ctx, *task, func(entry IndexFileEntry) error {
 			indexEntries[entry.Path] = entry
 			return WriteStreamMessage(conn, indexFile{Type: "index_file", TaskID: task.ID, File: entry})
-		})
-		_ = WriteStreamMessage(conn, indexEnd{Type: "index_end", TaskID: task.ID})
+		}); err != nil {
+			_, _ = defaultTaskService.ReportTask(ctx, hello.NodeID, task.ID, TaskReport{Status: "failed", LastError: "index stream failed: " + err.Error(), ErrorCode: "INDEX"})
+			return
+		}
+		if err := WriteStreamMessage(conn, indexEnd{Type: "index_end", TaskID: task.ID}); err != nil {
+			_, _ = defaultTaskService.ReportTask(ctx, hello.NodeID, task.ID, TaskReport{Status: "failed", LastError: "index_end write failed: " + err.Error(), ErrorCode: "PROTO"})
+			return
+		}
 
 		// Serve block requests until task_report.
 		for {
 			var envelope map[string]any
 			if err := ReadStreamMessage(conn, &envelope); err != nil {
+				_, _ = defaultTaskService.ReportTask(ctx, hello.NodeID, task.ID, TaskReport{Status: "failed", LastError: "connection lost: " + err.Error(), ErrorCode: "PROTO"})
 				return
 			}
 			typ, _ := envelope["type"].(string)
@@ -315,6 +393,9 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 				var req blockRequest
 				raw, _ := json.Marshal(envelope)
 				_ = json.Unmarshal(raw, &req)
+				if req.TaskID != task.ID {
+					continue
+				}
 				entry, ok := indexEntries[req.Path]
 				if !ok {
 					_ = WriteStreamMessage(conn, blockResponse{Type: "block_response_bin", TaskID: task.ID, Path: req.Path, Index: req.Index, Hash: "", Size: 0})

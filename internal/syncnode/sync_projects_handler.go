@@ -2,6 +2,7 @@ package syncnode
 
 import (
 	"database/sql"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -101,7 +102,7 @@ func HandleListSyncProjects(c *gin.Context) {
 
 		type lastSuccessRow struct {
 			NodeID        uint
-			LastSuccessAt sql.NullTime
+			LastSuccessAt sql.NullString `gorm:"column:last_success_at"`
 		}
 		var lastSuccess []lastSuccessRow
 		_ = db.WithContext(c.Request.Context()).Raw(
@@ -114,8 +115,11 @@ func HandleListSyncProjects(c *gin.Context) {
 		).Scan(&lastSuccess).Error
 		lastSuccessByNode := map[uint]time.Time{}
 		for i := range lastSuccess {
-			if lastSuccess[i].LastSuccessAt.Valid {
-				lastSuccessByNode[lastSuccess[i].NodeID] = lastSuccess[i].LastSuccessAt.Time
+			if !lastSuccess[i].LastSuccessAt.Valid {
+				continue
+			}
+			if ts, err := parseDBTime(lastSuccess[i].LastSuccessAt.String); err == nil {
+				lastSuccessByNode[lastSuccess[i].NodeID] = ts
 			}
 		}
 
@@ -191,6 +195,28 @@ func HandleListSyncProjects(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, out)
+}
+
+func parseDBTime(raw string) (time.Time, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return time.Time{}, errors.New("empty time")
+	}
+	layouts := []string{
+		time.RFC3339Nano,
+		time.RFC3339,
+		"2006-01-02 15:04:05.999999999-07:00",
+		"2006-01-02 15:04:05.999999999",
+		"2006-01-02 15:04:05.999-07:00",
+		"2006-01-02 15:04:05.999",
+		"2006-01-02 15:04:05",
+	}
+	for _, layout := range layouts {
+		if t, err := time.Parse(layout, raw); err == nil {
+			return t, nil
+		}
+	}
+	return time.Time{}, errors.New("unsupported time format: " + raw)
 }
 
 // Admin: update only the sync config for a project.

@@ -118,8 +118,8 @@ const SyncProjectsPage: React.FC<Props> = ({syncProjectStore, syncNodeStore, cur
                                                 <Typography variant="body2">{p.path}</Typography>
                                             </TableCell>
                                             <TableCell>
-                                                <Tooltip
-                                                    title={
+                                                {(() => {
+                                                    const detail =
                                                         p.status === 'DEGRADED'
                                                             ? (p.nodes || [])
                                                                   .filter(
@@ -141,16 +141,32 @@ const SyncProjectsPage: React.FC<Props> = ({syncProjectStore, syncNodeStore, cur
                                                                           }`
                                                                   )
                                                                   .join('\n\n')
-                                                            : ''
-                                                    }>
-                                                    <span>
-                                                        <Chip
-                                                            label={p.status}
-                                                            size="small"
-                                                            color={statusColor(p.status)}
-                                                        />
-                                                    </span>
-                                                </Tooltip>
+                                                            : '';
+                                                    return (
+                                                        <Tooltip
+                                                            title={
+                                                                detail ? (
+                                                                    <pre
+                                                                        style={{
+                                                                            margin: 0,
+                                                                            whiteSpace: 'pre-wrap',
+                                                                        }}>
+                                                                        {detail}
+                                                                    </pre>
+                                                                ) : (
+                                                                    ''
+                                                                )
+                                                            }>
+                                                            <span>
+                                                                <Chip
+                                                                    label={p.status}
+                                                                    size="small"
+                                                                    color={statusColor(p.status)}
+                                                                />
+                                                            </span>
+                                                        </Tooltip>
+                                                    );
+                                                })()}
                                             </TableCell>
                                             <TableCell>{formatTime(p.lastSyncAt)}</TableCell>
                                             <TableCell>

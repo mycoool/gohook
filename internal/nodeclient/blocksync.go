@@ -89,7 +89,7 @@ func (a *Agent) runTaskTCP(ctx context.Context, conn io.ReadWriter, task *taskRe
 	}
 
 	expected := map[string]syncnode.IndexFileEntry{}
-	var files int
+	entries := make([]syncnode.IndexFileEntry, 0, 128)
 	for {
 		var envelope map[string]any
 		if err := syncnode.ReadStreamMessage(conn, &envelope); err != nil {
@@ -107,12 +107,7 @@ func (a *Agent) runTaskTCP(ctx context.Context, conn io.ReadWriter, task *taskRe
 				continue
 			}
 			expected[f.File.Path] = f.File
-			if err := a.applyFileBlocks(ctx, conn, task.ID, payload.TargetPath, payload.IgnorePermissions, f.File); err != nil {
-				ce := classifyError(err)
-				_ = syncnode.WriteStreamMessage(conn, taskReportMsg{Type: "task_report", TaskID: task.ID, Status: "failed", LastError: ce.Message, ErrorCode: ce.Code})
-				return
-			}
-			files++
+			entries = append(entries, f.File)
 		case "index_end":
 			raw, _ := json.Marshal(envelope)
 			var end indexEndMsg
@@ -127,6 +122,16 @@ func (a *Agent) runTaskTCP(ctx context.Context, conn io.ReadWriter, task *taskRe
 	}
 
 indexDone:
+	// After receiving full index, request missing blocks. This avoids interleaving block responses
+	// with the still-streaming index_file messages.
+	for i := range entries {
+		if err := a.applyFileBlocks(ctx, conn, task.ID, payload.TargetPath, payload.IgnorePermissions, entries[i]); err != nil {
+			ce := classifyError(err)
+			_ = syncnode.WriteStreamMessage(conn, taskReportMsg{Type: "task_report", TaskID: task.ID, Status: "failed", LastError: ce.Message, ErrorCode: ce.Code})
+			return
+		}
+	}
+
 	if strings.ToLower(payload.Strategy) == "" || strings.ToLower(payload.Strategy) == "mirror" {
 		if err := mirrorDeleteExtras(payload.TargetPath, expected); err != nil {
 			ce := classifyError(err)
@@ -135,7 +140,7 @@ indexDone:
 		}
 	}
 
-	_ = syncnode.WriteStreamMessage(conn, taskReportMsg{Type: "task_report", TaskID: task.ID, Status: "success", Logs: fmt.Sprintf("synced %d files", files)})
+	_ = syncnode.WriteStreamMessage(conn, taskReportMsg{Type: "task_report", TaskID: task.ID, Status: "success", Logs: fmt.Sprintf("synced %d files", len(entries))})
 }
 
 func (a *Agent) applyFileBlocks(ctx context.Context, conn io.ReadWriter, taskID uint, targetRoot string, ignorePerms bool, file syncnode.IndexFileEntry) error {
@@ -190,7 +195,7 @@ func (a *Agent) applyFileBlocks(ctx context.Context, conn io.ReadWriter, taskID 
 				return fmt.Errorf("read block response: %w", err)
 			}
 			if resp.Type != "block_response_bin" || resp.TaskID != taskID || resp.Path != file.Path || resp.Index != i {
-				return fmt.Errorf("unexpected block response")
+				return fmt.Errorf("unexpected block response: type=%s taskId=%d path=%s index=%d", resp.Type, resp.TaskID, resp.Path, resp.Index)
 			}
 			data, err := syncnode.ReadStreamFrame(conn)
 			if err != nil {

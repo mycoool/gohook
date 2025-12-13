@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/mycoool/gohook/internal/database"
 	syncignore "github.com/mycoool/gohook/internal/syncnode/ignore"
@@ -209,6 +210,26 @@ func (s *TaskService) ReportTask(ctx context.Context, nodeID, taskID uint, repor
 		return nil, err
 	}
 	return &task, nil
+}
+
+// FailStaleRunningTasks marks long-running tasks as failed to avoid "RUNNING forever" when a connection drops.
+func (s *TaskService) FailStaleRunningTasks(ctx context.Context, maxAge time.Duration) {
+	if maxAge <= 0 {
+		maxAge = 30 * time.Minute
+	}
+	db, err := s.ensureDB()
+	if err != nil {
+		return
+	}
+	cutoff := time.Now().Add(-maxAge)
+	_ = db.WithContext(ctx).
+		Model(&database.SyncTask{}).
+		Where("status = ? AND updated_at < ?", TaskStatusRunning, cutoff).
+		Updates(map[string]any{
+			"status":     TaskStatusFailed,
+			"last_error": "task timeout (connection lost or agent stuck)",
+			"error_code": "TIMEOUT",
+		}).Error
 }
 
 func (s *TaskService) StreamBundle(ctx context.Context, w io.Writer, task database.SyncTask) error {

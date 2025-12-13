@@ -360,6 +360,7 @@ GoHook 与 Agent 之间新增 TCP/TLS 长连接，用于任务即时推送与后
 - `ENOSPC`：磁盘空间不足
 - `INVALID_TARGET`：`targetPath` 配置不合法（不能为空或 `/`）
 - `PROTO`：连接/协议异常（检查主节点与 Agent 版本一致性）
+- `TIMEOUT`：任务超时（连接中断或 Agent 卡住；默认 30 分钟，可通过 `SYNC_TASK_TIMEOUT` 调整）
 
 ## 块级同步（自适应固定块，已接入长连接）
 

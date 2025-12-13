@@ -105,7 +105,33 @@ const SyncTaskDialog: React.FC<Props> = ({open, title, query, onClose, syncTaskS
         const content = hint ? `${t.lastError}\n${hint}` : t.lastError;
         return (
             <Stack direction="row" spacing={1} alignItems="center">
-                <Tooltip title={<pre style={{margin: 0}}>{content}</pre>}>
+                <Tooltip
+                    title={
+                        <Box
+                            sx={{
+                                whiteSpace: 'pre-wrap',
+                                maxWidth: 720,
+                                maxHeight: 240,
+                                overflow: 'auto',
+                                m: 0,
+                            }}>
+                            {content}
+                        </Box>
+                    }
+                    placement="top-start"
+                    PopperProps={{
+                        modifiers: [
+                            {name: 'flip', enabled: true},
+                            {name: 'preventOverflow', enabled: true},
+                        ],
+                    }}
+                    componentsProps={{
+                        tooltip: {
+                            sx: {
+                                maxWidth: 760,
+                            },
+                        },
+                    }}>
                     <Typography
                         variant="body2"
                         sx={{

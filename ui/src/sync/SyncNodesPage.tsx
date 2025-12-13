@@ -207,8 +207,8 @@ const SyncNodesPage: React.FC<Props> = ({syncNodeStore, currentUser}) => {
                                             </TableCell>
                                             <TableCell>
                                                 <Stack spacing={0.5}>
-                                                    <Tooltip
-                                                        title={
+                                                    {(() => {
+                                                        const detail =
                                                             node.syncStatus === 'FAILED' &&
                                                             node.lastError
                                                                 ? `${node.lastTaskProject || ''} ${
@@ -218,16 +218,35 @@ const SyncNodesPage: React.FC<Props> = ({syncNodeStore, currentUser}) => {
                                                                           ? `\n[${node.lastErrorCode}]`
                                                                           : ''
                                                                   }`
-                                                                : ''
-                                                        }>
-                                                        <span>
-                                                            <Chip
-                                                                label={syncLabel(node)}
-                                                                size="small"
-                                                                color={syncColor(node.syncStatus)}
-                                                            />
-                                                        </span>
-                                                    </Tooltip>
+                                                                : '';
+                                                        return (
+                                                            <Tooltip
+                                                                title={
+                                                                    detail ? (
+                                                                        <pre
+                                                                            style={{
+                                                                                margin: 0,
+                                                                                whiteSpace:
+                                                                                    'pre-wrap',
+                                                                            }}>
+                                                                            {detail}
+                                                                        </pre>
+                                                                    ) : (
+                                                                        ''
+                                                                    )
+                                                                }>
+                                                                <span>
+                                                                    <Chip
+                                                                        label={syncLabel(node)}
+                                                                        size="small"
+                                                                        color={syncColor(
+                                                                            node.syncStatus
+                                                                        )}
+                                                                    />
+                                                                </span>
+                                                            </Tooltip>
+                                                        );
+                                                    })()}
                                                     {node.lastSyncAt ? (
                                                         <Typography
                                                             variant="caption"
