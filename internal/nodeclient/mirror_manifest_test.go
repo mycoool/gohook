@@ -4,19 +4,17 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/mycoool/gohook/internal/syncnode"
 )
 
 func TestMirrorManifest_ReadWriteSorted(t *testing.T) {
 	root := t.TempDir()
-	expected := map[string]syncnode.IndexFileEntry{
-		"b.txt":     {Path: "b.txt"},
-		"a.txt":     {Path: "a.txt"},
-		"sub/c.txt": {Path: "sub/c.txt"},
+	expected := map[string]struct{}{
+		"b.txt":     {},
+		"a.txt":     {},
+		"sub/c.txt": {},
 	}
 
-	if err := writeMirrorManifest(root, expected, nil); err != nil {
+	if err := writeMirrorManifest(root, expected, nil, 0); err != nil {
 		t.Fatal(err)
 	}
 
@@ -43,16 +41,16 @@ func TestMirrorDeleteFromManifest_RemovesStalePaths(t *testing.T) {
 	mustWriteFile(t, filepath.Join(root, "keep.txt"), "k")
 	mustWriteFile(t, filepath.Join(root, "old.txt"), "o")
 
-	expectedOld := map[string]syncnode.IndexFileEntry{
-		"keep.txt": {Path: "keep.txt"},
-		"old.txt":  {Path: "old.txt"},
+	expectedOld := map[string]struct{}{
+		"keep.txt": {},
+		"old.txt":  {},
 	}
-	if err := writeMirrorManifest(root, expectedOld, nil); err != nil {
+	if err := writeMirrorManifest(root, expectedOld, nil, 0); err != nil {
 		t.Fatal(err)
 	}
 
-	expectedNew := map[string]syncnode.IndexFileEntry{
-		"keep.txt": {Path: "keep.txt"},
+	expectedNew := map[string]struct{}{
+		"keep.txt": {},
 	}
 	if _, err := mirrorDeleteFromManifest(root, expectedNew, nil); err != nil {
 		t.Fatal(err)
@@ -62,6 +60,32 @@ func TestMirrorDeleteFromManifest_RemovesStalePaths(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(root, "keep.txt")); err != nil {
 		t.Fatalf("expected keep.txt present, stat err=%v", err)
+	}
+}
+
+func TestMirrorDeleteFromManifest_CleansEmptyDirs(t *testing.T) {
+	t.Setenv("SYNC_MIRROR_CLEAN_EMPTY_DIRS", "1")
+
+	root := t.TempDir()
+	mustWriteFile(t, filepath.Join(root, "sub", "old.txt"), "o")
+	mustWriteFile(t, filepath.Join(root, "keep.txt"), "k")
+
+	expectedOld := map[string]struct{}{
+		"keep.txt":    {},
+		"sub/old.txt": {},
+	}
+	if err := writeMirrorManifest(root, expectedOld, nil, 0); err != nil {
+		t.Fatal(err)
+	}
+
+	expectedNew := map[string]struct{}{
+		"keep.txt": {},
+	}
+	if _, err := mirrorDeleteFromManifest(root, expectedNew, nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "sub")); !os.IsNotExist(err) {
+		t.Fatalf("expected sub/ removed (empty), stat err=%v", err)
 	}
 }
 

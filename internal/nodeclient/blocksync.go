@@ -36,6 +36,17 @@ type indexEndMsg struct {
 	TaskID uint   `json:"taskId"`
 }
 
+type indexChunkMsg struct {
+	Type   string                    `json:"type"`
+	TaskID uint                      `json:"taskId"`
+	Files  []syncnode.IndexFileEntry `json:"files"`
+}
+
+type indexChunkDoneMsg struct {
+	Type   string `json:"type"`
+	TaskID uint   `json:"taskId"`
+}
+
 type blockReqMsg struct {
 	Type   string `json:"type"`
 	TaskID uint   `json:"taskId"`
@@ -104,8 +115,11 @@ func (a *Agent) runTaskTCP(ctx context.Context, conn io.ReadWriter, task *taskRe
 		return
 	}
 
-	expected := map[string]syncnode.IndexFileEntry{}
+	expectedPaths := map[string]struct{}{}
 	entries := make([]syncnode.IndexFileEntry, 0, 128)
+	var blocksFetched int
+	var bytesFetched int64
+	chunked := false
 	for {
 		var envelope map[string]any
 		if err := syncnode.ReadStreamMessage(conn, &envelope); err != nil {
@@ -115,6 +129,30 @@ func (a *Agent) runTaskTCP(ctx context.Context, conn io.ReadWriter, task *taskRe
 		}
 		typ, _ := envelope["type"].(string)
 		switch typ {
+		case "index_chunk":
+			chunked = true
+			raw, _ := json.Marshal(envelope)
+			var c indexChunkMsg
+			_ = json.Unmarshal(raw, &c)
+			if c.TaskID != task.ID || len(c.Files) == 0 {
+				continue
+			}
+			for i := range c.Files {
+				if c.Files[i].Path == "" {
+					continue
+				}
+				expectedPaths[c.Files[i].Path] = struct{}{}
+				bc, by, err := a.applyFileBlocks(ctx, conn, task.ID, payload.TargetPath, payload.IgnorePermissions, c.Files[i])
+				blocksFetched += bc
+				bytesFetched += by
+				if err != nil {
+					ce := classifyError(err)
+					_ = syncnode.WriteStreamMessage(conn, taskReportMsg{Type: "task_report", TaskID: task.ID, Status: "failed", LastError: ce.Message, ErrorCode: ce.Code})
+					return
+				}
+			}
+			_ = syncnode.WriteStreamMessage(conn, indexChunkDoneMsg{Type: "index_chunk_done", TaskID: task.ID})
+			continue
 		case "index_file":
 			raw, _ := json.Marshal(envelope)
 			var f indexFileMsg
@@ -122,7 +160,7 @@ func (a *Agent) runTaskTCP(ctx context.Context, conn io.ReadWriter, task *taskRe
 			if f.TaskID != task.ID || f.File.Path == "" {
 				continue
 			}
-			expected[f.File.Path] = f.File
+			expectedPaths[f.File.Path] = struct{}{}
 			entries = append(entries, f.File)
 		case "index_end":
 			raw, _ := json.Marshal(envelope)
@@ -140,16 +178,16 @@ func (a *Agent) runTaskTCP(ctx context.Context, conn io.ReadWriter, task *taskRe
 indexDone:
 	// After receiving full index, request missing blocks. This avoids interleaving block responses
 	// with the still-streaming index_file messages.
-	var blocksFetched int
-	var bytesFetched int64
-	for i := range entries {
-		bc, by, err := a.applyFileBlocks(ctx, conn, task.ID, payload.TargetPath, payload.IgnorePermissions, entries[i])
-		blocksFetched += bc
-		bytesFetched += by
-		if err != nil {
-			ce := classifyError(err)
-			_ = syncnode.WriteStreamMessage(conn, taskReportMsg{Type: "task_report", TaskID: task.ID, Status: "failed", LastError: ce.Message, ErrorCode: ce.Code})
-			return
+	if !chunked {
+		for i := range entries {
+			bc, by, err := a.applyFileBlocks(ctx, conn, task.ID, payload.TargetPath, payload.IgnorePermissions, entries[i])
+			blocksFetched += bc
+			bytesFetched += by
+			if err != nil {
+				ce := classifyError(err)
+				_ = syncnode.WriteStreamMessage(conn, taskReportMsg{Type: "task_report", TaskID: task.ID, Status: "failed", LastError: ce.Message, ErrorCode: ce.Code})
+				return
+			}
 		}
 	}
 
@@ -160,23 +198,44 @@ indexDone:
 			_ = os.MkdirAll(filepath.Join(payload.TargetPath, "runtime"), 0o755)
 		}
 
+		runCount := 0
 		if shouldUseFastMirrorDelete() {
-			if _, err := mirrorDeleteFromManifest(payload.TargetPath, expected, ig); err != nil {
-				// Fallback to strict cleanup when manifest is missing/corrupt.
-				if err := mirrorDeleteExtras(payload.TargetPath, expected, ig); err != nil {
+			manifest, mErr := readMirrorManifest(payload.TargetPath)
+			fullEvery := mirrorFastFullScanEvery()
+			needFull := false
+			if mErr != nil || manifest == nil {
+				needFull = true
+			} else {
+				runCount = manifest.SyncCount + 1
+				if fullEvery > 0 && runCount%fullEvery == 0 {
+					needFull = true
+				}
+			}
+
+			if needFull {
+				if err := mirrorDeleteExtras(payload.TargetPath, expectedPaths, ig); err != nil {
 					ce := classifyError(err)
 					_ = syncnode.WriteStreamMessage(conn, taskReportMsg{Type: "task_report", TaskID: task.ID, Status: "failed", LastError: ce.Message, ErrorCode: ce.Code})
 					return
 				}
+			} else {
+				if _, err := mirrorDeleteFromManifest(payload.TargetPath, expectedPaths, ig); err != nil {
+					// Fallback to strict cleanup when manifest is missing/corrupt.
+					if err := mirrorDeleteExtras(payload.TargetPath, expectedPaths, ig); err != nil {
+						ce := classifyError(err)
+						_ = syncnode.WriteStreamMessage(conn, taskReportMsg{Type: "task_report", TaskID: task.ID, Status: "failed", LastError: ce.Message, ErrorCode: ce.Code})
+						return
+					}
+				}
 			}
-		} else if err := mirrorDeleteExtras(payload.TargetPath, expected, ig); err != nil {
+		} else if err := mirrorDeleteExtras(payload.TargetPath, expectedPaths, ig); err != nil {
 			ce := classifyError(err)
 			_ = syncnode.WriteStreamMessage(conn, taskReportMsg{Type: "task_report", TaskID: task.ID, Status: "failed", LastError: ce.Message, ErrorCode: ce.Code})
 			return
 		}
 
 		// Best-effort: persist expected file list for future fast mirror deletions.
-		_ = writeMirrorManifest(payload.TargetPath, expected, ig)
+		_ = writeMirrorManifest(payload.TargetPath, expectedPaths, ig, runCount)
 	}
 
 	_ = syncnode.WriteStreamMessage(conn, taskReportMsg{
@@ -361,7 +420,7 @@ func (a *Agent) applyFileBlocks(ctx context.Context, conn io.ReadWriter, taskID 
 	return blocksFetched, bytesFetched, nil
 }
 
-func mirrorDeleteExtras(targetRoot string, expected map[string]syncnode.IndexFileEntry, ig *syncignore.Matcher) error {
+func mirrorDeleteExtras(targetRoot string, expected map[string]struct{}, ig *syncignore.Matcher) error {
 	clean := filepath.Clean(targetRoot)
 	if clean == "" || clean == "/" || clean == "." {
 		return fmt.Errorf("refuse to mirror-delete on unsafe targetPath")

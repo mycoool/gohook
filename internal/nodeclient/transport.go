@@ -75,6 +75,9 @@ func (a *Agent) connectAndServeTCP(ctx context.Context) error {
 		"agentName":    a.cfg.NodeName,
 		"agentVersion": a.cfg.Version,
 	}
+	if feats := agentFeatures(); len(feats) > 0 {
+		hello["features"] = feats
+	}
 	if err := syncnode.WriteStreamMessage(conn, hello); err != nil {
 		conn.Close()
 		return err
@@ -128,6 +131,14 @@ func (a *Agent) connectAndServeTCP(ctx context.Context) error {
 			}
 		}
 	}
+}
+
+func agentFeatures() []string {
+	raw := strings.TrimSpace(os.Getenv("SYNC_INDEX_CHUNKED"))
+	if strings.EqualFold(raw, "1") || strings.EqualFold(raw, "true") {
+		return []string{"index_chunk_v1"}
+	}
+	return nil
 }
 
 func loadOrCreateClientTLS(dir string, serverFPOverride string) (*tls.Config, error) {

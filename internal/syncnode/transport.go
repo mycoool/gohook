@@ -16,15 +16,17 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mycoool/gohook/internal/database"
 	"gorm.io/gorm"
 )
 
 type helloMessage struct {
-	Type         string `json:"type"`
-	NodeID       uint   `json:"nodeId"`
-	Token        string `json:"token"`
-	AgentName    string `json:"agentName,omitempty"`
-	AgentVersion string `json:"agentVersion,omitempty"`
+	Type         string   `json:"type"`
+	NodeID       uint     `json:"nodeId"`
+	Token        string   `json:"token"`
+	AgentName    string   `json:"agentName,omitempty"`
+	AgentVersion string   `json:"agentVersion,omitempty"`
+	Features     []string `json:"features,omitempty"`
 }
 
 type helloAck struct {
@@ -292,6 +294,7 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 	}()
 
 	// Single-task loop: push next task, then serve index/blocks until report arrives.
+	useIndexChunk := hasFeature(hello.Features, "index_chunk_v1")
 	idleBackoff := 1 * time.Second
 	pingEvery := 2 * time.Second
 	if raw := strings.TrimSpace(os.Getenv("SYNC_AGENT_PING_INTERVAL")); raw != "" {
@@ -468,13 +471,20 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 			return
 		}
 		touchConn(hello.NodeID)
-		if err := defaultTaskService.StreamIndex(ctx, *task, func(entry IndexFileEntry) error {
-			indexEntries[entry.Path] = entry
-			touchConn(hello.NodeID)
-			return WriteStreamMessage(conn, indexFile{Type: "index_file", TaskID: task.ID, File: entry})
-		}); err != nil {
-			_, _ = defaultTaskService.ReportTask(ctx, hello.NodeID, task.ID, TaskReport{Status: "failed", LastError: "index stream failed: " + err.Error(), ErrorCode: "INDEX"})
-			return
+		if useIndexChunk {
+			if err := streamIndexChunks(ctx, conn, hello.NodeID, *task); err != nil {
+				_, _ = defaultTaskService.ReportTask(ctx, hello.NodeID, task.ID, TaskReport{Status: "failed", LastError: "index stream failed: " + err.Error(), ErrorCode: "INDEX"})
+				return
+			}
+		} else {
+			if err := defaultTaskService.StreamIndex(ctx, *task, func(entry IndexFileEntry) error {
+				indexEntries[entry.Path] = entry
+				touchConn(hello.NodeID)
+				return WriteStreamMessage(conn, indexFile{Type: "index_file", TaskID: task.ID, File: entry})
+			}); err != nil {
+				_, _ = defaultTaskService.ReportTask(ctx, hello.NodeID, task.ID, TaskReport{Status: "failed", LastError: "index stream failed: " + err.Error(), ErrorCode: "INDEX"})
+				return
+			}
 		}
 		if err := WriteStreamMessage(conn, indexEnd{Type: "index_end", TaskID: task.ID}); err != nil {
 			_, _ = defaultTaskService.ReportTask(ctx, hello.NodeID, task.ID, TaskReport{Status: "failed", LastError: "index_end write failed: " + err.Error(), ErrorCode: "PROTO"})
@@ -626,6 +636,187 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 	nextTask:
 		continue
 	}
+}
+
+func hasFeature(features []string, want string) bool {
+	for i := range features {
+		if strings.TrimSpace(features[i]) == want {
+			return true
+		}
+	}
+	return false
+}
+
+type indexChunk struct {
+	Type   string           `json:"type"`
+	TaskID uint             `json:"taskId"`
+	Files  []IndexFileEntry `json:"files"`
+}
+
+type indexChunkDone struct {
+	Type   string `json:"type"`
+	TaskID uint   `json:"taskId"`
+}
+
+func indexChunkSize() int {
+	size := 128
+	if raw := strings.TrimSpace(os.Getenv("SYNC_INDEX_CHUNK_SIZE")); raw != "" {
+		if v, err := strconv.Atoi(raw); err == nil && v > 0 && v <= 2000 {
+			size = v
+		}
+	}
+	return size
+}
+
+func streamIndexChunks(ctx context.Context, conn net.Conn, nodeID uint, task database.SyncTask) error {
+	chunkSize := indexChunkSize()
+	var chunk []IndexFileEntry
+
+	flush := func() error {
+		if len(chunk) == 0 {
+			return nil
+		}
+		entries := make(map[string]IndexFileEntry, len(chunk))
+		for i := range chunk {
+			entries[chunk[i].Path] = chunk[i]
+		}
+		_ = conn.SetWriteDeadline(time.Now().Add(2 * time.Minute))
+		if err := WriteStreamMessage(conn, indexChunk{Type: "index_chunk", TaskID: task.ID, Files: chunk}); err != nil {
+			_ = conn.SetWriteDeadline(time.Time{})
+			return err
+		}
+		_ = conn.SetWriteDeadline(time.Time{})
+
+		// Serve block requests for this chunk until agent acknowledges completion.
+		for {
+			_ = conn.SetReadDeadline(time.Now().Add(5 * time.Minute))
+			var envelope map[string]any
+			if err := ReadStreamMessage(conn, &envelope); err != nil {
+				_ = conn.SetReadDeadline(time.Time{})
+				return err
+			}
+			_ = conn.SetReadDeadline(time.Time{})
+
+			typ, _ := envelope["type"].(string)
+			switch typ {
+			case "index_chunk_done":
+				raw, _ := json.Marshal(envelope)
+				var done indexChunkDone
+				_ = json.Unmarshal(raw, &done)
+				if done.TaskID == task.ID {
+					chunk = chunk[:0]
+					return nil
+				}
+			case "block_request":
+				raw, _ := json.Marshal(envelope)
+				var req blockRequest
+				_ = json.Unmarshal(raw, &req)
+				if req.TaskID != task.ID {
+					continue
+				}
+				touchConn(nodeID)
+				entry, ok := entries[req.Path]
+				if !ok {
+					_ = conn.SetWriteDeadline(time.Now().Add(2 * time.Minute))
+					_ = WriteStreamMessage(conn, blockResponse{Type: "block_response_bin", TaskID: task.ID, Path: req.Path, Index: req.Index, Hash: "", Size: 1, ErrorCode: "MISSING_ENTRY", Error: "index entry not found"})
+					_ = WriteStreamFrame(conn, []byte{})
+					_ = conn.SetWriteDeadline(time.Time{})
+					continue
+				}
+				data, err := defaultTaskService.ReadBlock(task, entry, req.Index)
+				if err != nil {
+					_ = conn.SetWriteDeadline(time.Now().Add(2 * time.Minute))
+					_ = WriteStreamMessage(conn, blockResponse{Type: "block_response_bin", TaskID: task.ID, Path: req.Path, Index: req.Index, Hash: "", Size: 1, ErrorCode: "BLOCK_READ", Error: err.Error()})
+					_ = WriteStreamFrame(conn, []byte{})
+					_ = conn.SetWriteDeadline(time.Time{})
+					continue
+				}
+				sum := sha256.Sum256(data)
+				resp := blockResponse{Type: "block_response_bin", TaskID: task.ID, Path: req.Path, Index: req.Index, Hash: hex.EncodeToString(sum[:]), Size: len(data)}
+				_ = conn.SetWriteDeadline(time.Now().Add(2 * time.Minute))
+				if err := WriteStreamMessage(conn, resp); err != nil {
+					_ = conn.SetWriteDeadline(time.Time{})
+					return err
+				}
+				if err := WriteStreamFrame(conn, data); err != nil {
+					_ = conn.SetWriteDeadline(time.Time{})
+					return err
+				}
+				_ = conn.SetWriteDeadline(time.Time{})
+			case "block_batch_request":
+				raw, _ := json.Marshal(envelope)
+				var req blockBatchRequest
+				_ = json.Unmarshal(raw, &req)
+				if req.TaskID != task.ID || req.Path == "" || len(req.Indices) == 0 {
+					continue
+				}
+				touchConn(nodeID)
+				entry, ok := entries[req.Path]
+				_ = conn.SetWriteDeadline(time.Now().Add(2 * time.Minute))
+				if !ok {
+					for _, idx := range req.Indices {
+						_ = WriteStreamMessage(conn, blockResponse{Type: "block_response_bin", TaskID: task.ID, Path: req.Path, Index: idx, Hash: "", Size: 1, ErrorCode: "MISSING_ENTRY", Error: "index entry not found"})
+						_ = WriteStreamFrame(conn, []byte{})
+					}
+					_ = conn.SetWriteDeadline(time.Time{})
+					continue
+				}
+				for _, idx := range req.Indices {
+					data, err := defaultTaskService.ReadBlock(task, entry, idx)
+					if err != nil {
+						_ = WriteStreamMessage(conn, blockResponse{Type: "block_response_bin", TaskID: task.ID, Path: req.Path, Index: idx, Hash: "", Size: 1, ErrorCode: "BLOCK_READ", Error: err.Error()})
+						_ = WriteStreamFrame(conn, []byte{})
+						continue
+					}
+					sum := sha256.Sum256(data)
+					resp := blockResponse{Type: "block_response_bin", TaskID: task.ID, Path: req.Path, Index: idx, Hash: hex.EncodeToString(sum[:]), Size: len(data)}
+					if err := WriteStreamMessage(conn, resp); err != nil {
+						_ = conn.SetWriteDeadline(time.Time{})
+						return err
+					}
+					if err := WriteStreamFrame(conn, data); err != nil {
+						_ = conn.SetWriteDeadline(time.Time{})
+						return err
+					}
+				}
+				_ = conn.SetWriteDeadline(time.Time{})
+			case "node_status":
+				raw, _ := json.Marshal(envelope)
+				var st nodeStatusMsg
+				if json.Unmarshal(raw, &st) == nil && st.NodeID != 0 {
+					updated := time.Now()
+					if ts, err := time.Parse(time.RFC3339, strings.TrimSpace(st.UpdatedAt)); err == nil {
+						updated = ts
+					}
+					rs := NodeRuntimeStatus{
+						UpdatedAt:       updated,
+						Hostname:        strings.TrimSpace(st.Hostname),
+						UptimeSec:       st.UptimeSec,
+						CPUPercent:      st.CPUPercent,
+						MemUsedPercent:  st.MemUsedPercent,
+						Load1:           st.Load1,
+						DiskUsedPercent: st.DiskUsedPercent,
+					}
+					setRuntimeStatus(st.NodeID, rs)
+					broadcastWS(wsTypeSyncNodeStatus, map[string]any{"nodeId": st.NodeID, "runtime": rs})
+				}
+			default:
+				continue
+			}
+		}
+	}
+
+	if err := defaultTaskService.StreamIndex(ctx, task, func(entry IndexFileEntry) error {
+		chunk = append(chunk, entry)
+		touchConn(nodeID)
+		if len(chunk) >= chunkSize {
+			return flush()
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	return flush()
 }
 
 func peerFingerprint(conn net.Conn) (string, error) {
