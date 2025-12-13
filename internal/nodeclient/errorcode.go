@@ -1,10 +1,13 @@
 package nodeclient
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"runtime"
+	"strings"
 	"syscall"
 )
 
@@ -22,6 +25,8 @@ func classifyError(err error) codedError {
 
 	code := "UNKNOWN"
 	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		code = "TIMEOUT"
 	case errors.Is(err, syscall.EACCES):
 		code = "EACCES"
 	case errors.Is(err, syscall.EPERM):
@@ -32,6 +37,26 @@ func classifyError(err error) codedError {
 		code = "ENOSPC"
 	case errors.Is(err, syscall.ENOENT):
 		code = "ENOENT"
+	}
+
+	if code == "UNKNOWN" {
+		var nerr net.Error
+		if errors.As(err, &nerr) && nerr.Timeout() {
+			code = "TIMEOUT"
+		}
+	}
+
+	// Allow internal errors to embed a stable code prefix: "CODE: message".
+	if code == "UNKNOWN" {
+		msg := err.Error()
+		if i := strings.Index(msg, ":"); i > 0 {
+			prefix := strings.TrimSpace(msg[:i])
+			rest := strings.TrimSpace(msg[i+1:])
+			if prefix != "" && rest != "" && len(prefix) <= 50 && prefix == strings.ToUpper(prefix) {
+				code = prefix
+				return codedError{Code: code, Message: rest}
+			}
+		}
 	}
 
 	// Helpful formatting for common filesystem errors.

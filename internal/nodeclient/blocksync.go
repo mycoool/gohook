@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -50,12 +51,14 @@ type blockBatchReqMsg struct {
 }
 
 type blockRespMsg struct {
-	Type   string `json:"type"`
-	TaskID uint   `json:"taskId"`
-	Path   string `json:"path"`
-	Index  int    `json:"index"`
-	Hash   string `json:"hash"`
-	Size   int    `json:"size"`
+	Type      string `json:"type"`
+	TaskID    uint   `json:"taskId"`
+	Path      string `json:"path"`
+	Index     int    `json:"index"`
+	Hash      string `json:"hash"`
+	Size      int    `json:"size"`
+	ErrorCode string `json:"errorCode,omitempty"`
+	Error     string `json:"error,omitempty"`
 }
 
 type taskReportMsg struct {
@@ -240,23 +243,69 @@ func (a *Agent) applyFileBlocks(ctx context.Context, conn io.ReadWriter, taskID 
 			end = len(missing)
 		}
 		chunk := missing[i:end]
+		nc, _ := conn.(net.Conn)
+		if nc != nil {
+			_ = nc.SetWriteDeadline(time.Now().Add(10 * time.Second))
+		}
 		if err := syncnode.WriteStreamMessage(conn, blockBatchReqMsg{Type: "block_batch_request", TaskID: taskID, Path: file.Path, Indices: chunk}); err != nil {
+			if nc != nil {
+				_ = nc.SetWriteDeadline(time.Time{})
+			}
 			return blocksFetched, bytesFetched, err
+		}
+		if nc != nil {
+			_ = nc.SetWriteDeadline(time.Time{})
 		}
 		for _, idx := range chunk {
 			var resp blockRespMsg
+			if nc != nil {
+				_ = nc.SetReadDeadline(time.Now().Add(2 * time.Minute))
+			}
 			if err := syncnode.ReadStreamMessage(conn, &resp); err != nil {
+				if nc != nil {
+					_ = nc.SetReadDeadline(time.Time{})
+				}
 				return blocksFetched, bytesFetched, fmt.Errorf("read block response: %w", err)
 			}
 			if resp.Type != "block_response_bin" || resp.TaskID != taskID || resp.Path != file.Path || resp.Index != idx {
-				return blocksFetched, bytesFetched, fmt.Errorf("unexpected block response: type=%s taskId=%d path=%s index=%d", resp.Type, resp.TaskID, resp.Path, resp.Index)
+				if nc != nil {
+					_ = nc.SetReadDeadline(time.Time{})
+				}
+				return blocksFetched, bytesFetched, fmt.Errorf("PROTO: unexpected block response: type=%s taskId=%d path=%s index=%d", resp.Type, resp.TaskID, resp.Path, resp.Index)
 			}
 			data, err := syncnode.ReadStreamFrame(conn)
 			if err != nil {
+				if nc != nil {
+					_ = nc.SetReadDeadline(time.Time{})
+				}
 				return blocksFetched, bytesFetched, fmt.Errorf("read block frame: %w", err)
 			}
+			if nc != nil {
+				_ = nc.SetReadDeadline(time.Time{})
+			}
+			if strings.TrimSpace(resp.ErrorCode) != "" || strings.TrimSpace(resp.Error) != "" {
+				msg := strings.TrimSpace(resp.Error)
+				if msg == "" {
+					msg = "block fetch failed"
+				}
+				code := strings.TrimSpace(resp.ErrorCode)
+				if code == "" {
+					code = "BLOCK_ERROR"
+				}
+				return blocksFetched, bytesFetched, fmt.Errorf("%s: %s", code, msg)
+			}
+			if resp.Size <= 0 {
+				return blocksFetched, bytesFetched, fmt.Errorf("PROTO: invalid block size for %s[%d]", file.Path, idx)
+			}
 			if resp.Size != len(data) {
-				return blocksFetched, bytesFetched, fmt.Errorf("block size mismatch for %s[%d]", file.Path, idx)
+				return blocksFetched, bytesFetched, fmt.Errorf("PROTO: block size mismatch for %s[%d]", file.Path, idx)
+			}
+			if strings.TrimSpace(resp.Hash) == "" {
+				return blocksFetched, bytesFetched, fmt.Errorf("PROTO: missing block hash for %s[%d]", file.Path, idx)
+			}
+			sum := sha256.Sum256(data)
+			if hex.EncodeToString(sum[:]) != strings.TrimSpace(resp.Hash) {
+				return blocksFetched, bytesFetched, fmt.Errorf("BLOCK_HASH_MISMATCH: %s[%d]", file.Path, idx)
 			}
 			blockOffset := int64(idx) * file.BlockSize
 			if _, err := out.WriteAt(data, blockOffset); err != nil {

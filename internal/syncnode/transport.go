@@ -92,12 +92,14 @@ type blockBatchRequest struct {
 }
 
 type blockResponse struct {
-	Type   string `json:"type"`
-	TaskID uint   `json:"taskId"`
-	Path   string `json:"path"`
-	Index  int    `json:"index"`
-	Hash   string `json:"hash"`
-	Size   int    `json:"size"`
+	Type      string `json:"type"`
+	TaskID    uint   `json:"taskId"`
+	Path      string `json:"path"`
+	Index     int    `json:"index"`
+	Hash      string `json:"hash"`
+	Size      int    `json:"size"`
+	ErrorCode string `json:"errorCode,omitempty"`
+	Error     string `json:"error,omitempty"`
 }
 
 type taskReportMsg struct {
@@ -482,11 +484,14 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 
 		// Serve block requests until task_report.
 		for {
+			_ = conn.SetReadDeadline(time.Now().Add(5 * time.Minute))
 			var envelope map[string]any
 			if err := ReadStreamMessage(conn, &envelope); err != nil {
+				_ = conn.SetReadDeadline(time.Time{})
 				_, _ = defaultTaskService.ReportTask(ctx, hello.NodeID, task.ID, TaskReport{Status: "failed", LastError: "connection lost: " + err.Error(), ErrorCode: "PROTO"})
 				return
 			}
+			_ = conn.SetReadDeadline(time.Time{})
 			typ, _ := envelope["type"].(string)
 			switch typ {
 			case "block_request":
@@ -499,14 +504,18 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 				touchConn(hello.NodeID)
 				entry, ok := indexEntries[req.Path]
 				if !ok {
-					_ = WriteStreamMessage(conn, blockResponse{Type: "block_response_bin", TaskID: task.ID, Path: req.Path, Index: req.Index, Hash: "", Size: 0})
+					_ = conn.SetWriteDeadline(time.Now().Add(2 * time.Minute))
+					_ = WriteStreamMessage(conn, blockResponse{Type: "block_response_bin", TaskID: task.ID, Path: req.Path, Index: req.Index, Hash: "", Size: 1, ErrorCode: "MISSING_ENTRY", Error: "index entry not found"})
 					_ = WriteStreamFrame(conn, []byte{})
+					_ = conn.SetWriteDeadline(time.Time{})
 					continue
 				}
 				data, err := defaultTaskService.ReadBlock(*task, entry, req.Index)
 				if err != nil {
-					_ = WriteStreamMessage(conn, blockResponse{Type: "block_response_bin", TaskID: task.ID, Path: req.Path, Index: req.Index, Hash: "", Size: 0})
+					_ = conn.SetWriteDeadline(time.Now().Add(2 * time.Minute))
+					_ = WriteStreamMessage(conn, blockResponse{Type: "block_response_bin", TaskID: task.ID, Path: req.Path, Index: req.Index, Hash: "", Size: 1, ErrorCode: "BLOCK_READ", Error: err.Error()})
 					_ = WriteStreamFrame(conn, []byte{})
+					_ = conn.SetWriteDeadline(time.Time{})
 					continue
 				}
 				sum := sha256.Sum256(data)
@@ -518,12 +527,16 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 					Hash:   hex.EncodeToString(sum[:]),
 					Size:   len(data),
 				}
+				_ = conn.SetWriteDeadline(time.Now().Add(2 * time.Minute))
 				if err := WriteStreamMessage(conn, resp); err != nil {
+					_ = conn.SetWriteDeadline(time.Time{})
 					return
 				}
 				if err := WriteStreamFrame(conn, data); err != nil {
+					_ = conn.SetWriteDeadline(time.Time{})
 					return
 				}
+				_ = conn.SetWriteDeadline(time.Time{})
 				touchConn(hello.NodeID)
 			case "block_batch_request":
 				var req blockBatchRequest
@@ -535,16 +548,19 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 				touchConn(hello.NodeID)
 				entry, ok := indexEntries[req.Path]
 				if !ok {
+					_ = conn.SetWriteDeadline(time.Now().Add(2 * time.Minute))
 					for _, idx := range req.Indices {
-						_ = WriteStreamMessage(conn, blockResponse{Type: "block_response_bin", TaskID: task.ID, Path: req.Path, Index: idx, Hash: "", Size: 0})
+						_ = WriteStreamMessage(conn, blockResponse{Type: "block_response_bin", TaskID: task.ID, Path: req.Path, Index: idx, Hash: "", Size: 1, ErrorCode: "MISSING_ENTRY", Error: "index entry not found"})
 						_ = WriteStreamFrame(conn, []byte{})
 					}
+					_ = conn.SetWriteDeadline(time.Time{})
 					continue
 				}
+				_ = conn.SetWriteDeadline(time.Now().Add(2 * time.Minute))
 				for _, idx := range req.Indices {
 					data, err := defaultTaskService.ReadBlock(*task, entry, idx)
 					if err != nil {
-						_ = WriteStreamMessage(conn, blockResponse{Type: "block_response_bin", TaskID: task.ID, Path: req.Path, Index: idx, Hash: "", Size: 0})
+						_ = WriteStreamMessage(conn, blockResponse{Type: "block_response_bin", TaskID: task.ID, Path: req.Path, Index: idx, Hash: "", Size: 1, ErrorCode: "BLOCK_READ", Error: err.Error()})
 						_ = WriteStreamFrame(conn, []byte{})
 						continue
 					}
@@ -558,13 +574,16 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 						Size:   len(data),
 					}
 					if err := WriteStreamMessage(conn, resp); err != nil {
+						_ = conn.SetWriteDeadline(time.Time{})
 						return
 					}
 					if err := WriteStreamFrame(conn, data); err != nil {
+						_ = conn.SetWriteDeadline(time.Time{})
 						return
 					}
 					touchConn(hello.NodeID)
 				}
+				_ = conn.SetWriteDeadline(time.Time{})
 			case "task_report":
 				var rep taskReportMsg
 				raw, _ := json.Marshal(envelope)

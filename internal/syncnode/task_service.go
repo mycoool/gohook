@@ -275,7 +275,20 @@ func (s *TaskService) ReportTask(ctx context.Context, nodeID, taskID uint, repor
 	case "success":
 		task.Status = TaskStatusSuccess
 	case "failed":
-		task.Status = TaskStatusFailed
+		maxAttempts := 3
+		if raw := strings.TrimSpace(os.Getenv("SYNC_TASK_MAX_ATTEMPTS")); raw != "" {
+			if v, err := strconv.Atoi(raw); err == nil && v > 0 {
+				maxAttempts = v
+			}
+		}
+		retryable := strings.EqualFold(report.ErrorCode, "TIMEOUT") ||
+			strings.EqualFold(report.ErrorCode, "PROTO") ||
+			strings.EqualFold(report.ErrorCode, "DISCONNECTED")
+		if retryable && task.Attempt < maxAttempts {
+			task.Status = TaskStatusRetrying
+		} else {
+			task.Status = TaskStatusFailed
+		}
 	default:
 		return nil, fmt.Errorf("invalid status: %s", report.Status)
 	}
@@ -530,23 +543,41 @@ func (s *TaskService) ReadBlock(task database.SyncTask, entry IndexFileEntry, in
 	if proj == nil {
 		return nil, fmt.Errorf("project not found")
 	}
+	if index < 0 {
+		return nil, fmt.Errorf("invalid block index")
+	}
+	if entry.BlockSize <= 0 {
+		return nil, fmt.Errorf("invalid block size")
+	}
 	root := proj.Path
 	full := filepath.Join(root, filepath.FromSlash(entry.Path))
 	f, err := os.Open(full)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("open %s: %w", entry.Path, err)
 	}
 	defer f.Close()
 	offset := int64(index) * entry.BlockSize
+	if offset < 0 || offset >= entry.Size {
+		return nil, fmt.Errorf("block index out of range")
+	}
 	if _, err := f.Seek(offset, io.SeekStart); err != nil {
 		return nil, err
 	}
-	buf := make([]byte, entry.BlockSize)
-	n, err := f.Read(buf)
-	if err != nil && !errors.Is(err, io.EOF) {
+	toRead := entry.BlockSize
+	if remaining := entry.Size - offset; remaining < toRead {
+		toRead = remaining
+	}
+	if toRead <= 0 {
+		return nil, fmt.Errorf("block index out of range")
+	}
+	buf := make([]byte, toRead)
+	if _, err := io.ReadFull(f, buf); err != nil {
+		if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+			return nil, fmt.Errorf("short read %s block %d", entry.Path, index)
+		}
 		return nil, err
 	}
-	return buf[:n], nil
+	return buf, nil
 }
 
 func findProject(name string) *types.ProjectConfig {
