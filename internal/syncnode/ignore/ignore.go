@@ -28,12 +28,23 @@ type rule struct {
 func New(root string, ignoreDefaults bool, patterns []string, ignoreFiles ...string) *Matcher {
 	var lines []string
 	if ignoreDefaults {
-		lines = append(lines, ".git/**", "runtime/**", "tmp/**")
+		// Default ignore list: ignore contents, but do not force-delete target-side runtime/tmp.
+		// Use dir-only rules so scanners can SkipDir early.
+		lines = append(lines, ".git/", "runtime/", "tmp/")
 	}
 	lines = append(lines, patterns...)
 	for _, ignoreFile := range ignoreFiles {
 		ignoreFile = strings.TrimSpace(ignoreFile)
 		if ignoreFile == "" {
+			continue
+		}
+		// Do not implicitly support Git ignore files; sync ignores should be explicit to avoid
+		// common cases where vendor/.env are in .gitignore but must be synced.
+		base := filepath.Base(ignoreFile)
+		if base == ".gitignore" {
+			continue
+		}
+		if strings.Contains(filepath.ToSlash(ignoreFile), ".git/info/exclude") {
 			continue
 		}
 		lines = append(lines, loadIgnoreFile(root, ignoreFile)...)

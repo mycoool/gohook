@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	syncignore "github.com/mycoool/gohook/internal/syncnode/ignore"
 	"github.com/mycoool/gohook/internal/syncnode"
 )
 
@@ -150,7 +151,13 @@ indexDone:
 	}
 
 	if strings.ToLower(payload.Strategy) == "" || strings.ToLower(payload.Strategy) == "mirror" {
-		if err := mirrorDeleteExtras(payload.TargetPath, expected); err != nil {
+		ig := syncignore.New(payload.TargetPath, payload.IgnoreDefaults, payload.IgnorePatterns)
+		// Keep runtime directory even when ignoring its contents.
+		if payload.IgnoreDefaults {
+			_ = os.MkdirAll(filepath.Join(payload.TargetPath, "runtime"), 0o755)
+		}
+
+		if err := mirrorDeleteExtras(payload.TargetPath, expected, ig); err != nil {
 			ce := classifyError(err)
 			_ = syncnode.WriteStreamMessage(conn, taskReportMsg{Type: "task_report", TaskID: task.ID, Status: "failed", LastError: ce.Message, ErrorCode: ce.Code})
 			return
@@ -275,7 +282,7 @@ func (a *Agent) applyFileBlocks(ctx context.Context, conn io.ReadWriter, taskID 
 	return blocksFetched, bytesFetched, nil
 }
 
-func mirrorDeleteExtras(targetRoot string, expected map[string]syncnode.IndexFileEntry) error {
+func mirrorDeleteExtras(targetRoot string, expected map[string]syncnode.IndexFileEntry, ig *syncignore.Matcher) error {
 	clean := filepath.Clean(targetRoot)
 	if clean == "" || clean == "/" || clean == "." {
 		return fmt.Errorf("refuse to mirror-delete on unsafe targetPath")
@@ -294,6 +301,12 @@ func mirrorDeleteExtras(targetRoot string, expected map[string]syncnode.IndexFil
 		rel = filepath.ToSlash(rel)
 		// skip temp files
 		if strings.Contains(rel, ".gohook-sync-tmp-") {
+			return nil
+		}
+		if ig != nil && ig.Match(rel, d.IsDir()) {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
 			return nil
 		}
 		if d.IsDir() {
