@@ -397,6 +397,7 @@ func (s *Service) RecordTCPDisconnected(ctx context.Context, nodeID uint) {
 		"last_seen": nil,
 	}).Error
 	markConnDisconnected(nodeID)
+	defaultTaskService.RequeueRunningTasksForNode(ctx, nodeID, "agent disconnected", "DISCONNECTED")
 	broadcastWS(wsTypeSyncNodeEvent, syncNodeEvent{NodeID: nodeID, Event: "disconnected"})
 }
 

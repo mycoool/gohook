@@ -334,7 +334,8 @@ func mapNode(node *database.SyncNode, summary nodeTaskSummary) nodeResponse {
 		lastSyncAt = summary.UpdatedAt
 		lastTaskProject = strings.TrimSpace(summary.ProjectName)
 		lastTaskTargetPath = strings.TrimSpace(summary.TargetPath)
-		if strings.ToLower(summary.Status) == "failed" {
+		switch strings.ToLower(summary.Status) {
+		case "failed", "retrying":
 			lastError = strings.TrimSpace(summary.LastError)
 			lastErrorCode = strings.TrimSpace(summary.ErrorCode)
 		}

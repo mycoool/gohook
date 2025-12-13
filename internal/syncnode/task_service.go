@@ -24,6 +24,7 @@ import (
 
 const (
 	TaskStatusPending  = "pending"
+	TaskStatusRetrying = "retrying"
 	TaskStatusRunning  = "running"
 	TaskStatusSuccess  = "success"
 	TaskStatusFailed   = "failed"
@@ -179,7 +180,7 @@ func (s *TaskService) PullNextTask(ctx context.Context, nodeID uint) (*database.
 
 	var task database.SyncTask
 	err = db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		q := tx.Where("node_id = ? AND status = ?", nodeID, TaskStatusPending).
+		q := tx.Where("node_id = ? AND status IN ?", nodeID, []string{TaskStatusPending, TaskStatusRetrying}).
 			Order("created_at ASC").
 			First(&task)
 		if q.Error != nil {
@@ -201,6 +202,58 @@ func (s *TaskService) PullNextTask(ctx context.Context, nodeID uint) (*database.
 	})
 	broadcastWS(wsTypeSyncProjectEvent, syncProjectEvent{ProjectName: task.ProjectName, Event: "tasks"})
 	return &task, nil
+}
+
+// RequeueRunningTasksForNode turns RUNNING tasks back into RETRYING when an agent disconnects.
+// This allows self-recovery on agent restart without leaving the UI stuck in RUNNING/SYNCING.
+func (s *TaskService) RequeueRunningTasksForNode(ctx context.Context, nodeID uint, reason, code string) {
+	if nodeID == 0 {
+		return
+	}
+	db, err := s.ensureDB()
+	if err != nil {
+		return
+	}
+
+	type row struct {
+		ID          uint
+		ProjectName string
+	}
+	var rows []row
+	if err := db.WithContext(ctx).
+		Model(&database.SyncTask{}).
+		Select("id, project_name").
+		Where("node_id = ? AND status = ?", nodeID, TaskStatusRunning).
+		Find(&rows).Error; err != nil {
+		return
+	}
+	if len(rows) == 0 {
+		return
+	}
+
+	ids := make([]uint, 0, len(rows))
+	projects := map[string]struct{}{}
+	for i := range rows {
+		ids = append(ids, rows[i].ID)
+		if strings.TrimSpace(rows[i].ProjectName) != "" {
+			projects[strings.TrimSpace(rows[i].ProjectName)] = struct{}{}
+		}
+	}
+
+	_ = db.WithContext(ctx).Model(&database.SyncTask{}).Where("id IN ?", ids).Updates(map[string]any{
+		"status":     TaskStatusRetrying,
+		"last_error": strings.TrimSpace(reason),
+		"error_code": strings.TrimSpace(code),
+	}).Error
+
+	broadcastWS(wsTypeSyncTaskEvent, map[string]any{
+		"event":   "requeued",
+		"nodeId":  nodeID,
+		"taskIds": ids,
+	})
+	for projectName := range projects {
+		broadcastWS(wsTypeSyncProjectEvent, syncProjectEvent{ProjectName: projectName, Event: "tasks"})
+	}
 }
 
 func (s *TaskService) ReportTask(ctx context.Context, nodeID, taskID uint, report TaskReport) (*database.SyncTask, error) {

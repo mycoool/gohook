@@ -151,7 +151,7 @@ func HandleListSyncProjects(c *gin.Context) {
 				n.LastTaskID = lt.ID
 				n.LastStatus = lt.Status
 				n.LastTaskAt = &lt.UpdatedAt
-				if lt.Status == "failed" {
+				if lt.Status == "failed" || lt.Status == "retrying" {
 					n.LastError = lt.LastError
 					n.LastErrorCode = lt.ErrorCode
 				}
