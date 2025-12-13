@@ -457,7 +457,7 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 				continue
 			}
 		}
-		started:
+	started:
 		_ = conn.SetReadDeadline(time.Time{})
 
 		// Stream index.

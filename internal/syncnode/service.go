@@ -438,7 +438,7 @@ func (s *Service) FindNodeByToken(ctx context.Context, token string) (*database.
 	return &node, nil
 }
 
-func (s *Service) runInstallRoutine(id uint, req InstallRequest) {
+func (s *Service) runInstallRoutine(id uint, _ InstallRequest) {
 	ctx := context.Background()
 	node, err := s.GetNode(ctx, id)
 	if err != nil {

@@ -12,14 +12,14 @@ import (
 )
 
 type runtimeStatus struct {
-	Type           string  `json:"type"`
-	NodeID         uint    `json:"nodeId"`
-	UpdatedAt      string  `json:"updatedAt"`
-	Hostname       string  `json:"hostname,omitempty"`
-	UptimeSec      uint64  `json:"uptimeSec,omitempty"`
-	CPUPercent     float64 `json:"cpuPercent,omitempty"`
-	MemUsedPercent float64 `json:"memUsedPercent,omitempty"`
-	Load1          float64 `json:"load1,omitempty"`
+	Type            string  `json:"type"`
+	NodeID          uint    `json:"nodeId"`
+	UpdatedAt       string  `json:"updatedAt"`
+	Hostname        string  `json:"hostname,omitempty"`
+	UptimeSec       uint64  `json:"uptimeSec,omitempty"`
+	CPUPercent      float64 `json:"cpuPercent,omitempty"`
+	MemUsedPercent  float64 `json:"memUsedPercent,omitempty"`
+	Load1           float64 `json:"load1,omitempty"`
 	DiskUsedPercent float64 `json:"diskUsedPercent,omitempty"`
 }
 
@@ -49,4 +49,3 @@ func collectRuntimeStatus(ctx context.Context, nodeID uint) runtimeStatus {
 
 	return out
 }
-

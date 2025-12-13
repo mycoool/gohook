@@ -37,4 +37,3 @@ func getRuntimeStatus(nodeID uint) (NodeRuntimeStatus, bool) {
 	runtimeRegistry.mu.RUnlock()
 	return st, ok
 }
-

@@ -257,31 +257,6 @@ func genConfig(t *testing.T, bin, hookTemplate string) (configPath string, clean
 	return path, func() { os.RemoveAll(tmp) }
 }
 
-func buildWebhook(t *testing.T) (binPath string, cleanupFn func()) {
-	tmp, err := os.MkdirTemp("", "webhook-test-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		if cleanupFn == nil {
-			os.RemoveAll(tmp)
-		}
-	}()
-
-	binPath = filepath.Join(tmp, "webhook")
-	if runtime.GOOS == "windows" {
-		binPath += ".exe"
-	}
-
-	gobin := "go"
-	cmd := exec.Command(gobin, "build", "-o", binPath)
-	if err := cmd.Run(); err != nil {
-		t.Fatalf("Building webhook: %v", err)
-	}
-
-	return binPath, func() { os.RemoveAll(tmp) }
-}
-
 func serverAddress(t *testing.T) (string, string) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {

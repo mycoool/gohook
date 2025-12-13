@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	syncignore "github.com/mycoool/gohook/internal/syncnode/ignore"
 	"github.com/mycoool/gohook/internal/syncnode"
+	syncignore "github.com/mycoool/gohook/internal/syncnode/ignore"
 )
 
 type indexBeginMsg struct {
