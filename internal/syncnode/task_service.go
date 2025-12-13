@@ -61,10 +61,14 @@ type IndexFileEntry struct {
 }
 
 type TaskReport struct {
-	Status    string `json:"status" binding:"required"` // success | failed
-	Logs      string `json:"logs"`
-	LastError string `json:"lastError"`
-	ErrorCode string `json:"errorCode"`
+	Status     string `json:"status" binding:"required"` // success | failed
+	Logs       string `json:"logs"`
+	LastError  string `json:"lastError"`
+	ErrorCode  string `json:"errorCode"`
+	Files      int    `json:"files,omitempty"`
+	Blocks     int    `json:"blocks,omitempty"`
+	Bytes      int64  `json:"bytes,omitempty"`
+	DurationMs int64  `json:"durationMs,omitempty"`
 }
 
 func (s *TaskService) ensureDB() (*gorm.DB, error) {
@@ -206,6 +210,18 @@ func (s *TaskService) ReportTask(ctx context.Context, nodeID, taskID uint, repor
 	}
 	task.LastError = report.LastError
 	task.ErrorCode = report.ErrorCode
+	if report.Files > 0 {
+		task.FilesTotal = report.Files
+	}
+	if report.Blocks > 0 {
+		task.BlocksTotal = report.Blocks
+	}
+	if report.Bytes > 0 {
+		task.BytesTotal = report.Bytes
+	}
+	if report.DurationMs > 0 {
+		task.DurationMs = report.DurationMs
+	}
 	if err := db.WithContext(ctx).Save(&task).Error; err != nil {
 		return nil, err
 	}

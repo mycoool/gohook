@@ -41,6 +41,30 @@ const formatTime = (value?: string) => {
     return date.toLocaleString();
 };
 
+const formatBytes = (value?: number) => {
+    const bytes = Number(value || 0);
+    if (!Number.isFinite(bytes) || bytes <= 0) return '--';
+    const units = ['B', 'KiB', 'MiB', 'GiB', 'TiB'];
+    let v = bytes;
+    let i = 0;
+    while (v >= 1024 && i < units.length - 1) {
+        v /= 1024;
+        i++;
+    }
+    return `${v.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+};
+
+const formatDuration = (ms?: number) => {
+    const v = Number(ms || 0);
+    if (!Number.isFinite(v) || v <= 0) return '--';
+    if (v < 1000) return `${v}ms`;
+    const sec = Math.round(v / 100) / 10;
+    if (sec < 60) return `${sec}s`;
+    const min = Math.floor(sec / 60);
+    const rem = Math.round((sec - min * 60) * 10) / 10;
+    return `${min}m ${rem}s`;
+};
+
 const statusColor = (status: string) => {
     switch ((status || '').toLowerCase()) {
         case 'success':
@@ -182,6 +206,7 @@ const SyncTaskDialog: React.FC<Props> = ({open, title, query, onClose, syncTaskS
                                 <TableCell>节点</TableCell>
                                 <TableCell>状态</TableCell>
                                 <TableCell>时间</TableCell>
+                                <TableCell>传输</TableCell>
                                 <TableCell>错误</TableCell>
                                 <TableCell>日志</TableCell>
                             </TableRow>
@@ -189,7 +214,7 @@ const SyncTaskDialog: React.FC<Props> = ({open, title, query, onClose, syncTaskS
                         <TableBody>
                             {tasks.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={7} align="center">
+                                    <TableCell colSpan={8} align="center">
                                         暂无任务
                                     </TableCell>
                                 </TableRow>
@@ -228,6 +253,15 @@ const SyncTaskDialog: React.FC<Props> = ({open, title, query, onClose, syncTaskS
                                                     {formatTime(t.updatedAt)}
                                                 </Typography>
                                             </TableCell>
+                                            <TableCell>
+                                                <Typography variant="body2">
+                                                    {t.blocks ? `${t.blocks} blocks` : '--'}
+                                                </Typography>
+                                                <Typography variant="caption" color="textSecondary">
+                                                    {formatBytes(t.bytes)} ·{' '}
+                                                    {formatDuration(t.durationMs)}
+                                                </Typography>
+                                            </TableCell>
                                             <TableCell>{renderError(t)}</TableCell>
                                             <TableCell>
                                                 {t.logs ? (
@@ -248,7 +282,7 @@ const SyncTaskDialog: React.FC<Props> = ({open, title, query, onClose, syncTaskS
                                         </TableRow>
                                         {t.logs ? (
                                             <TableRow>
-                                                <TableCell colSpan={7} sx={{py: 0}}>
+                                                <TableCell colSpan={8} sx={{py: 0}}>
                                                     <Collapse
                                                         in={!!expanded[t.id]}
                                                         timeout="auto"

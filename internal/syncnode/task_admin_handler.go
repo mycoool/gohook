@@ -22,6 +22,10 @@ type adminTaskResponse struct {
 	UpdatedAt   time.Time `json:"updatedAt"`
 	LastError   string    `json:"lastError,omitempty"`
 	ErrorCode   string    `json:"errorCode,omitempty"`
+	Files       int       `json:"files,omitempty"`
+	Blocks      int       `json:"blocks,omitempty"`
+	Bytes       int64     `json:"bytes,omitempty"`
+	DurationMs  int64     `json:"durationMs,omitempty"`
 	Logs        string    `json:"logs,omitempty"`
 }
 
@@ -84,6 +88,10 @@ func HandleListTasks(c *gin.Context) {
 			UpdatedAt:   t.UpdatedAt,
 			LastError:   t.LastError,
 			ErrorCode:   t.ErrorCode,
+			Files:       t.FilesTotal,
+			Blocks:      t.BlocksTotal,
+			Bytes:       t.BytesTotal,
+			DurationMs:  t.DurationMs,
 		}
 		if includeLogs {
 			resp.Logs = t.Logs

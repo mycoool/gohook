@@ -109,6 +109,10 @@ type SyncTask struct {
 	Logs        string `json:"logs" gorm:"type:text"`
 	LastError   string `json:"last_error" gorm:"type:text"`
 	ErrorCode   string `json:"error_code" gorm:"size:50;index"`
+	FilesTotal  int    `json:"files_total"`
+	BlocksTotal int    `json:"blocks_total"`
+	BytesTotal  int64  `json:"bytes_total"`
+	DurationMs  int64  `json:"duration_ms"`
 }
 
 // SyncFileChange represents pending change detected by scanner/watcher

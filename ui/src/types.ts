@@ -308,5 +308,9 @@ export interface ISyncTask {
     updatedAt: string;
     lastError?: string;
     errorCode?: string;
+    files?: number;
+    blocks?: number;
+    bytes?: number;
+    durationMs?: number;
     logs?: string;
 }

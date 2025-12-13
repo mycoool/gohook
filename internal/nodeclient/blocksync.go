@@ -41,6 +41,13 @@ type blockReqMsg struct {
 	Index  int    `json:"index"`
 }
 
+type blockBatchReqMsg struct {
+	Type    string `json:"type"`
+	TaskID  uint   `json:"taskId"`
+	Path    string `json:"path"`
+	Indices []int  `json:"indices"`
+}
+
 type blockRespMsg struct {
 	Type   string `json:"type"`
 	TaskID uint   `json:"taskId"`
@@ -51,15 +58,20 @@ type blockRespMsg struct {
 }
 
 type taskReportMsg struct {
-	Type      string `json:"type"`
-	TaskID    uint   `json:"taskId"`
-	Status    string `json:"status"`
-	Logs      string `json:"logs,omitempty"`
-	LastError string `json:"lastError,omitempty"`
-	ErrorCode string `json:"errorCode,omitempty"`
+	Type       string `json:"type"`
+	TaskID     uint   `json:"taskId"`
+	Status     string `json:"status"`
+	Logs       string `json:"logs,omitempty"`
+	LastError  string `json:"lastError,omitempty"`
+	ErrorCode  string `json:"errorCode,omitempty"`
+	Files      int    `json:"files,omitempty"`
+	Blocks     int    `json:"blocks,omitempty"`
+	Bytes      int64  `json:"bytes,omitempty"`
+	DurationMs int64  `json:"durationMs,omitempty"`
 }
 
 func (a *Agent) runTaskTCP(ctx context.Context, conn io.ReadWriter, task *taskResponse) {
+	startedAt := time.Now()
 	var payload taskPayload
 	if err := json.Unmarshal([]byte(task.Payload), &payload); err != nil {
 		ce := classifyError(err)
@@ -124,8 +136,13 @@ func (a *Agent) runTaskTCP(ctx context.Context, conn io.ReadWriter, task *taskRe
 indexDone:
 	// After receiving full index, request missing blocks. This avoids interleaving block responses
 	// with the still-streaming index_file messages.
+	var blocksFetched int
+	var bytesFetched int64
 	for i := range entries {
-		if err := a.applyFileBlocks(ctx, conn, task.ID, payload.TargetPath, payload.IgnorePermissions, entries[i]); err != nil {
+		bc, by, err := a.applyFileBlocks(ctx, conn, task.ID, payload.TargetPath, payload.IgnorePermissions, entries[i])
+		blocksFetched += bc
+		bytesFetched += by
+		if err != nil {
 			ce := classifyError(err)
 			_ = syncnode.WriteStreamMessage(conn, taskReportMsg{Type: "task_report", TaskID: task.ID, Status: "failed", LastError: ce.Message, ErrorCode: ce.Code})
 			return
@@ -140,13 +157,22 @@ indexDone:
 		}
 	}
 
-	_ = syncnode.WriteStreamMessage(conn, taskReportMsg{Type: "task_report", TaskID: task.ID, Status: "success", Logs: fmt.Sprintf("synced %d files", len(entries))})
+	_ = syncnode.WriteStreamMessage(conn, taskReportMsg{
+		Type:       "task_report",
+		TaskID:     task.ID,
+		Status:     "success",
+		Logs:       fmt.Sprintf("synced %d files, fetched %d blocks (%d bytes)", len(entries), blocksFetched, bytesFetched),
+		Files:      len(entries),
+		Blocks:     blocksFetched,
+		Bytes:      bytesFetched,
+		DurationMs: time.Since(startedAt).Milliseconds(),
+	})
 }
 
-func (a *Agent) applyFileBlocks(ctx context.Context, conn io.ReadWriter, taskID uint, targetRoot string, ignorePerms bool, file syncnode.IndexFileEntry) error {
+func (a *Agent) applyFileBlocks(ctx context.Context, conn io.ReadWriter, taskID uint, targetRoot string, ignorePerms bool, file syncnode.IndexFileEntry) (int, int64, error) {
 	dst := filepath.Join(targetRoot, filepath.FromSlash(file.Path))
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
-		return fmt.Errorf("create parent dir: %w", err)
+		return 0, 0, fmt.Errorf("create parent dir: %w", err)
 	}
 	tmp := dst + ".gohook-sync-tmp-" + fmt.Sprint(time.Now().UnixNano())
 
@@ -157,76 +183,96 @@ func (a *Agent) applyFileBlocks(ctx context.Context, conn io.ReadWriter, taskID 
 
 	out, err := os.OpenFile(tmp, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
 	if err != nil {
-		return fmt.Errorf("open temp file: %w", err)
+		return 0, 0, fmt.Errorf("open temp file: %w", err)
 	}
 	defer out.Close()
 	if err := out.Truncate(file.Size); err != nil {
-		return fmt.Errorf("truncate temp file: %w", err)
+		return 0, 0, fmt.Errorf("truncate temp file: %w", err)
 	}
 
-	for i, remoteHash := range file.Blocks {
-		blockOffset := int64(i) * file.BlockSize
-		blockLen := minInt64(file.BlockSize, file.Size-blockOffset)
-		if blockLen <= 0 {
-			break
+	missing := make([]int, 0, 64)
+	if src == nil {
+		for i := range file.Blocks {
+			missing = append(missing, i)
 		}
-
-		needFetch := true
-		if src != nil {
-			buf := make([]byte, blockLen)
-			n, rerr := src.ReadAt(buf, blockOffset)
-			if rerr == nil || errors.Is(rerr, io.EOF) {
-				sum := sha256.Sum256(buf[:n])
-				if hex.EncodeToString(sum[:]) == remoteHash {
-					needFetch = false
-					if _, err := out.WriteAt(buf[:n], blockOffset); err != nil {
-						return err
-					}
+	} else {
+		_, _ = src.Seek(0, io.SeekStart)
+		buf := make([]byte, file.BlockSize)
+		for i, remoteHash := range file.Blocks {
+			blockOffset := int64(i) * file.BlockSize
+			blockLen := minInt64(file.BlockSize, file.Size-blockOffset)
+			if blockLen <= 0 {
+				break
+			}
+			n, rerr := io.ReadFull(src, buf[:blockLen])
+			if rerr != nil && !errors.Is(rerr, io.EOF) && !errors.Is(rerr, io.ErrUnexpectedEOF) {
+				missing = append(missing, i)
+				continue
+			}
+			if int64(n) != blockLen {
+				missing = append(missing, i)
+				continue
+			}
+			sum := sha256.Sum256(buf[:n])
+			if remoteHash != "" && hex.EncodeToString(sum[:]) == remoteHash {
+				if _, err := out.WriteAt(buf[:n], blockOffset); err != nil {
+					return 0, 0, fmt.Errorf("write local block: %w", err)
 				}
+			} else {
+				missing = append(missing, i)
 			}
 		}
+	}
 
-		if needFetch {
-			if err := syncnode.WriteStreamMessage(conn, blockReqMsg{Type: "block_request", TaskID: taskID, Path: file.Path, Index: i}); err != nil {
-				return err
-			}
+	const batchSize = 32
+	var blocksFetched int
+	var bytesFetched int64
+	for i := 0; i < len(missing); i += batchSize {
+		end := i + batchSize
+		if end > len(missing) {
+			end = len(missing)
+		}
+		chunk := missing[i:end]
+		if err := syncnode.WriteStreamMessage(conn, blockBatchReqMsg{Type: "block_batch_request", TaskID: taskID, Path: file.Path, Indices: chunk}); err != nil {
+			return blocksFetched, bytesFetched, err
+		}
+		for _, idx := range chunk {
 			var resp blockRespMsg
 			if err := syncnode.ReadStreamMessage(conn, &resp); err != nil {
-				return fmt.Errorf("read block response: %w", err)
+				return blocksFetched, bytesFetched, fmt.Errorf("read block response: %w", err)
 			}
-			if resp.Type != "block_response_bin" || resp.TaskID != taskID || resp.Path != file.Path || resp.Index != i {
-				return fmt.Errorf("unexpected block response: type=%s taskId=%d path=%s index=%d", resp.Type, resp.TaskID, resp.Path, resp.Index)
+			if resp.Type != "block_response_bin" || resp.TaskID != taskID || resp.Path != file.Path || resp.Index != idx {
+				return blocksFetched, bytesFetched, fmt.Errorf("unexpected block response: type=%s taskId=%d path=%s index=%d", resp.Type, resp.TaskID, resp.Path, resp.Index)
 			}
 			data, err := syncnode.ReadStreamFrame(conn)
 			if err != nil {
-				return fmt.Errorf("read block frame: %w", err)
+				return blocksFetched, bytesFetched, fmt.Errorf("read block frame: %w", err)
 			}
 			if resp.Size != len(data) {
-				return fmt.Errorf("block size mismatch for %s[%d]", file.Path, i)
+				return blocksFetched, bytesFetched, fmt.Errorf("block size mismatch for %s[%d]", file.Path, idx)
 			}
-			sum := sha256.Sum256(data)
-			if remoteHash != "" && hex.EncodeToString(sum[:]) != remoteHash {
-				return fmt.Errorf("block hash mismatch for %s[%d]", file.Path, i)
-			}
+			blockOffset := int64(idx) * file.BlockSize
 			if _, err := out.WriteAt(data, blockOffset); err != nil {
-				return fmt.Errorf("write block: %w", err)
+				return blocksFetched, bytesFetched, fmt.Errorf("write block: %w", err)
 			}
+			blocksFetched++
+			bytesFetched += int64(len(data))
 		}
 	}
 
 	if err := out.Close(); err != nil {
-		return err
+		return blocksFetched, bytesFetched, err
 	}
 
 	// Atomic replace.
 	if err := os.Rename(tmp, dst); err != nil {
-		return fmt.Errorf("replace file: %w", err)
+		return blocksFetched, bytesFetched, fmt.Errorf("replace file: %w", err)
 	}
 	if !ignorePerms {
 		_ = os.Chmod(dst, os.FileMode(file.Mode))
 		_ = os.Chtimes(dst, time.Unix(file.MtimeUnix, 0), time.Unix(file.MtimeUnix, 0))
 	}
-	return nil
+	return blocksFetched, bytesFetched, nil
 }
 
 func mirrorDeleteExtras(targetRoot string, expected map[string]syncnode.IndexFileEntry) error {

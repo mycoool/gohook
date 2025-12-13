@@ -362,6 +362,12 @@ GoHook 与 Agent 之间新增 TCP/TLS 长连接，用于任务即时推送与后
 - `PROTO`：连接/协议异常（检查主节点与 Agent 版本一致性）
 - `TIMEOUT`：任务超时（连接中断或 Agent 卡住；默认 30 分钟，可通过 `SYNC_TASK_TIMEOUT` 调整）
 
+### 传输优化（新增）
+
+- Agent 会先完整接收索引（`index_end`）再发起块请求，避免索引与块响应交错导致协议错误。
+- 块传输支持批量请求（`block_batch_request`），减少消息往返与 CPU 解析开销。
+- 任务会记录传输统计：`files/blocks/bytes/durationMs`，可在“任务详情”中查看。
+
 ## 块级同步（自适应固定块，已接入长连接）
 
 GoHook 参考 Syncthing 的“自适应固定块 + SHA-256”策略：

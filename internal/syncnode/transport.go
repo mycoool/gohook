@@ -84,6 +84,13 @@ type blockRequest struct {
 	Index  int    `json:"index"`
 }
 
+type blockBatchRequest struct {
+	Type    string `json:"type"`
+	TaskID  uint   `json:"taskId"`
+	Path    string `json:"path"`
+	Indices []int  `json:"indices"`
+}
+
 type blockResponse struct {
 	Type   string `json:"type"`
 	TaskID uint   `json:"taskId"`
@@ -94,12 +101,16 @@ type blockResponse struct {
 }
 
 type taskReportMsg struct {
-	Type      string `json:"type"`
-	TaskID    uint   `json:"taskId"`
-	Status    string `json:"status"`
-	Logs      string `json:"logs,omitempty"`
-	LastError string `json:"lastError,omitempty"`
-	ErrorCode string `json:"errorCode,omitempty"`
+	Type       string `json:"type"`
+	TaskID     uint   `json:"taskId"`
+	Status     string `json:"status"`
+	Logs       string `json:"logs,omitempty"`
+	LastError  string `json:"lastError,omitempty"`
+	ErrorCode  string `json:"errorCode,omitempty"`
+	Files      int    `json:"files,omitempty"`
+	Blocks     int    `json:"blocks,omitempty"`
+	Bytes      int64  `json:"bytes,omitempty"`
+	DurationMs int64  `json:"durationMs,omitempty"`
 }
 
 // StartAgentTCPServer starts a TLS-enabled TCP server for agent long connections.
@@ -350,10 +361,14 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 					status = "success"
 				}
 				_, _ = defaultTaskService.ReportTask(ctx, hello.NodeID, task.ID, TaskReport{
-					Status:    status,
-					Logs:      rep.Logs,
-					LastError: rep.LastError,
-					ErrorCode: rep.ErrorCode,
+					Status:     status,
+					Logs:       rep.Logs,
+					LastError:  rep.LastError,
+					ErrorCode:  rep.ErrorCode,
+					Files:      rep.Files,
+					Blocks:     rep.Blocks,
+					Bytes:      rep.Bytes,
+					DurationMs: rep.DurationMs,
 				})
 				goto nextTask
 			default:
@@ -423,6 +438,44 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 				if err := WriteStreamFrame(conn, data); err != nil {
 					return
 				}
+			case "block_batch_request":
+				var req blockBatchRequest
+				raw, _ := json.Marshal(envelope)
+				_ = json.Unmarshal(raw, &req)
+				if req.TaskID != task.ID || req.Path == "" || len(req.Indices) == 0 {
+					continue
+				}
+				entry, ok := indexEntries[req.Path]
+				if !ok {
+					for _, idx := range req.Indices {
+						_ = WriteStreamMessage(conn, blockResponse{Type: "block_response_bin", TaskID: task.ID, Path: req.Path, Index: idx, Hash: "", Size: 0})
+						_ = WriteStreamFrame(conn, []byte{})
+					}
+					continue
+				}
+				for _, idx := range req.Indices {
+					data, err := defaultTaskService.ReadBlock(*task, entry, idx)
+					if err != nil {
+						_ = WriteStreamMessage(conn, blockResponse{Type: "block_response_bin", TaskID: task.ID, Path: req.Path, Index: idx, Hash: "", Size: 0})
+						_ = WriteStreamFrame(conn, []byte{})
+						continue
+					}
+					sum := sha256.Sum256(data)
+					resp := blockResponse{
+						Type:   "block_response_bin",
+						TaskID: task.ID,
+						Path:   req.Path,
+						Index:  idx,
+						Hash:   hex.EncodeToString(sum[:]),
+						Size:   len(data),
+					}
+					if err := WriteStreamMessage(conn, resp); err != nil {
+						return
+					}
+					if err := WriteStreamFrame(conn, data); err != nil {
+						return
+					}
+				}
 			case "task_report":
 				var rep taskReportMsg
 				raw, _ := json.Marshal(envelope)
@@ -434,7 +487,7 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 				if strings.ToLower(rep.Status) == "success" {
 					status = "success"
 				}
-				_, _ = defaultTaskService.ReportTask(ctx, hello.NodeID, task.ID, TaskReport{Status: status, Logs: rep.Logs, LastError: rep.LastError, ErrorCode: rep.ErrorCode})
+				_, _ = defaultTaskService.ReportTask(ctx, hello.NodeID, task.ID, TaskReport{Status: status, Logs: rep.Logs, LastError: rep.LastError, ErrorCode: rep.ErrorCode, Files: rep.Files, Blocks: rep.Blocks, Bytes: rep.Bytes, DurationMs: rep.DurationMs})
 				goto nextTask
 			default:
 				continue
