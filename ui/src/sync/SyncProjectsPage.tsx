@@ -172,7 +172,7 @@ const SyncProjectsPage: React.FC<Props> = ({syncProjectStore, syncNodeStore, cur
                     open={!!selected}
                     projectName={selected.projectName}
                     projectPath={selected.path}
-                    availableNodes={syncNodeStore.all}
+                    availableNodes={syncNodeStore.all.filter((n) => n.type === 'agent')}
                     initialSync={selected.sync}
                     saving={syncProjectStore.saving}
                     onClose={() => setSelected(null)}

@@ -57,7 +57,8 @@ type NodeListFilter struct {
 // CreateNodeRequest payload
 type CreateNodeRequest struct {
 	Name          string                 `json:"name" binding:"required"`
-	Address       string                 `json:"address"`
+	Address       string                 `json:"address"` // ssh host (legacy); for agents, connection address is reported automatically
+	Remark        string                 `json:"remark"`
 	Type          string                 `json:"type" binding:"required"`
 	SSHUser       string                 `json:"sshUser"`
 	SSHPort       int                    `json:"sshPort"`
@@ -70,7 +71,8 @@ type CreateNodeRequest struct {
 // UpdateNodeRequest payload (full replace)
 type UpdateNodeRequest struct {
 	Name          string                 `json:"name"`
-	Address       string                 `json:"address"`
+	Address       string                 `json:"address"` // ssh host (legacy)
+	Remark        string                 `json:"remark"`
 	Type          string                 `json:"type"`
 	SSHUser       string                 `json:"sshUser"`
 	SSHPort       int                    `json:"sshPort"`
@@ -116,7 +118,7 @@ func (s *Service) ListNodes(ctx context.Context, filter NodeListFilter) ([]datab
 	}
 	if filter.Search != "" {
 		like := "%" + filter.Search + "%"
-		query = query.Where("name LIKE ? OR address LIKE ?", like, like)
+		query = query.Where("name LIKE ? OR address LIKE ? OR remark LIKE ?", like, like, like)
 	}
 
 	var nodes []database.SyncNode
@@ -148,17 +150,19 @@ func (s *Service) CreateNode(ctx context.Context, req CreateNodeRequest) (*datab
 	if err != nil {
 		return nil, err
 	}
-	token, err := GenerateNodeToken()
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate node token: %w", err)
-	}
 	node := &database.SyncNode{
-		Status:          NodeStatusOffline,
-		Health:          NodeHealthUnknown,
-		InstallStatus:   InstallStatusPending,
-		CredentialValue: token,
+		Status:        NodeStatusOffline,
+		Health:        NodeHealthUnknown,
+		InstallStatus: InstallStatusPending,
 	}
 	s.applyCreateRequest(node, req)
+	if node.Type == NodeTypeAgent {
+		token, err := GenerateNodeToken()
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate node token: %w", err)
+		}
+		node.CredentialValue = token
+	}
 
 	if err := db.WithContext(ctx).Create(node).Error; err != nil {
 		return nil, err
@@ -177,6 +181,13 @@ func (s *Service) UpdateNode(ctx context.Context, id uint, req UpdateNodeRequest
 	}
 
 	s.applyUpdateRequest(node, req)
+	if node.Type == NodeTypeAgent && strings.TrimSpace(node.CredentialValue) == "" {
+		token, err := GenerateNodeToken()
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate node token: %w", err)
+		}
+		node.CredentialValue = token
+	}
 
 	db, err := s.ensureDB()
 	if err != nil {
@@ -310,7 +321,7 @@ func (s *Service) RecordHeartbeat(ctx context.Context, id uint, req HeartbeatReq
 }
 
 // RecordTCPConnected marks node online based on an authenticated TCP/mTLS connection.
-func (s *Service) RecordTCPConnected(ctx context.Context, nodeID uint, agentName, agentVersion string) error {
+func (s *Service) RecordTCPConnected(ctx context.Context, nodeID uint, agentName, agentVersion, remoteAddr string) error {
 	db, err := s.ensureDB()
 	if err != nil {
 		return err
@@ -331,6 +342,9 @@ func (s *Service) RecordTCPConnected(ctx context.Context, nodeID uint, agentName
 	if node.InstallStatus != InstallStatusSuccess {
 		node.InstallStatus = InstallStatusSuccess
 	}
+	if node.Type == NodeTypeAgent && strings.TrimSpace(remoteAddr) != "" {
+		node.Address = strings.TrimSpace(remoteAddr)
+	}
 
 	meta := decodeMap(node.Metadata)
 	agentMeta := map[string]interface{}{
@@ -339,6 +353,9 @@ func (s *Service) RecordTCPConnected(ctx context.Context, nodeID uint, agentName
 	}
 	if strings.TrimSpace(agentName) != "" {
 		agentMeta["hostname"] = agentName
+	}
+	if strings.TrimSpace(remoteAddr) != "" {
+		agentMeta["remoteAddr"] = strings.TrimSpace(remoteAddr)
 	}
 	meta["agent"] = agentMeta
 	node.Metadata = encodeMap(meta)
@@ -456,12 +473,17 @@ func (s *Service) runInstallRoutine(id uint, req InstallRequest) {
 
 func (s *Service) applyCreateRequest(node *database.SyncNode, req CreateNodeRequest) {
 	node.Name = req.Name
-	node.Address = req.Address
+	node.Remark = strings.TrimSpace(req.Remark)
 	node.Type = normalizeNodeType(req.Type)
 	if node.Type == NodeTypeSSH {
+		node.Address = strings.TrimSpace(req.Address)
+		if node.Remark == "" {
+			node.Remark = strings.TrimSpace(req.Address)
+		}
 		node.SSHUser = fallbackSSHUser(req.SSHUser)
 		node.SSHPort = defaultPort(req.SSHPort)
 	} else {
+		node.Address = ""
 		node.SSHUser = ""
 		node.SSHPort = 0
 	}
@@ -475,13 +497,19 @@ func (s *Service) applyUpdateRequest(node *database.SyncNode, req UpdateNodeRequ
 	if req.Name != "" {
 		node.Name = req.Name
 	}
-	if req.Address != "" {
-		node.Address = req.Address
+	if strings.TrimSpace(req.Remark) != "" {
+		node.Remark = strings.TrimSpace(req.Remark)
+	} else if strings.TrimSpace(req.Address) != "" && strings.TrimSpace(node.Remark) == "" {
+		// Backward compatibility: old clients used "address" as a free-form note.
+		node.Remark = strings.TrimSpace(req.Address)
 	}
 	if req.Type != "" {
 		node.Type = normalizeNodeType(req.Type)
 	}
 	if node.Type == NodeTypeSSH {
+		if strings.TrimSpace(req.Address) != "" {
+			node.Address = strings.TrimSpace(req.Address)
+		}
 		if req.SSHUser != "" {
 			node.SSHUser = req.SSHUser
 		} else if node.SSHUser == "" {
@@ -501,6 +529,10 @@ func (s *Service) applyUpdateRequest(node *database.SyncNode, req UpdateNodeRequ
 	}
 	if req.CredentialRef != "" {
 		node.CredentialRef = req.CredentialRef
+	}
+	if node.Type != NodeTypeAgent {
+		node.CredentialValue = ""
+		node.AgentCertFingerprint = ""
 	}
 	if req.Tags != nil {
 		node.Tags = encodeStringSlice(req.Tags)
@@ -646,19 +678,11 @@ func (req CreateNodeRequest) Validate() error {
 	if strings.TrimSpace(req.Type) == "" {
 		req.Type = NodeTypeAgent
 	}
-	// Scheme B: sync transport is agent-only (TCP/mTLS). Keep existing ssh nodes readable,
-	// but prevent creating new ones to avoid misleading configuration.
-	if normalizeNodeType(req.Type) != NodeTypeAgent {
-		return errors.New("only agent nodes are supported")
-	}
 	return nil
 }
 
 // ValidateUpdate ensures updates won't switch node to unsupported types.
 func (req UpdateNodeRequest) ValidateUpdate() error {
-	if strings.TrimSpace(req.Type) != "" && normalizeNodeType(req.Type) != NodeTypeAgent {
-		return errors.New("only agent nodes are supported")
-	}
 	return nil
 }
 func (s *Service) ensureDB() (*gorm.DB, error) {

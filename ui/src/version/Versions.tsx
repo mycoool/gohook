@@ -161,7 +161,9 @@ class Versions extends Component<
                         open={true}
                         projectName={this.syncConfigDialogProject.name}
                         projectPath={this.syncConfigDialogProject.path}
-                        availableNodes={this.props.syncNodeStore.all}
+                        availableNodes={this.props.syncNodeStore.all.filter(
+                            (n) => n.type === 'agent'
+                        )}
                         initialSync={this.syncConfigDialogProject.sync}
                         saving={this.props.syncProjectStore.saving}
                         onClose={() => (this.syncConfigDialogProject = null)}

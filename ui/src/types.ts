@@ -266,6 +266,7 @@ export interface ISyncNode {
     id: number;
     name: string;
     address: string;
+    remark?: string;
     type: string;
     status: string;
     health: string;

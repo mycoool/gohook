@@ -11,6 +11,7 @@ import {
     InputAdornment,
     IconButton,
     Tooltip,
+    MenuItem,
 } from '@mui/material';
 import {SyncNodePayload} from './SyncNodeStore';
 import {ISyncNode} from '../types';
@@ -33,13 +34,17 @@ interface SyncNodeDialogProps {
 
 interface FormState {
     name: string;
-    address: string;
+    type: string;
+    remark: string;
+    sshAddress: string;
     tags: string;
 }
 
 const defaultState: FormState = {
     name: '',
-    address: '',
+    type: 'agent',
+    remark: '',
+    sshAddress: '',
     tags: '',
 };
 
@@ -70,11 +75,13 @@ const SyncNodeDialog: React.FC<SyncNodeDialogProps> = ({
         if (node && mode === 'edit') {
             setForm({
                 name: node.name,
-                address: node.address,
+                type: node.type || 'agent',
+                remark: node.remark || '',
+                sshAddress: node.type === 'ssh' ? node.address : '',
                 tags: (node.tags || []).join(', '),
             });
             setCreatedNode(null);
-            setToken(node.agentToken || null);
+            setToken(node.type === 'agent' ? node.agentToken || null : null);
             setTokenVisible(false);
             setTokenCopied(false);
             setCopyError(false);
@@ -99,22 +106,31 @@ const SyncNodeDialog: React.FC<SyncNodeDialogProps> = ({
         (key: keyof FormState) =>
         (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
             const value = event.target.value;
+            if (key === 'type' && value !== 'agent') {
+                setToken(null);
+                setTokenVisible(false);
+            }
             setForm((prev) => ({...prev, [key]: value}));
         };
 
     const handleSubmit = async () => {
         const payload: SyncNodePayload = {
             name: form.name.trim(),
-            type: 'agent',
-            address: form.address.trim(),
+            type: form.type,
+            remark: form.remark.trim(),
             tags: parseList(form.tags),
         };
+        if (form.type === 'ssh') {
+            payload.address = form.sshAddress.trim();
+        }
 
         const result = await onSubmit(payload, node?.id);
         if (mode === 'create' && result) {
-            setCreatedNode(result);
-            setToken(result.agentToken || null);
-            return;
+            if (payload.type === 'agent') {
+                setCreatedNode(result);
+                setToken(result.agentToken || null);
+                return;
+            }
         }
         if (mode === 'edit' && result) {
             setToken(result.agentToken || null);
@@ -123,7 +139,7 @@ const SyncNodeDialog: React.FC<SyncNodeDialogProps> = ({
     };
 
     const currentNode = createdNode || node || null;
-    const showTokenSection = !!token && !!currentNode;
+    const showTokenSection = !!token && !!currentNode && currentNode.type === 'agent';
 
     return (
         <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
@@ -145,15 +161,47 @@ const SyncNodeDialog: React.FC<SyncNodeDialogProps> = ({
                             required
                         />
                     </Box>
+                    <Box>
+                        <TextField
+                            select
+                            label={t('syncNodes.type')}
+                            value={form.type}
+                            onChange={handleChange('type')}
+                            fullWidth>
+                            <MenuItem value="agent">{t('syncNodes.typeAgent')}</MenuItem>
+                            <MenuItem value="ssh">{t('syncNodes.typeSSH')}</MenuItem>
+                        </TextField>
+                    </Box>
                     <Box sx={{gridColumn: {xs: 'span 1', sm: 'span 2'}}}>
                         <TextField
-                            label={t('syncNodes.address')}
-                            value={form.address}
-                            onChange={handleChange('address')}
+                            label={t('syncNodes.remark')}
+                            value={form.remark}
+                            onChange={handleChange('remark')}
                             fullWidth
-                            helperText={t('syncNodes.addressHelp')}
+                            helperText={t('syncNodes.remarkHelp')}
                         />
                     </Box>
+                    {form.type === 'ssh' ? (
+                        <Box sx={{gridColumn: {xs: 'span 1', sm: 'span 2'}}}>
+                            <TextField
+                                label={t('syncNodes.sshAddress')}
+                                value={form.sshAddress}
+                                onChange={handleChange('sshAddress')}
+                                fullWidth
+                                helperText={t('syncNodes.sshAddressHelp')}
+                            />
+                        </Box>
+                    ) : null}
+                    {mode === 'edit' && form.type === 'agent' && node?.address ? (
+                        <Box sx={{gridColumn: {xs: 'span 1', sm: 'span 2'}}}>
+                            <TextField
+                                label={t('syncNodes.autoAddress')}
+                                value={node.address}
+                                fullWidth
+                                disabled
+                            />
+                        </Box>
+                    ) : null}
                     <Box sx={{gridColumn: {xs: 'span 1', sm: 'span 2'}}}>
                         <TextField
                             label={t('syncNodes.tags')}

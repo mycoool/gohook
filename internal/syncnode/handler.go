@@ -21,6 +21,7 @@ type nodeResponse struct {
 	ID                   uint                   `json:"id"`
 	Name                 string                 `json:"name"`
 	Address              string                 `json:"address"`
+	Remark               string                 `json:"remark"`
 	Type                 string                 `json:"type"`
 	Status               string                 `json:"status"`
 	Health               string                 `json:"health"`
@@ -301,6 +302,7 @@ func mapNode(node *database.SyncNode, summary nodeTaskSummary) nodeResponse {
 		ID:                   node.ID,
 		Name:                 node.Name,
 		Address:              node.Address,
+		Remark:               node.Remark,
 		Type:                 node.Type,
 		Status:               status,
 		Health:               health,

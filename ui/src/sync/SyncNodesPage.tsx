@@ -154,6 +154,7 @@ const SyncNodesPage: React.FC<Props> = ({syncNodeStore, currentUser}) => {
                                 <TableRow>
                                     <TableCell>名称</TableCell>
                                     <TableCell>地址</TableCell>
+                                    <TableCell>备注</TableCell>
                                     <TableCell>连接状态</TableCell>
                                     <TableCell>同步状态</TableCell>
                                     <TableCell>标签</TableCell>
@@ -163,7 +164,7 @@ const SyncNodesPage: React.FC<Props> = ({syncNodeStore, currentUser}) => {
                             <TableBody>
                                 {nodes.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={6}>
+                                        <TableCell colSpan={7}>
                                             <Typography align="center" color="textSecondary">
                                                 {syncNodeStore.loading
                                                     ? '加载节点中...'
@@ -187,11 +188,12 @@ const SyncNodesPage: React.FC<Props> = ({syncNodeStore, currentUser}) => {
                                                         color="textSecondary">
                                                         {node.type === 'agent'
                                                             ? 'Sync Agent'
-                                                            : 'LEGACY'}
+                                                            : 'SSH + rsync（暂不支持）'}
                                                     </Typography>
                                                 </Stack>
                                             </TableCell>
-                                            <TableCell>{node.address}</TableCell>
+                                            <TableCell>{node.address || '--'}</TableCell>
+                                            <TableCell>{node.remark || '--'}</TableCell>
                                             <TableCell>
                                                 <Chip
                                                     label={connectionLabel(node)}
@@ -236,7 +238,10 @@ const SyncNodesPage: React.FC<Props> = ({syncNodeStore, currentUser}) => {
                                                             onClick={() =>
                                                                 syncNodeStore.resetPairing(node.id)
                                                             }
-                                                            disabled={syncNodeStore.saving}>
+                                                            disabled={
+                                                                syncNodeStore.saving ||
+                                                                node.type !== 'agent'
+                                                            }>
                                                             <LinkOffIcon fontSize="small" />
                                                         </IconButton>
                                                     </span>

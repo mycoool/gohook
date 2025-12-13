@@ -6,8 +6,9 @@ import {ISyncNode} from '../types';
 
 export interface SyncNodePayload {
     name: string;
-    address?: string;
     type: string;
+    remark?: string;
+    address?: string;
     sshUser?: string;
     sshPort?: number;
     authType?: string;

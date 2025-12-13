@@ -236,7 +236,7 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 	_ = WriteStreamMessage(conn, helloAck{Type: "hello_ack", OK: true, Server: "gohook"})
 
 	// Heartbeat via TCP connection: mark online on connect, touch periodically, mark offline on close.
-	_ = svc.RecordTCPConnected(ctx, hello.NodeID, hello.AgentName, hello.AgentVersion)
+	_ = svc.RecordTCPConnected(ctx, hello.NodeID, hello.AgentName, hello.AgentVersion, conn.RemoteAddr().String())
 	touchStop := make(chan struct{})
 	defer close(touchStop)
 	go func() {
@@ -256,6 +256,7 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 	defer svc.RecordTCPDisconnected(ctx, hello.NodeID)
 
 	// Single-task loop: push next task, then serve index/blocks until report arrives.
+	idleBackoff := 1 * time.Second
 	for {
 		select {
 		case <-ctx.Done():
@@ -266,12 +267,20 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 		task, err := defaultTaskService.PullNextTask(ctx, hello.NodeID)
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				time.Sleep(2 * time.Second)
+				time.Sleep(idleBackoff)
+				if idleBackoff < 10*time.Second {
+					idleBackoff *= 2
+					if idleBackoff > 10*time.Second {
+						idleBackoff = 10 * time.Second
+					}
+				}
 				continue
 			}
+			idleBackoff = 1 * time.Second
 			time.Sleep(2 * time.Second)
 			continue
 		}
+		idleBackoff = 1 * time.Second
 
 		if err := WriteStreamMessage(conn, taskPush{Type: "task", Task: mapTask(task)}); err != nil {
 			return
