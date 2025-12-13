@@ -10,6 +10,7 @@ const (
 	wsTypeSyncNodeEvent    = "sync_node_event"
 	wsTypeSyncTaskEvent    = "sync_task_event"
 	wsTypeSyncProjectEvent = "sync_project_event"
+	wsTypeSyncNodeStatus   = "sync_node_status"
 )
 
 type syncNodeEvent struct {
@@ -37,4 +38,3 @@ func broadcastWS(typ string, data any) {
 		Data:      data,
 	})
 }
-

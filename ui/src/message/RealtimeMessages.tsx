@@ -66,7 +66,8 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
             message.type === 'pong' ||
             message.type === 'sync_node_event' ||
             message.type === 'sync_task_event' ||
-            message.type === 'sync_project_event'
+            message.type === 'sync_project_event' ||
+            message.type === 'sync_node_status'
         ) {
             return;
         }

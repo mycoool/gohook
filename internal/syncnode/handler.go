@@ -45,6 +45,7 @@ type nodeResponse struct {
 	InstallLog           string                 `json:"installLog"`
 	AgentVersion         string                 `json:"agentVersion"`
 	LastSeen             *time.Time             `json:"lastSeen"`
+	Runtime              *NodeRuntimeStatus     `json:"runtime,omitempty"`
 	CreatedAt            time.Time              `json:"createdAt"`
 	UpdatedAt            time.Time              `json:"updatedAt"`
 }
@@ -341,6 +342,12 @@ func mapNode(node *database.SyncNode, summary nodeTaskSummary) nodeResponse {
 		}
 	}
 
+	var runtime *NodeRuntimeStatus
+	if rs, ok := getRuntimeStatus(node.ID); ok {
+		copy := rs
+		runtime = &copy
+	}
+
 	return nodeResponse{
 		ID:                   node.ID,
 		Name:                 node.Name,
@@ -368,6 +375,7 @@ func mapNode(node *database.SyncNode, summary nodeTaskSummary) nodeResponse {
 		InstallLog:           node.InstallLog,
 		AgentVersion:         node.AgentVersion,
 		LastSeen:             lastSeen,
+		Runtime:              runtime,
 		CreatedAt:            node.CreatedAt,
 		UpdatedAt:            node.UpdatedAt,
 	}

@@ -195,6 +195,7 @@ export class WebSocketStore {
             case 'sync_node_event':
             case 'sync_task_event':
             case 'sync_project_event':
+            case 'sync_node_status':
                 // 同步相关事件用于驱动页面数据刷新，不弹通知，避免刷屏
                 break;
             case 'hook_triggered': {

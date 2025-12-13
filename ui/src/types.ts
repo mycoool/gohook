@@ -292,8 +292,19 @@ export interface ISyncNode {
     installLog?: string;
     agentVersion?: string;
     lastSeen?: string;
+    runtime?: ISyncNodeRuntime;
     createdAt?: string;
     updatedAt?: string;
+}
+
+export interface ISyncNodeRuntime {
+    updatedAt?: string;
+    hostname?: string;
+    uptimeSec?: number;
+    cpuPercent?: number;
+    memUsedPercent?: number;
+    load1?: number;
+    diskUsedPercent?: number;
 }
 
 export interface ISyncTask {

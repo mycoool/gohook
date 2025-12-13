@@ -113,6 +113,18 @@ type taskReportMsg struct {
 	DurationMs int64  `json:"durationMs,omitempty"`
 }
 
+type nodeStatusMsg struct {
+	Type            string  `json:"type"`
+	NodeID          uint    `json:"nodeId"`
+	UpdatedAt       string  `json:"updatedAt"`
+	Hostname        string  `json:"hostname,omitempty"`
+	UptimeSec       uint64  `json:"uptimeSec,omitempty"`
+	CPUPercent      float64 `json:"cpuPercent,omitempty"`
+	MemUsedPercent  float64 `json:"memUsedPercent,omitempty"`
+	Load1           float64 `json:"load1,omitempty"`
+	DiskUsedPercent float64 `json:"diskUsedPercent,omitempty"`
+}
+
 // StartAgentTCPServer starts a TLS-enabled TCP server for agent long connections.
 // Env:
 // - SYNC_TCP_ADDR (default ":9001")
@@ -279,6 +291,17 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 
 	// Single-task loop: push next task, then serve index/blocks until report arrives.
 	idleBackoff := 1 * time.Second
+	pingEvery := 2 * time.Second
+	if raw := strings.TrimSpace(os.Getenv("SYNC_AGENT_PING_INTERVAL")); raw != "" {
+		if d, err := time.ParseDuration(raw); err == nil && d > 0 {
+			// safety clamp: avoid overwhelming the agent/server with too frequent pings
+			if d < 500*time.Millisecond {
+				d = 500 * time.Millisecond
+			}
+			pingEvery = d
+		}
+	}
+	nextPing := time.Now()
 	for {
 		select {
 		case <-ctx.Done():
@@ -289,6 +312,13 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 		task, err := defaultTaskService.PullNextTask(ctx, hello.NodeID)
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
+				now := time.Now()
+				if now.Before(nextPing) {
+					time.Sleep(idleBackoff)
+					continue
+				}
+				nextPing = now.Add(pingEvery)
+
 				// Idle liveness check: send a small frame periodically so that server can detect
 				// closed sockets (agent stopped) even when no tasks are being dispatched.
 				//
@@ -301,6 +331,34 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 				}
 				_ = conn.SetWriteDeadline(time.Time{})
 				touchConn(hello.NodeID)
+
+				// Best-effort: read one status frame back (timeout is expected).
+				_ = conn.SetReadDeadline(time.Now().Add(600 * time.Millisecond))
+				var reply map[string]any
+				if err := ReadStreamMessage(conn, &reply); err == nil {
+					if typ, _ := reply["type"].(string); typ == "node_status" {
+						raw, _ := json.Marshal(reply)
+						var st nodeStatusMsg
+						if json.Unmarshal(raw, &st) == nil && st.NodeID != 0 {
+							updated := time.Now()
+							if ts, err := time.Parse(time.RFC3339, strings.TrimSpace(st.UpdatedAt)); err == nil {
+								updated = ts
+							}
+							rs := NodeRuntimeStatus{
+								UpdatedAt:       updated,
+								Hostname:        strings.TrimSpace(st.Hostname),
+								UptimeSec:       st.UptimeSec,
+								CPUPercent:      st.CPUPercent,
+								MemUsedPercent:  st.MemUsedPercent,
+								Load1:           st.Load1,
+								DiskUsedPercent: st.DiskUsedPercent,
+							}
+							setRuntimeStatus(st.NodeID, rs)
+							broadcastWS(wsTypeSyncNodeStatus, map[string]any{"nodeId": st.NodeID, "runtime": rs})
+						}
+					}
+				}
+				_ = conn.SetReadDeadline(time.Time{})
 
 				time.Sleep(idleBackoff)
 				if idleBackoff < 2*time.Second {
@@ -340,6 +398,27 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 
 			typ, _ := envelope["type"].(string)
 			switch typ {
+			case "node_status":
+				raw, _ := json.Marshal(envelope)
+				var st nodeStatusMsg
+				if json.Unmarshal(raw, &st) == nil && st.NodeID != 0 {
+					updated := time.Now()
+					if ts, err := time.Parse(time.RFC3339, strings.TrimSpace(st.UpdatedAt)); err == nil {
+						updated = ts
+					}
+					rs := NodeRuntimeStatus{
+						UpdatedAt:       updated,
+						Hostname:        strings.TrimSpace(st.Hostname),
+						UptimeSec:       st.UptimeSec,
+						CPUPercent:      st.CPUPercent,
+						MemUsedPercent:  st.MemUsedPercent,
+						Load1:           st.Load1,
+						DiskUsedPercent: st.DiskUsedPercent,
+					}
+					setRuntimeStatus(st.NodeID, rs)
+					broadcastWS(wsTypeSyncNodeStatus, map[string]any{"nodeId": st.NodeID, "runtime": rs})
+				}
+				continue
 			case "sync_start":
 				var start syncStart
 				raw, _ := json.Marshal(envelope)
@@ -500,6 +579,27 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 				}
 				_, _ = defaultTaskService.ReportTask(ctx, hello.NodeID, task.ID, TaskReport{Status: status, Logs: rep.Logs, LastError: rep.LastError, ErrorCode: rep.ErrorCode, Files: rep.Files, Blocks: rep.Blocks, Bytes: rep.Bytes, DurationMs: rep.DurationMs})
 				goto nextTask
+			case "node_status":
+				raw, _ := json.Marshal(envelope)
+				var st nodeStatusMsg
+				if json.Unmarshal(raw, &st) == nil && st.NodeID != 0 {
+					updated := time.Now()
+					if ts, err := time.Parse(time.RFC3339, strings.TrimSpace(st.UpdatedAt)); err == nil {
+						updated = ts
+					}
+					rs := NodeRuntimeStatus{
+						UpdatedAt:       updated,
+						Hostname:        strings.TrimSpace(st.Hostname),
+						UptimeSec:       st.UptimeSec,
+						CPUPercent:      st.CPUPercent,
+						MemUsedPercent:  st.MemUsedPercent,
+						Load1:           st.Load1,
+						DiskUsedPercent: st.DiskUsedPercent,
+					}
+					setRuntimeStatus(st.NodeID, rs)
+					broadcastWS(wsTypeSyncNodeStatus, map[string]any{"nodeId": st.NodeID, "runtime": rs})
+				}
+				continue
 			default:
 				continue
 			}

@@ -114,8 +114,17 @@ func (a *Agent) connectAndServeTCP(ctx context.Context) error {
 				log.Printf("nodeclient: tcp read error: %v", err)
 				return err
 			}
-			if msg.Type == "task" && msg.Task.ID != 0 {
-				a.runTaskTCP(ctx, conn, &msg.Task)
+			switch msg.Type {
+			case "task":
+				if msg.Task.ID != 0 {
+					a.runTaskTCP(ctx, conn, &msg.Task)
+				}
+			case "server_ping":
+				// Respond with lightweight runtime status snapshot (in-memory on server).
+				status := collectRuntimeStatus(ctx, a.cfg.ID)
+				_ = syncnode.WriteStreamMessage(conn, status)
+			default:
+				// ignore
 			}
 		}
 	}

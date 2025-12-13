@@ -2,7 +2,7 @@ import axios from 'axios';
 import {action, computed, observable, runInAction} from 'mobx';
 import * as config from '../config';
 import {SnackReporter} from '../snack/SnackManager';
-import {ISyncNode} from '../types';
+import {ISyncNode, ISyncNodeRuntime} from '../types';
 
 export interface SyncNodePayload {
     name: string;
@@ -49,6 +49,23 @@ export class SyncNodeStore {
         this.loading = false;
         this.saving = false;
     }
+
+    @action
+    public applyRuntimeUpdate = (nodeId: number, runtime: ISyncNodeRuntime) => {
+        const idx = this.nodes.findIndex((n) => n.id === nodeId);
+        if (idx === -1) return;
+        this.nodes = this.nodes.map((n) =>
+            n.id === nodeId
+                ? {
+                      ...n,
+                      runtime: {
+                          ...(n.runtime || {}),
+                          ...(runtime || {}),
+                      },
+                  }
+                : n
+        );
+    };
 
     @action
     public refreshNodes = async () => {
