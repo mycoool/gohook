@@ -293,8 +293,11 @@
    - 默认监听 `SYNC_TCP_ADDR=":9001"`，证书目录 `SYNC_TLS_DIR="./sync_tls"`（首次启动自动生成）。
 
 3. **子节点：启动 Agent**
-   - 必需：`SYNC_NODE_ID` / `SYNC_NODE_TOKEN` / `SYNC_API_BASE` / `SYNC_TCP_ENDPOINT`
-   - 可选：`SYNC_AGENT_TLS_DIR` / `SYNC_SERVER_FINGERPRINT`
+   - 推荐（最简）：仅提供 `server + token`，Agent 会自动 enroll 获取 `nodeId` 并持久化到 `data-dir`。
+     - CLI：`./nodeclient --server 10.0.0.10:9001 --token <TOKEN>`
+   - 默认持久化目录：`~/.gohook-agent`（可选：`--data-dir /var/lib/gohook-agent`）
+   - 可选：`--server-fingerprint <sha256-hex>`（严格校验服务端证书指纹；否则使用 TOFU）
+   - 兼容：仍支持传统环境变量 `SYNC_TCP_ENDPOINT` / `SYNC_NODE_TOKEN` / `SYNC_NODE_ID` 等
 
 4. **主节点：项目开启同步**
    - 版本管理 → 项目行“同步配置”按钮：启用、选择节点、设置 `target_path`、配置 ignore 与 `ignore_permissions`。
@@ -322,14 +325,19 @@ GoHook 与 Agent 之间新增 TCP/TLS 长连接，用于任务即时推送与后
 
 ### Agent
 
-1. 设置 TCP 端点（必须）：
-   - `SYNC_TCP_ENDPOINT="10.0.0.10:9001"`
-2. Agent 首次启动会在 `SYNC_AGENT_TLS_DIR` 生成自签客户端证书：
-   - `SYNC_AGENT_TLS_DIR="./agent_tls"`
-   - 生成 `client.crt` / `client.key`
-3. 服务端指纹校验：
-   - 推荐预先设置 `SYNC_SERVER_FINGERPRINT="<sha256-hex>"`。
-   - 若未设置，Agent 会在首次连接时信任并保存到 `agent_tls/server.fp`（TOFU），后续必须匹配。
+1. 推荐使用 CLI 参数启动（最少参数）：
+   - `./nodeclient --server 10.0.0.10:9001 --token <TOKEN>`
+   - 首次连接会发送 `enroll(token)` 获取 `nodeId`，并保存到 `data-dir/state.json`，后续重启无需再手动提供 `nodeId`。
+2. 持久化目录（默认 `~/.gohook-agent`）：
+   - `state.json`：保存 `nodeId/token/server`
+   - `tls/`：保存 `client.crt` / `client.key` 与 `server.fp`（TOFU）
+3. 使用 `.env`（可选）：
+   - 可通过 `--env-file /path/to/.env` 指定；也会自动尝试加载 `./.env` 与 `<data-dir>/.env`
+   - 推荐变量：`GOHOOK_SERVER` / `GOHOOK_TOKEN` / `GOHOOK_DATA_DIR`
+   - 兼容变量：`SYNC_TCP_ENDPOINT` / `SYNC_NODE_TOKEN` / `SYNC_AGENT_TLS_DIR` / `SYNC_SERVER_FINGERPRINT`
+4. 服务端指纹校验（可选）：
+   - `--server-fingerprint <sha256-hex>` 或设置 `GOHOOK_SERVER_FINGERPRINT`
+   - 若未设置，Agent 会在首次连接时信任并保存到 `tls/server.fp`（TOFU），后续必须匹配。
 
 连接建立后，任务通过长连接即时下发；**Agent 不再回退到 HTTP 轮询**，必须配置 `SYNC_TCP_ENDPOINT` 才能执行同步任务。
 当连接中断时，Agent 会自动按指数退避重连（最大 30s 间隔）。

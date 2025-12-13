@@ -21,16 +21,28 @@ import (
 // connectAndServeTCP tries to establish a long-lived mTLS connection for task push.
 // It blocks until the connection breaks or ctx is cancelled.
 func (a *Agent) connectAndServeTCP(ctx context.Context) error {
-	endpoint := os.Getenv("SYNC_TCP_ENDPOINT")
-	if strings.TrimSpace(endpoint) == "" {
+	endpoint := strings.TrimSpace(a.cfg.Endpoint)
+	if endpoint == "" {
+		endpoint = strings.TrimSpace(os.Getenv("GOHOOK_SERVER"))
+	}
+	if endpoint == "" {
+		endpoint = strings.TrimSpace(os.Getenv("SYNC_TCP_ENDPOINT"))
+	}
+	if endpoint == "" {
 		return errors.New("SYNC_TCP_ENDPOINT not set")
 	}
-	tlsDir := os.Getenv("SYNC_AGENT_TLS_DIR")
-	if strings.TrimSpace(tlsDir) == "" {
+	tlsDir := strings.TrimSpace(a.cfg.TLSDir)
+	if tlsDir == "" {
+		tlsDir = strings.TrimSpace(os.Getenv("GOHOOK_TLS_DIR"))
+	}
+	if tlsDir == "" {
+		tlsDir = strings.TrimSpace(os.Getenv("SYNC_AGENT_TLS_DIR"))
+	}
+	if tlsDir == "" {
 		tlsDir = "./agent_tls"
 	}
 
-	cfg, err := loadOrCreateClientTLS(tlsDir)
+	cfg, err := loadOrCreateClientTLS(tlsDir, a.cfg.ServerFingerprint)
 	if err != nil {
 		log.Printf("nodeclient: tls init failed: %v", err)
 		return err
@@ -47,6 +59,13 @@ func (a *Agent) connectAndServeTCP(ctx context.Context) error {
 		log.Printf("nodeclient: tls handshake failed: %v", err)
 		conn.Close()
 		return err
+	}
+
+	if a.cfg.ID == 0 {
+		if err := a.enrollNode(ctx, conn, endpoint); err != nil {
+			conn.Close()
+			return err
+		}
 	}
 
 	hello := map[string]any{
@@ -88,7 +107,7 @@ func (a *Agent) connectAndServeTCP(ctx context.Context) error {
 			return nil
 		default:
 			var msg struct {
-				Type string        `json:"type"`
+				Type string       `json:"type"`
 				Task taskResponse `json:"task"`
 			}
 			if err := syncnode.ReadStreamMessage(conn, &msg); err != nil {
@@ -102,7 +121,7 @@ func (a *Agent) connectAndServeTCP(ctx context.Context) error {
 	}
 }
 
-func loadOrCreateClientTLS(dir string) (*tls.Config, error) {
+func loadOrCreateClientTLS(dir string, serverFPOverride string) (*tls.Config, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, err
 	}
@@ -118,7 +137,13 @@ func loadOrCreateClientTLS(dir string) (*tls.Config, error) {
 		return nil, err
 	}
 
-	serverFP := strings.TrimSpace(os.Getenv("SYNC_SERVER_FINGERPRINT"))
+	serverFP := strings.TrimSpace(serverFPOverride)
+	if serverFP == "" {
+		serverFP = strings.TrimSpace(os.Getenv("GOHOOK_SERVER_FINGERPRINT"))
+	}
+	if serverFP == "" {
+		serverFP = strings.TrimSpace(os.Getenv("SYNC_SERVER_FINGERPRINT"))
+	}
 	fpFile := filepath.Join(dir, "server.fp")
 	if serverFP == "" {
 		if b, err := os.ReadFile(fpFile); err == nil {
@@ -127,8 +152,8 @@ func loadOrCreateClientTLS(dir string) (*tls.Config, error) {
 	}
 
 	cfg := &tls.Config{
-		MinVersion:   tls.VersionTLS12,
-		Certificates: []tls.Certificate{cert},
+		MinVersion:         tls.VersionTLS12,
+		Certificates:       []tls.Certificate{cert},
 		InsecureSkipVerify: true,
 		VerifyPeerCertificate: func(rawCerts [][]byte, _ [][]*x509.Certificate) error {
 			if len(rawCerts) == 0 {
@@ -164,4 +189,51 @@ func generateSelfSignedCert(certPath, keyPath, cn string) error {
 		return err
 	}
 	return nil
+}
+
+func (a *Agent) enrollNode(ctx context.Context, conn net.Conn, endpoint string) error {
+	if strings.TrimSpace(a.cfg.Token) == "" {
+		return errors.New("missing node token")
+	}
+
+	enroll := map[string]any{
+		"type":         "enroll",
+		"token":        a.cfg.Token,
+		"agentName":    a.cfg.NodeName,
+		"agentVersion": a.cfg.Version,
+	}
+	if err := syncnode.WriteStreamMessage(conn, enroll); err != nil {
+		return err
+	}
+
+	var ack struct {
+		Type   string `json:"type"`
+		OK     bool   `json:"ok"`
+		Error  string `json:"error"`
+		NodeID uint   `json:"nodeId"`
+	}
+	if err := syncnode.ReadStreamMessage(conn, &ack); err != nil || !ack.OK || ack.NodeID == 0 {
+		if err != nil {
+			return err
+		}
+		if ack.Error != "" {
+			return errors.New(ack.Error)
+		}
+		return errors.New("enroll rejected")
+	}
+	a.cfg.ID = ack.NodeID
+	log.Printf("nodeclient: enrolled node id %d", a.cfg.ID)
+	a.saveState(endpoint)
+	return nil
+}
+
+func (a *Agent) saveState(endpoint string) {
+	if strings.TrimSpace(a.statePath) == "" {
+		return
+	}
+	_ = SaveState(a.statePath, State{
+		NodeID: a.cfg.ID,
+		Token:  a.cfg.Token,
+		Server: endpoint,
+	})
 }

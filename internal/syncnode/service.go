@@ -386,6 +386,28 @@ func (s *Service) ValidateAgentToken(ctx context.Context, id uint, token string)
 	return node, nil
 }
 
+// FindNodeByToken finds a node by its agent token. Used for enrollment when the agent does not know its node id yet.
+func (s *Service) FindNodeByToken(ctx context.Context, token string) (*database.SyncNode, error) {
+	if strings.TrimSpace(token) == "" {
+		return nil, ErrInvalidToken
+	}
+	db, err := s.ensureDB()
+	if err != nil {
+		return nil, err
+	}
+	var node database.SyncNode
+	if err := db.WithContext(ctx).
+		Where("credential_value = ?", token).
+		Where("type = ?", NodeTypeAgent).
+		First(&node).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrInvalidToken
+		}
+		return nil, err
+	}
+	return &node, nil
+}
+
 func (s *Service) runInstallRoutine(id uint, req InstallRequest) {
 	ctx := context.Background()
 	node, err := s.GetNode(ctx, id)

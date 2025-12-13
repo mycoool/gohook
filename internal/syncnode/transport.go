@@ -33,6 +33,21 @@ type helloAck struct {
 	Server string `json:"server,omitempty"`
 }
 
+type enrollMessage struct {
+	Type         string `json:"type"`
+	Token        string `json:"token"`
+	AgentName    string `json:"agentName,omitempty"`
+	AgentVersion string `json:"agentVersion,omitempty"`
+}
+
+type enrollAck struct {
+	Type   string `json:"type"`
+	OK     bool   `json:"ok"`
+	Error  string `json:"error,omitempty"`
+	NodeID uint   `json:"nodeId,omitempty"`
+	Server string `json:"server,omitempty"`
+}
+
 type taskPush struct {
 	Type string       `json:"type"`
 	Task taskResponse `json:"task"`
@@ -141,11 +156,52 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 		_ = tconn.SetDeadline(time.Time{})
 	}
 
-	var hello helloMessage
-	if err := ReadStreamMessage(conn, &hello); err != nil {
+	firstFrame, err := ReadStreamFrame(conn)
+	if err != nil {
 		return
 	}
-	if hello.Type != "hello" || hello.NodeID == 0 {
+
+	var base streamMessage
+	if err := json.Unmarshal(firstFrame, &base); err != nil {
+		return
+	}
+
+	// Enrollment: allow agent to discover nodeId using only token.
+	if base.Type == "enroll" {
+		var enroll enrollMessage
+		if err := json.Unmarshal(firstFrame, &enroll); err != nil {
+			return
+		}
+		svc := NewService()
+		node, err := svc.FindNodeByToken(ctx, enroll.Token)
+		if err != nil {
+			_ = WriteStreamMessage(conn, enrollAck{Type: "enroll_ack", OK: false, Error: "invalid token"})
+			return
+		}
+		_ = WriteStreamMessage(conn, enrollAck{Type: "enroll_ack", OK: true, NodeID: node.ID, Server: "gohook"})
+
+		// Expect hello next.
+		nextFrame, err := ReadStreamFrame(conn)
+		if err != nil {
+			return
+		}
+		firstFrame = nextFrame
+		if err := json.Unmarshal(firstFrame, &base); err != nil {
+			return
+		}
+	}
+
+	if base.Type != "hello" {
+		_ = WriteStreamMessage(conn, helloAck{Type: "hello_ack", OK: false, Error: "invalid hello"})
+		return
+	}
+
+	var hello helloMessage
+	if err := json.Unmarshal(firstFrame, &hello); err != nil {
+		_ = WriteStreamMessage(conn, helloAck{Type: "hello_ack", OK: false, Error: "invalid hello"})
+		return
+	}
+	if hello.NodeID == 0 {
 		_ = WriteStreamMessage(conn, helloAck{Type: "hello_ack", OK: false, Error: "invalid hello"})
 		return
 	}

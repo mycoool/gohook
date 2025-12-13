@@ -24,8 +24,8 @@ type indexBeginMsg struct {
 }
 
 type indexFileMsg struct {
-	Type   string               `json:"type"`
-	TaskID uint                 `json:"taskId"`
+	Type   string                  `json:"type"`
+	TaskID uint                    `json:"taskId"`
 	File   syncnode.IndexFileEntry `json:"file"`
 }
 

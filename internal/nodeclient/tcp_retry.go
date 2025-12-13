@@ -9,9 +9,15 @@ import (
 )
 
 func (a *Agent) serveTCPWithRetry(ctx context.Context) {
-	endpoint := os.Getenv("SYNC_TCP_ENDPOINT")
-	if strings.TrimSpace(endpoint) == "" {
-		log.Printf("nodeclient: SYNC_TCP_ENDPOINT not set; TCP sync disabled")
+	endpoint := strings.TrimSpace(a.cfg.Endpoint)
+	if endpoint == "" {
+		endpoint = strings.TrimSpace(os.Getenv("GOHOOK_SERVER"))
+	}
+	if endpoint == "" {
+		endpoint = strings.TrimSpace(os.Getenv("SYNC_TCP_ENDPOINT"))
+	}
+	if endpoint == "" {
+		log.Printf("nodeclient: server endpoint not set; TCP sync disabled")
 		return
 	}
 
