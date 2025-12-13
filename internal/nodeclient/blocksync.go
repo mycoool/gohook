@@ -160,11 +160,23 @@ indexDone:
 			_ = os.MkdirAll(filepath.Join(payload.TargetPath, "runtime"), 0o755)
 		}
 
-		if err := mirrorDeleteExtras(payload.TargetPath, expected, ig); err != nil {
+		if shouldUseFastMirrorDelete() {
+			if _, err := mirrorDeleteFromManifest(payload.TargetPath, expected, ig); err != nil {
+				// Fallback to strict cleanup when manifest is missing/corrupt.
+				if err := mirrorDeleteExtras(payload.TargetPath, expected, ig); err != nil {
+					ce := classifyError(err)
+					_ = syncnode.WriteStreamMessage(conn, taskReportMsg{Type: "task_report", TaskID: task.ID, Status: "failed", LastError: ce.Message, ErrorCode: ce.Code})
+					return
+				}
+			}
+		} else if err := mirrorDeleteExtras(payload.TargetPath, expected, ig); err != nil {
 			ce := classifyError(err)
 			_ = syncnode.WriteStreamMessage(conn, taskReportMsg{Type: "task_report", TaskID: task.ID, Status: "failed", LastError: ce.Message, ErrorCode: ce.Code})
 			return
 		}
+
+		// Best-effort: persist expected file list for future fast mirror deletions.
+		_ = writeMirrorManifest(payload.TargetPath, expected, ig)
 	}
 
 	_ = syncnode.WriteStreamMessage(conn, taskReportMsg{
