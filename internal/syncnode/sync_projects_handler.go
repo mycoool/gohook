@@ -18,8 +18,11 @@ type syncProjectNodeSummary struct {
 	NodeName      string     `json:"nodeName"`
 	Health        string     `json:"health"`
 	TargetPath    string     `json:"targetPath"`
+	LastTaskID    uint       `json:"lastTaskId,omitempty"`
 	LastStatus    string     `json:"lastStatus,omitempty"`
 	LastTaskAt    *time.Time `json:"lastTaskAt,omitempty"`
+	LastError     string     `json:"lastError,omitempty"`
+	LastErrorCode string     `json:"lastErrorCode,omitempty"`
 	LastSuccessAt *time.Time `json:"lastSuccessAt,omitempty"`
 }
 
@@ -76,13 +79,16 @@ func HandleListSyncProjects(c *gin.Context) {
 		}
 
 		type lastTaskRow struct {
+			ID        uint
 			NodeID    uint
 			Status    string
 			UpdatedAt time.Time
+			LastError string
+			ErrorCode string
 		}
 		var lastTasks []lastTaskRow
 		_ = db.WithContext(c.Request.Context()).Raw(
-			`SELECT node_id, status, updated_at
+			`SELECT id, node_id, status, updated_at, last_error, error_code
 			   FROM sync_tasks
 			  WHERE project_name = ?
 			    AND id IN (SELECT MAX(id) FROM sync_tasks WHERE project_name = ? GROUP BY node_id)`,
@@ -138,8 +144,13 @@ func HandleListSyncProjects(c *gin.Context) {
 			}
 
 			if lt, ok := lastTaskByNode[nodeID]; ok {
+				n.LastTaskID = lt.ID
 				n.LastStatus = lt.Status
 				n.LastTaskAt = &lt.UpdatedAt
+				if lt.Status == "failed" {
+					n.LastError = lt.LastError
+					n.LastErrorCode = lt.ErrorCode
+				}
 				if lt.Status == "failed" {
 					anyFailed = true
 				}

@@ -23,6 +23,7 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import LinkOffIcon from '@mui/icons-material/LinkOff';
+import ListAltIcon from '@mui/icons-material/ListAlt';
 import DefaultPage from '../common/DefaultPage';
 import ConfirmDialog from '../common/ConfirmDialog';
 import {inject, Stores} from '../inject';
@@ -31,6 +32,7 @@ import {observer} from 'mobx-react';
 import SyncNodeDialog from './SyncNodeDialog';
 import {SyncNodePayload} from './SyncNodeStore';
 import {useLocation} from 'react-router-dom';
+import SyncTaskDialog from './SyncTaskDialog';
 
 type Props = Stores<'syncNodeStore' | 'currentUser'>;
 
@@ -85,6 +87,7 @@ const SyncNodesPage: React.FC<Props> = ({syncNodeStore, currentUser}) => {
     const [dialogMode, setDialogMode] = useState<'create' | 'edit'>('create');
     const [selectedNode, setSelectedNode] = useState<ISyncNode | null>(null);
     const [deleteTarget, setDeleteTarget] = useState<ISyncNode | null>(null);
+    const [taskDialogNode, setTaskDialogNode] = useState<ISyncNode | null>(null);
 
     const location = useLocation();
     const highlightId = useMemo(() => {
@@ -204,11 +207,27 @@ const SyncNodesPage: React.FC<Props> = ({syncNodeStore, currentUser}) => {
                                             </TableCell>
                                             <TableCell>
                                                 <Stack spacing={0.5}>
-                                                    <Chip
-                                                        label={syncLabel(node)}
-                                                        size="small"
-                                                        color={syncColor(node.syncStatus)}
-                                                    />
+                                                    <Tooltip
+                                                        title={
+                                                            node.syncStatus === 'FAILED' &&
+                                                            node.lastError
+                                                                ? `${node.lastTaskProject || ''} ${
+                                                                      node.lastTaskTargetPath || ''
+                                                                  }\n${node.lastError}${
+                                                                      node.lastErrorCode
+                                                                          ? `\n[${node.lastErrorCode}]`
+                                                                          : ''
+                                                                  }`
+                                                                : ''
+                                                        }>
+                                                        <span>
+                                                            <Chip
+                                                                label={syncLabel(node)}
+                                                                size="small"
+                                                                color={syncColor(node.syncStatus)}
+                                                            />
+                                                        </span>
+                                                    </Tooltip>
                                                     {node.lastSyncAt ? (
                                                         <Typography
                                                             variant="caption"
@@ -231,6 +250,16 @@ const SyncNodesPage: React.FC<Props> = ({syncNodeStore, currentUser}) => {
                                                     : '--'}
                                             </TableCell>
                                             <TableCell align="right">
+                                                <Tooltip title="查看任务/错误详情">
+                                                    <span>
+                                                        <IconButton
+                                                            size="small"
+                                                            onClick={() => setTaskDialogNode(node)}
+                                                            disabled={syncNodeStore.saving}>
+                                                            <ListAltIcon fontSize="small" />
+                                                        </IconButton>
+                                                    </span>
+                                                </Tooltip>
                                                 <Tooltip title="重置配对（清空 mTLS 指纹，等待 Agent 重新连接）">
                                                     <span>
                                                         <IconButton
@@ -280,6 +309,15 @@ const SyncNodesPage: React.FC<Props> = ({syncNodeStore, currentUser}) => {
                 onSubmit={handleSubmit}
                 onRotateToken={(id) => syncNodeStore.rotateToken(id)}
             />
+
+            {taskDialogNode ? (
+                <SyncTaskDialog
+                    open={!!taskDialogNode}
+                    title={`任务详情 - ${taskDialogNode.name}`}
+                    query={{nodeId: taskDialogNode.id, limit: 50}}
+                    onClose={() => setTaskDialogNode(null)}
+                />
+            ) : null}
 
             {deleteTarget ? (
                 <ConfirmDialog

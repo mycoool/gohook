@@ -12,6 +12,7 @@ import {PluginStore} from './plugin/PluginStore';
 import {AppConfigStore} from './app/AppConfigStore';
 import {SyncNodeStore} from './sync/SyncNodeStore';
 import {SyncProjectStore} from './sync/SyncProjectStore';
+import {SyncTaskStore} from './sync/SyncTaskStore';
 
 export interface StoreMapping {
     userStore: UserStore;
@@ -25,6 +26,7 @@ export interface StoreMapping {
     appConfigStore: AppConfigStore;
     syncNodeStore: SyncNodeStore;
     syncProjectStore: SyncProjectStore;
+    syncTaskStore: SyncTaskStore;
 }
 
 export type AllStores = Extract<keyof StoreMapping, string>;

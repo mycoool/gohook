@@ -63,6 +63,7 @@ type TaskReport struct {
 	Status    string `json:"status" binding:"required"` // success | failed
 	Logs      string `json:"logs"`
 	LastError string `json:"lastError"`
+	ErrorCode string `json:"errorCode"`
 }
 
 func (s *TaskService) ensureDB() (*gorm.DB, error) {
@@ -203,6 +204,7 @@ func (s *TaskService) ReportTask(ctx context.Context, nodeID, taskID uint, repor
 		task.Logs = appendLogLine(task.Logs, report.Logs)
 	}
 	task.LastError = report.LastError
+	task.ErrorCode = report.ErrorCode
 	if err := db.WithContext(ctx).Save(&task).Error; err != nil {
 		return nil, err
 	}

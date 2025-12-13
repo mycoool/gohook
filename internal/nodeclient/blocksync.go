@@ -56,17 +56,25 @@ type taskReportMsg struct {
 	Status    string `json:"status"`
 	Logs      string `json:"logs,omitempty"`
 	LastError string `json:"lastError,omitempty"`
+	ErrorCode string `json:"errorCode,omitempty"`
 }
 
 func (a *Agent) runTaskTCP(ctx context.Context, conn io.ReadWriter, task *taskResponse) {
 	var payload taskPayload
 	if err := json.Unmarshal([]byte(task.Payload), &payload); err != nil {
-		_ = syncnode.WriteStreamMessage(conn, taskReportMsg{Type: "task_report", TaskID: task.ID, Status: "failed", LastError: err.Error()})
+		ce := classifyError(err)
+		_ = syncnode.WriteStreamMessage(conn, taskReportMsg{Type: "task_report", TaskID: task.ID, Status: "failed", LastError: ce.Message, ErrorCode: ce.Code})
 		return
 	}
 
 	if payload.TargetPath == "" || payload.TargetPath == "/" {
-		_ = syncnode.WriteStreamMessage(conn, taskReportMsg{Type: "task_report", TaskID: task.ID, Status: "failed", LastError: "invalid targetPath"})
+		_ = syncnode.WriteStreamMessage(conn, taskReportMsg{Type: "task_report", TaskID: task.ID, Status: "failed", LastError: "invalid targetPath", ErrorCode: "INVALID_TARGET"})
+		return
+	}
+
+	if err := ensureTargetWritable(payload.TargetPath); err != nil {
+		ce := classifyError(err)
+		_ = syncnode.WriteStreamMessage(conn, taskReportMsg{Type: "task_report", TaskID: task.ID, Status: "failed", LastError: ce.Message, ErrorCode: ce.Code})
 		return
 	}
 
@@ -76,7 +84,7 @@ func (a *Agent) runTaskTCP(ctx context.Context, conn io.ReadWriter, task *taskRe
 
 	var begin indexBeginMsg
 	if err := syncnode.ReadStreamMessage(conn, &begin); err != nil || begin.Type != "index_begin" || begin.TaskID != task.ID {
-		_ = syncnode.WriteStreamMessage(conn, taskReportMsg{Type: "task_report", TaskID: task.ID, Status: "failed", LastError: "missing index_begin"})
+		_ = syncnode.WriteStreamMessage(conn, taskReportMsg{Type: "task_report", TaskID: task.ID, Status: "failed", LastError: "missing index_begin", ErrorCode: "PROTO"})
 		return
 	}
 
@@ -85,7 +93,8 @@ func (a *Agent) runTaskTCP(ctx context.Context, conn io.ReadWriter, task *taskRe
 	for {
 		var envelope map[string]any
 		if err := syncnode.ReadStreamMessage(conn, &envelope); err != nil {
-			_ = syncnode.WriteStreamMessage(conn, taskReportMsg{Type: "task_report", TaskID: task.ID, Status: "failed", LastError: err.Error()})
+			ce := classifyError(err)
+			_ = syncnode.WriteStreamMessage(conn, taskReportMsg{Type: "task_report", TaskID: task.ID, Status: "failed", LastError: ce.Message, ErrorCode: ce.Code})
 			return
 		}
 		typ, _ := envelope["type"].(string)
@@ -99,7 +108,8 @@ func (a *Agent) runTaskTCP(ctx context.Context, conn io.ReadWriter, task *taskRe
 			}
 			expected[f.File.Path] = f.File
 			if err := a.applyFileBlocks(ctx, conn, task.ID, payload.TargetPath, payload.IgnorePermissions, f.File); err != nil {
-				_ = syncnode.WriteStreamMessage(conn, taskReportMsg{Type: "task_report", TaskID: task.ID, Status: "failed", LastError: err.Error()})
+				ce := classifyError(err)
+				_ = syncnode.WriteStreamMessage(conn, taskReportMsg{Type: "task_report", TaskID: task.ID, Status: "failed", LastError: ce.Message, ErrorCode: ce.Code})
 				return
 			}
 			files++
@@ -119,7 +129,8 @@ func (a *Agent) runTaskTCP(ctx context.Context, conn io.ReadWriter, task *taskRe
 indexDone:
 	if strings.ToLower(payload.Strategy) == "" || strings.ToLower(payload.Strategy) == "mirror" {
 		if err := mirrorDeleteExtras(payload.TargetPath, expected); err != nil {
-			_ = syncnode.WriteStreamMessage(conn, taskReportMsg{Type: "task_report", TaskID: task.ID, Status: "failed", LastError: err.Error()})
+			ce := classifyError(err)
+			_ = syncnode.WriteStreamMessage(conn, taskReportMsg{Type: "task_report", TaskID: task.ID, Status: "failed", LastError: ce.Message, ErrorCode: ce.Code})
 			return
 		}
 	}
@@ -130,7 +141,7 @@ indexDone:
 func (a *Agent) applyFileBlocks(ctx context.Context, conn io.ReadWriter, taskID uint, targetRoot string, ignorePerms bool, file syncnode.IndexFileEntry) error {
 	dst := filepath.Join(targetRoot, filepath.FromSlash(file.Path))
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
-		return err
+		return fmt.Errorf("create parent dir: %w", err)
 	}
 	tmp := dst + ".gohook-sync-tmp-" + fmt.Sprint(time.Now().UnixNano())
 
@@ -141,11 +152,11 @@ func (a *Agent) applyFileBlocks(ctx context.Context, conn io.ReadWriter, taskID 
 
 	out, err := os.OpenFile(tmp, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
 	if err != nil {
-		return err
+		return fmt.Errorf("open temp file: %w", err)
 	}
 	defer out.Close()
 	if err := out.Truncate(file.Size); err != nil {
-		return err
+		return fmt.Errorf("truncate temp file: %w", err)
 	}
 
 	for i, remoteHash := range file.Blocks {
@@ -176,14 +187,14 @@ func (a *Agent) applyFileBlocks(ctx context.Context, conn io.ReadWriter, taskID 
 			}
 			var resp blockRespMsg
 			if err := syncnode.ReadStreamMessage(conn, &resp); err != nil {
-				return err
+				return fmt.Errorf("read block response: %w", err)
 			}
 			if resp.Type != "block_response_bin" || resp.TaskID != taskID || resp.Path != file.Path || resp.Index != i {
 				return fmt.Errorf("unexpected block response")
 			}
 			data, err := syncnode.ReadStreamFrame(conn)
 			if err != nil {
-				return err
+				return fmt.Errorf("read block frame: %w", err)
 			}
 			if resp.Size != len(data) {
 				return fmt.Errorf("block size mismatch for %s[%d]", file.Path, i)
@@ -193,7 +204,7 @@ func (a *Agent) applyFileBlocks(ctx context.Context, conn io.ReadWriter, taskID 
 				return fmt.Errorf("block hash mismatch for %s[%d]", file.Path, i)
 			}
 			if _, err := out.WriteAt(data, blockOffset); err != nil {
-				return err
+				return fmt.Errorf("write block: %w", err)
 			}
 		}
 	}
@@ -204,7 +215,7 @@ func (a *Agent) applyFileBlocks(ctx context.Context, conn io.ReadWriter, taskID 
 
 	// Atomic replace.
 	if err := os.Rename(tmp, dst); err != nil {
-		return err
+		return fmt.Errorf("replace file: %w", err)
 	}
 	if !ignorePerms {
 		_ = os.Chmod(dst, os.FileMode(file.Mode))

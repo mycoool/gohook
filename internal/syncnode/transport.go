@@ -98,6 +98,7 @@ type taskReportMsg struct {
 	Status    string `json:"status"`
 	Logs      string `json:"logs,omitempty"`
 	LastError string `json:"lastError,omitempty"`
+	ErrorCode string `json:"errorCode,omitempty"`
 }
 
 // StartAgentTCPServer starts a TLS-enabled TCP server for agent long connections.
@@ -289,7 +290,7 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 		// Expect sync_start
 		var start syncStart
 		if err := ReadStreamMessage(conn, &start); err != nil || start.Type != "sync_start" || start.TaskID != task.ID {
-			_, _ = defaultTaskService.ReportTask(ctx, hello.NodeID, task.ID, TaskReport{Status: "failed", LastError: "missing sync_start"})
+			_, _ = defaultTaskService.ReportTask(ctx, hello.NodeID, task.ID, TaskReport{Status: "failed", LastError: "missing sync_start", ErrorCode: "PROTO"})
 			return
 		}
 
@@ -352,7 +353,7 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 				if strings.ToLower(rep.Status) == "success" {
 					status = "success"
 				}
-				_, _ = defaultTaskService.ReportTask(ctx, hello.NodeID, task.ID, TaskReport{Status: status, Logs: rep.Logs, LastError: rep.LastError})
+				_, _ = defaultTaskService.ReportTask(ctx, hello.NodeID, task.ID, TaskReport{Status: status, Logs: rep.Logs, LastError: rep.LastError, ErrorCode: rep.ErrorCode})
 				goto nextTask
 			default:
 				continue

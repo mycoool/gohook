@@ -21,6 +21,7 @@ type taskResponse struct {
 	Payload     string `json:"payload"`
 	Logs        string `json:"logs"`
 	LastError   string `json:"lastError"`
+	ErrorCode   string `json:"errorCode"`
 }
 
 func mapTask(t *database.SyncTask) taskResponse {
@@ -35,6 +36,7 @@ func mapTask(t *database.SyncTask) taskResponse {
 		Payload:     t.Payload,
 		Logs:        t.Logs,
 		LastError:   t.LastError,
+		ErrorCode:   t.ErrorCode,
 	}
 }
 

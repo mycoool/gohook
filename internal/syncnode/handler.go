@@ -2,6 +2,7 @@ package syncnode
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -29,6 +30,10 @@ type nodeResponse struct {
 	ConnectionStatus     string                 `json:"connectionStatus"`
 	SyncStatus           string                 `json:"syncStatus"`
 	LastSyncAt           *time.Time             `json:"lastSyncAt"`
+	LastTaskProject      string                 `json:"lastTaskProject,omitempty"`
+	LastTaskTargetPath   string                 `json:"lastTaskTargetPath,omitempty"`
+	LastError            string                 `json:"lastError,omitempty"`
+	LastErrorCode        string                 `json:"lastErrorCode,omitempty"`
 	Tags                 []string               `json:"tags"`
 	Metadata             map[string]interface{} `json:"metadata"`
 	SSHUser              string                 `json:"sshUser"`
@@ -208,8 +213,12 @@ func HandleResetPairing(c *gin.Context) {
 }
 
 type nodeTaskSummary struct {
-	Status    string
-	UpdatedAt *time.Time
+	ProjectName string
+	Status      string
+	UpdatedAt   *time.Time
+	LastError   string
+	ErrorCode   string
+	TargetPath  string
 }
 
 func loadLastTaskSummary(ctx context.Context, nodes []database.SyncNode) map[uint]nodeTaskSummary {
@@ -228,13 +237,17 @@ func loadLastTaskSummary(ctx context.Context, nodes []database.SyncNode) map[uin
 	}
 
 	type row struct {
-		NodeID    uint      `gorm:"column:node_id"`
-		Status    string    `gorm:"column:status"`
-		UpdatedAt time.Time `gorm:"column:updated_at"`
+		NodeID      uint      `gorm:"column:node_id"`
+		ProjectName string    `gorm:"column:project_name"`
+		Status      string    `gorm:"column:status"`
+		UpdatedAt   time.Time `gorm:"column:updated_at"`
+		LastError   string    `gorm:"column:last_error"`
+		ErrorCode   string    `gorm:"column:error_code"`
+		Payload     string    `gorm:"column:payload"`
 	}
 	var rows []row
 	_ = db.WithContext(ctx).Raw(
-		`SELECT t.node_id, t.status, t.updated_at
+		`SELECT t.node_id, t.project_name, t.status, t.updated_at, t.last_error, t.error_code, t.payload
 		   FROM sync_tasks t
 		   JOIN (SELECT node_id, MAX(id) AS max_id
 		           FROM sync_tasks
@@ -246,7 +259,22 @@ func loadLastTaskSummary(ctx context.Context, nodes []database.SyncNode) map[uin
 
 	for i := range rows {
 		t := rows[i].UpdatedAt
-		out[rows[i].NodeID] = nodeTaskSummary{Status: rows[i].Status, UpdatedAt: &t}
+		targetPath := ""
+		if strings.TrimSpace(rows[i].Payload) != "" {
+			var payload struct {
+				TargetPath string `json:"targetPath"`
+			}
+			_ = json.Unmarshal([]byte(rows[i].Payload), &payload)
+			targetPath = strings.TrimSpace(payload.TargetPath)
+		}
+		out[rows[i].NodeID] = nodeTaskSummary{
+			ProjectName: rows[i].ProjectName,
+			Status:      rows[i].Status,
+			UpdatedAt:   &t,
+			LastError:   rows[i].LastError,
+			ErrorCode:   rows[i].ErrorCode,
+			TargetPath:  targetPath,
+		}
 	}
 	return out
 }
@@ -293,9 +321,19 @@ func mapNode(node *database.SyncNode, summary nodeTaskSummary) nodeResponse {
 
 	syncStatus := "IDLE"
 	lastSyncAt := (*time.Time)(nil)
+	lastTaskProject := ""
+	lastTaskTargetPath := ""
+	lastError := ""
+	lastErrorCode := ""
 	if strings.TrimSpace(summary.Status) != "" {
 		syncStatus = strings.ToUpper(summary.Status)
 		lastSyncAt = summary.UpdatedAt
+		lastTaskProject = strings.TrimSpace(summary.ProjectName)
+		lastTaskTargetPath = strings.TrimSpace(summary.TargetPath)
+		if strings.ToLower(summary.Status) == "failed" {
+			lastError = strings.TrimSpace(summary.LastError)
+			lastErrorCode = strings.TrimSpace(summary.ErrorCode)
+		}
 	}
 
 	return nodeResponse{
@@ -310,6 +348,10 @@ func mapNode(node *database.SyncNode, summary nodeTaskSummary) nodeResponse {
 		ConnectionStatus:     connectionStatus,
 		SyncStatus:           syncStatus,
 		LastSyncAt:           lastSyncAt,
+		LastTaskProject:      lastTaskProject,
+		LastTaskTargetPath:   lastTaskTargetPath,
+		LastError:            lastError,
+		LastErrorCode:        lastErrorCode,
 		Tags:                 decodeStringSlice(node.Tags),
 		Metadata:             decodeMap(node.Metadata),
 		SSHUser:              node.SSHUser,

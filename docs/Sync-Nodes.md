@@ -342,6 +342,25 @@ GoHook 与 Agent 之间新增 TCP/TLS 长连接，用于任务即时推送与后
 连接建立后，任务通过长连接即时下发；**Agent 不再回退到 HTTP 轮询**，必须配置 `SYNC_TCP_ENDPOINT` 才能执行同步任务。
 当连接中断时，Agent 会自动按指数退避重连（最大 30s 间隔）。
 
+## 状态与错误诊断（新增）
+
+当同步失败（例如目标目录无写入权限）时：
+
+- **节点管理**：
+  - “同步状态 = FAILED” 支持悬浮查看最近一次失败的 `project/targetPath/lastError/errorCode`；
+  - 可打开“任务详情”查看该节点最近任务列表与日志。
+- **同步管理**：
+  - 项目状态为 `DEGRADED` 时，可悬浮查看失败节点的错误摘要；
+  - 可打开“任务详情”查看该项目最近任务列表与日志。
+
+### 常见 errorCode
+
+- `EACCES/EPERM/EROFS`：目标目录无写入权限或只读文件系统（修复权限或更换 `targetPath`）
+- `ENOENT`：目标路径不存在或无权创建
+- `ENOSPC`：磁盘空间不足
+- `INVALID_TARGET`：`targetPath` 配置不合法（不能为空或 `/`）
+- `PROTO`：连接/协议异常（检查主节点与 Agent 版本一致性）
+
 ## 块级同步（自适应固定块，已接入长连接）
 
 GoHook 参考 Syncthing 的“自适应固定块 + SHA-256”策略：

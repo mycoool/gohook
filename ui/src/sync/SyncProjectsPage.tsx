@@ -19,11 +19,13 @@ import {
 import RefreshIcon from '@mui/icons-material/Refresh';
 import SettingsIcon from '@mui/icons-material/Settings';
 import SyncIcon from '@mui/icons-material/Sync';
+import ListAltIcon from '@mui/icons-material/ListAlt';
 import DefaultPage from '../common/DefaultPage';
 import {inject, Stores} from '../inject';
 import {observer} from 'mobx-react';
 import {ISyncProjectSummary} from '../types';
 import SyncConfigDialog from './SyncConfigDialog';
+import SyncTaskDialog from './SyncTaskDialog';
 
 type Props = Stores<'syncProjectStore' | 'syncNodeStore' | 'currentUser'>;
 
@@ -51,6 +53,7 @@ const statusColor = (status: string) => {
 
 const SyncProjectsPage: React.FC<Props> = ({syncProjectStore, syncNodeStore, currentUser}) => {
     const [selected, setSelected] = useState<ISyncProjectSummary | null>(null);
+    const [taskDialogProject, setTaskDialogProject] = useState<ISyncProjectSummary | null>(null);
 
     useEffect(() => {
         if (!currentUser.loggedIn) return;
@@ -115,11 +118,39 @@ const SyncProjectsPage: React.FC<Props> = ({syncProjectStore, syncNodeStore, cur
                                                 <Typography variant="body2">{p.path}</Typography>
                                             </TableCell>
                                             <TableCell>
-                                                <Chip
-                                                    label={p.status}
-                                                    size="small"
-                                                    color={statusColor(p.status)}
-                                                />
+                                                <Tooltip
+                                                    title={
+                                                        p.status === 'DEGRADED'
+                                                            ? (p.nodes || [])
+                                                                  .filter(
+                                                                      (n) =>
+                                                                          String(
+                                                                              n.lastStatus || ''
+                                                                          ).toLowerCase() ===
+                                                                              'failed' &&
+                                                                          n.lastError
+                                                                  )
+                                                                  .map(
+                                                                      (n) =>
+                                                                          `${n.nodeName} (${
+                                                                              n.targetPath
+                                                                          })\n${n.lastError}${
+                                                                              n.lastErrorCode
+                                                                                  ? `\n[${n.lastErrorCode}]`
+                                                                                  : ''
+                                                                          }`
+                                                                  )
+                                                                  .join('\n\n')
+                                                            : ''
+                                                    }>
+                                                    <span>
+                                                        <Chip
+                                                            label={p.status}
+                                                            size="small"
+                                                            color={statusColor(p.status)}
+                                                        />
+                                                    </span>
+                                                </Tooltip>
                                             </TableCell>
                                             <TableCell>{formatTime(p.lastSyncAt)}</TableCell>
                                             <TableCell>
@@ -140,6 +171,16 @@ const SyncProjectsPage: React.FC<Props> = ({syncProjectStore, syncNodeStore, cur
                                                 </Stack>
                                             </TableCell>
                                             <TableCell align="right">
+                                                <Tooltip title="查看任务/错误详情">
+                                                    <span>
+                                                        <IconButton
+                                                            size="small"
+                                                            onClick={() => setTaskDialogProject(p)}
+                                                            disabled={syncProjectStore.saving}>
+                                                            <ListAltIcon fontSize="small" />
+                                                        </IconButton>
+                                                    </span>
+                                                </Tooltip>
                                                 <Tooltip title="管理同步配置">
                                                     <IconButton
                                                         size="small"
@@ -166,6 +207,15 @@ const SyncProjectsPage: React.FC<Props> = ({syncProjectStore, syncNodeStore, cur
                     </TableContainer>
                 </Paper>
             </DefaultPage>
+
+            {taskDialogProject ? (
+                <SyncTaskDialog
+                    open={!!taskDialogProject}
+                    title={`任务详情 - ${taskDialogProject.projectName}`}
+                    query={{projectName: taskDialogProject.projectName, limit: 50}}
+                    onClose={() => setTaskDialogProject(null)}
+                />
+            ) : null}
 
             {selected ? (
                 <SyncConfigDialog

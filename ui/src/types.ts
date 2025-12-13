@@ -114,8 +114,11 @@ export interface ISyncProjectNodeSummary {
     nodeName: string;
     health: string;
     targetPath: string;
+    lastTaskId?: number;
     lastStatus?: string;
     lastTaskAt?: string;
+    lastError?: string;
+    lastErrorCode?: string;
     lastSuccessAt?: string;
 }
 
@@ -274,6 +277,10 @@ export interface ISyncNode {
     connectionStatus?: string;
     syncStatus?: string;
     lastSyncAt?: string;
+    lastTaskProject?: string;
+    lastTaskTargetPath?: string;
+    lastError?: string;
+    lastErrorCode?: string;
     tags: string[];
     metadata: Record<string, unknown>;
     sshUser?: string;
@@ -287,4 +294,19 @@ export interface ISyncNode {
     lastSeen?: string;
     createdAt?: string;
     updatedAt?: string;
+}
+
+export interface ISyncTask {
+    id: number;
+    projectName: string;
+    nodeId: number;
+    nodeName: string;
+    driver: string;
+    status: string;
+    attempt: number;
+    createdAt: string;
+    updatedAt: string;
+    lastError?: string;
+    errorCode?: string;
+    logs?: string;
 }

@@ -108,6 +108,7 @@ type SyncTask struct {
 	Payload     string `json:"payload" gorm:"type:text"` // JSON payload
 	Logs        string `json:"logs" gorm:"type:text"`
 	LastError   string `json:"last_error" gorm:"type:text"`
+	ErrorCode   string `json:"error_code" gorm:"size:50;index"`
 }
 
 // SyncFileChange represents pending change detected by scanner/watcher
