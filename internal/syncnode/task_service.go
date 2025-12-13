@@ -312,6 +312,20 @@ func (s *TaskService) ReportTask(ctx context.Context, nodeID, taskID uint, repor
 	if err := db.WithContext(ctx).Save(&task).Error; err != nil {
 		return nil, err
 	}
+
+	// Best-effort: when overlay sync succeeds, mark queued changes processed so delta indexing can advance.
+	if task.Status == TaskStatusSuccess {
+		var payload TaskPayload
+		if json.Unmarshal([]byte(task.Payload), &payload) == nil {
+			if strings.EqualFold(strings.TrimSpace(payload.Strategy), "overlay") {
+				_ = db.WithContext(ctx).
+					Model(&database.SyncFileChange{}).
+					Where("project_name = ? AND processed = ?", payload.ProjectName, false).
+					Updates(map[string]any{"processed": true}).Error
+			}
+		}
+	}
+
 	broadcastWS(wsTypeSyncTaskEvent, syncTaskEvent{
 		TaskID:      task.ID,
 		ProjectName: task.ProjectName,
@@ -447,6 +461,14 @@ func (s *TaskService) StreamIndex(ctx context.Context, task database.SyncTask, e
 
 	ig := newIgnoreMatcher(payload, root)
 
+	if shouldUseDeltaIndex(payload) {
+		if ok, derr := s.streamDeltaIndex(ctx, payload, root, ig, emit); derr != nil {
+			return derr
+		} else if ok {
+			return nil
+		}
+	}
+
 	return filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -498,6 +520,107 @@ func (s *TaskService) StreamIndex(ctx context.Context, task database.SyncTask, e
 		}
 		return emit(entry)
 	})
+}
+
+func shouldUseDeltaIndex(payload TaskPayload) bool {
+	if strings.ToLower(strings.TrimSpace(payload.Strategy)) != "overlay" {
+		return false
+	}
+	return strings.EqualFold(strings.TrimSpace(os.Getenv("SYNC_DELTA_INDEX_OVERLAY")), "1") ||
+		strings.EqualFold(strings.TrimSpace(os.Getenv("SYNC_DELTA_INDEX_OVERLAY")), "true")
+}
+
+// streamDeltaIndex returns (usedDelta, err).
+// If usedDelta is false, caller should fall back to full walk for correctness.
+func (s *TaskService) streamDeltaIndex(ctx context.Context, payload TaskPayload, root string, ig *ignoreMatcher, emit func(IndexFileEntry) error) (bool, error) {
+	db, err := s.ensureDB()
+	if err != nil {
+		return false, nil
+	}
+
+	maxFiles := 5000
+	if raw := strings.TrimSpace(os.Getenv("SYNC_DELTA_MAX_FILES")); raw != "" {
+		if v, err := strconv.Atoi(raw); err == nil && v > 0 {
+			maxFiles = v
+		}
+	}
+
+	var changes []database.SyncFileChange
+	if err := db.WithContext(ctx).
+		Model(&database.SyncFileChange{}).
+		Where("project_name = ? AND processed = ?", payload.ProjectName, false).
+		Order("id ASC").
+		Limit(maxFiles + 1).
+		Find(&changes).Error; err != nil {
+		return false, nil
+	}
+
+	if len(changes) == 0 {
+		return false, nil
+	}
+	if len(changes) > maxFiles {
+		return false, nil
+	}
+	for i := range changes {
+		if strings.EqualFold(strings.TrimSpace(changes[i].Type), "renamed") {
+			return false, nil
+		}
+	}
+
+	seen := make(map[string]struct{}, len(changes))
+	for i := range changes {
+		rel := filepath.ToSlash(filepath.Clean(changes[i].Path))
+		if rel == "" || rel == "." || strings.HasPrefix(rel, "..") {
+			continue
+		}
+		if _, ok := seen[rel]; ok {
+			continue
+		}
+		seen[rel] = struct{}{}
+
+		// overlay: deletions are intentionally ignored (no remote delete)
+		if strings.EqualFold(strings.TrimSpace(changes[i].Type), "deleted") {
+			continue
+		}
+
+		if ig != nil && ig.Match(rel, false) {
+			continue
+		}
+		full := filepath.Join(root, filepath.FromSlash(rel))
+		fi, err := os.Stat(full)
+		if err != nil || fi == nil {
+			continue
+		}
+		if fi.IsDir() || !fi.Mode().IsRegular() {
+			continue
+		}
+
+		blockSize := adaptiveBlockSize(fi.Size())
+		key := hashCacheKey(full, fi.Size(), fi.ModTime(), blockSize)
+		hashes, ok := globalHashCache.Get(key)
+		var hashErr error
+		if !ok {
+			hashes, hashErr = hashFileBlocks(full, blockSize)
+			if hashErr != nil {
+				return true, hashErr
+			}
+			globalHashCache.Put(key, hashes)
+		}
+
+		entry := IndexFileEntry{
+			Path:      rel,
+			Size:      fi.Size(),
+			Mode:      uint32(fi.Mode().Perm()),
+			MtimeUnix: fi.ModTime().Unix(),
+			BlockSize: blockSize,
+			Blocks:    hashes,
+		}
+		if err := emit(entry); err != nil {
+			return true, err
+		}
+	}
+
+	return true, nil
 }
 
 func adaptiveBlockSize(size int64) int64 {
