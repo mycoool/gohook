@@ -145,6 +145,19 @@ func (s *TaskService) CreateProjectTasks(ctx context.Context, projectName string
 		created = append(created, task)
 	}
 
+	if len(created) > 0 {
+		taskIDs := make([]uint, 0, len(created))
+		for i := range created {
+			taskIDs = append(taskIDs, created[i].ID)
+		}
+		broadcastWS(wsTypeSyncTaskEvent, map[string]any{
+			"event":       "created",
+			"projectName": projectName,
+			"taskIds":     taskIDs,
+		})
+		broadcastWS(wsTypeSyncProjectEvent, syncProjectEvent{ProjectName: projectName, Event: "tasks"})
+	}
+
 	return created, nil
 }
 
@@ -179,6 +192,14 @@ func (s *TaskService) PullNextTask(ctx context.Context, nodeID uint) (*database.
 	if err != nil {
 		return nil, err
 	}
+	broadcastWS(wsTypeSyncTaskEvent, syncTaskEvent{
+		TaskID:      task.ID,
+		ProjectName: task.ProjectName,
+		NodeID:      task.NodeID,
+		Status:      task.Status,
+		Event:       "running",
+	})
+	broadcastWS(wsTypeSyncProjectEvent, syncProjectEvent{ProjectName: task.ProjectName, Event: "tasks"})
 	return &task, nil
 }
 
@@ -225,6 +246,14 @@ func (s *TaskService) ReportTask(ctx context.Context, nodeID, taskID uint, repor
 	if err := db.WithContext(ctx).Save(&task).Error; err != nil {
 		return nil, err
 	}
+	broadcastWS(wsTypeSyncTaskEvent, syncTaskEvent{
+		TaskID:      task.ID,
+		ProjectName: task.ProjectName,
+		NodeID:      task.NodeID,
+		Status:      task.Status,
+		Event:       "reported",
+	})
+	broadcastWS(wsTypeSyncProjectEvent, syncProjectEvent{ProjectName: task.ProjectName, Event: "tasks"})
 	return &task, nil
 }
 
@@ -238,14 +267,17 @@ func (s *TaskService) FailStaleRunningTasks(ctx context.Context, maxAge time.Dur
 		return
 	}
 	cutoff := time.Now().Add(-maxAge)
-	_ = db.WithContext(ctx).
+	res := db.WithContext(ctx).
 		Model(&database.SyncTask{}).
 		Where("status = ? AND updated_at < ?", TaskStatusRunning, cutoff).
 		Updates(map[string]any{
 			"status":     TaskStatusFailed,
 			"last_error": "task timeout (connection lost or agent stuck)",
 			"error_code": "TIMEOUT",
-		}).Error
+		})
+	if res.Error == nil && res.RowsAffected > 0 {
+		broadcastWS(wsTypeSyncTaskEvent, syncTaskEvent{Event: "reaped"})
+	}
 }
 
 func (s *TaskService) StreamBundle(ctx context.Context, w io.Writer, task database.SyncTask) error {

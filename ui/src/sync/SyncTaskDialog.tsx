@@ -25,9 +25,9 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import {inject, Stores} from '../inject';
 import {observer} from 'mobx-react';
 import {TaskQuery} from './SyncTaskStore';
-import {ISyncTask} from '../types';
+import {ISyncTask, IWebSocketMessage} from '../types';
 
-type Props = Stores<'syncTaskStore'> & {
+type Props = Stores<'syncTaskStore' | 'wsStore'> & {
     open: boolean;
     title: string;
     query: TaskQuery;
@@ -100,7 +100,7 @@ const hintForCode = (code?: string) => {
     }
 };
 
-const SyncTaskDialog: React.FC<Props> = ({open, title, query, onClose, syncTaskStore}) => {
+const SyncTaskDialog: React.FC<Props> = ({open, title, query, onClose, syncTaskStore, wsStore}) => {
     const [includeLogs, setIncludeLogs] = useState(false);
     const [expanded, setExpanded] = useState<Record<number, boolean>>({});
 
@@ -108,6 +108,33 @@ const SyncTaskDialog: React.FC<Props> = ({open, title, query, onClose, syncTaskS
         if (!open) return;
         syncTaskStore.loadTasks({...query, includeLogs}).catch(() => undefined);
     }, [open, includeLogs, query, syncTaskStore]);
+
+    useEffect(() => {
+        if (!open) return;
+        let timer: ReturnType<typeof setTimeout> | null = null;
+
+        const handler = (message: IWebSocketMessage) => {
+            if (message.type !== 'sync_task_event') return;
+            const data = (message.data || {}) as {projectName?: string; nodeId?: number};
+            if (query.projectName && data.projectName && data.projectName !== query.projectName) {
+                return;
+            }
+            if (query.nodeId && data.nodeId && Number(data.nodeId) !== Number(query.nodeId)) {
+                return;
+            }
+            if (timer) return;
+            timer = setTimeout(() => {
+                timer = null;
+                syncTaskStore.loadTasks({...query, includeLogs}).catch(() => undefined);
+            }, 500);
+        };
+
+        wsStore.onMessage(handler);
+        return () => {
+            wsStore.offMessage(handler);
+            if (timer) clearTimeout(timer);
+        };
+    }, [open, includeLogs, query, syncTaskStore, wsStore]);
 
     const tasks = useMemo(() => syncTaskStore.tasks || [], [syncTaskStore.tasks]);
 
@@ -318,4 +345,4 @@ const SyncTaskDialog: React.FC<Props> = ({open, title, query, onClose, syncTaskS
     );
 };
 
-export default inject('syncTaskStore')(observer(SyncTaskDialog));
+export default inject('syncTaskStore', 'wsStore')(observer(SyncTaskDialog));

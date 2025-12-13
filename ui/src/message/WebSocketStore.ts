@@ -184,6 +184,11 @@ export class WebSocketStore {
             case 'connected':
                 // 连接消息不显示通知
                 break;
+            case 'sync_node_event':
+            case 'sync_task_event':
+            case 'sync_project_event':
+                // 同步相关事件用于驱动页面数据刷新，不弹通知，避免刷屏
+                break;
             case 'hook_triggered': {
                 const hookMsg = message.data as IHookTriggeredMessage;
                 if (hookMsg.success) {

@@ -167,6 +167,7 @@ func (s *Service) CreateNode(ctx context.Context, req CreateNodeRequest) (*datab
 	if err := db.WithContext(ctx).Create(node).Error; err != nil {
 		return nil, err
 	}
+	broadcastWS(wsTypeSyncNodeEvent, syncNodeEvent{NodeID: node.ID, Event: "created"})
 	return node, nil
 }
 
@@ -196,6 +197,7 @@ func (s *Service) UpdateNode(ctx context.Context, id uint, req UpdateNodeRequest
 	if err := db.WithContext(ctx).Save(node).Error; err != nil {
 		return nil, err
 	}
+	broadcastWS(wsTypeSyncNodeEvent, syncNodeEvent{NodeID: node.ID, Event: "updated"})
 	return node, nil
 }
 
@@ -212,6 +214,7 @@ func (s *Service) DeleteNode(ctx context.Context, id uint) error {
 	if res.RowsAffected == 0 {
 		return gorm.ErrRecordNotFound
 	}
+	broadcastWS(wsTypeSyncNodeEvent, syncNodeEvent{NodeID: id, Event: "deleted"})
 	return nil
 }
 
@@ -233,6 +236,7 @@ func (s *Service) RotateToken(ctx context.Context, id uint) (*database.SyncNode,
 	if err := db.WithContext(ctx).Save(node).Error; err != nil {
 		return nil, err
 	}
+	broadcastWS(wsTypeSyncNodeEvent, syncNodeEvent{NodeID: node.ID, Event: "updated"})
 	return node, nil
 }
 
@@ -252,6 +256,7 @@ func (s *Service) ResetPairing(ctx context.Context, id uint) (*database.SyncNode
 	if err := db.WithContext(ctx).Save(node).Error; err != nil {
 		return nil, err
 	}
+	broadcastWS(wsTypeSyncNodeEvent, syncNodeEvent{NodeID: node.ID, Event: "updated"})
 	return node, nil
 }
 
@@ -273,6 +278,7 @@ func (s *Service) TriggerInstall(ctx context.Context, id uint, req InstallReques
 	if err := db.WithContext(ctx).Save(node).Error; err != nil {
 		return nil, err
 	}
+	broadcastWS(wsTypeSyncNodeEvent, syncNodeEvent{NodeID: node.ID, Event: "updated"})
 
 	go s.runInstallRoutine(id, req)
 
@@ -285,6 +291,8 @@ func (s *Service) RecordHeartbeat(ctx context.Context, id uint, req HeartbeatReq
 	if err != nil {
 		return nil, err
 	}
+	prevStatus := node.Status
+	prevHealth := node.Health
 
 	now := time.Now()
 	node.LastSeen = &now
@@ -315,6 +323,9 @@ func (s *Service) RecordHeartbeat(ctx context.Context, id uint, req HeartbeatReq
 	}
 	if err := db.WithContext(ctx).Save(node).Error; err != nil {
 		return nil, err
+	}
+	if prevStatus != node.Status || prevHealth != node.Health {
+		broadcastWS(wsTypeSyncNodeEvent, syncNodeEvent{NodeID: node.ID, Event: "heartbeat"})
 	}
 
 	return node, nil
@@ -360,7 +371,11 @@ func (s *Service) RecordTCPConnected(ctx context.Context, nodeID uint, agentName
 	meta["agent"] = agentMeta
 	node.Metadata = encodeMap(meta)
 
-	return db.WithContext(ctx).Save(&node).Error
+	if err := db.WithContext(ctx).Save(&node).Error; err != nil {
+		return err
+	}
+	broadcastWS(wsTypeSyncNodeEvent, syncNodeEvent{NodeID: nodeID, Event: "connected"})
+	return nil
 }
 
 // TouchTCPHeartbeat updates last_seen while a TCP connection remains alive.
@@ -386,6 +401,7 @@ func (s *Service) RecordTCPDisconnected(ctx context.Context, nodeID uint) {
 		"status": NodeStatusOffline,
 		"health": NodeHealthUnknown,
 	}).Error
+	broadcastWS(wsTypeSyncNodeEvent, syncNodeEvent{NodeID: nodeID, Event: "disconnected"})
 }
 
 // ValidateAgentToken loads the node and validates agent token.
@@ -469,6 +485,7 @@ func (s *Service) runInstallRoutine(id uint, req InstallRequest) {
 	if err := db.WithContext(ctx).Save(node).Error; err != nil {
 		return
 	}
+	broadcastWS(wsTypeSyncNodeEvent, syncNodeEvent{NodeID: node.ID, Event: "updated"})
 }
 
 func (s *Service) applyCreateRequest(node *database.SyncNode, req CreateNodeRequest) {

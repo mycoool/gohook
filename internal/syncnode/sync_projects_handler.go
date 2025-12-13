@@ -258,5 +258,6 @@ func HandleUpdateProjectSyncConfig(c *gin.Context) {
 	// Ensure watchers reflect updated ignore rules / enabled state.
 	RefreshProjectWatchers()
 
+	broadcastWS(wsTypeSyncProjectEvent, syncProjectEvent{ProjectName: projectName, Event: "changed"})
 	c.JSON(http.StatusOK, gin.H{"message": "Sync config updated successfully"})
 }
