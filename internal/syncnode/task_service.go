@@ -477,9 +477,15 @@ func (s *TaskService) StreamIndex(ctx context.Context, task database.SyncTask, e
 		}
 
 		blockSize := adaptiveBlockSize(fi.Size())
-		hashes, err := hashFileBlocks(path, blockSize)
-		if err != nil {
-			return err
+		key := hashCacheKey(path, fi.Size(), fi.ModTime(), blockSize)
+		hashes, ok := globalHashCache.Get(key)
+		var hashErr error
+		if !ok {
+			hashes, hashErr = hashFileBlocks(path, blockSize)
+			if hashErr != nil {
+				return hashErr
+			}
+			globalHashCache.Put(key, hashes)
 		}
 
 		entry := IndexFileEntry{

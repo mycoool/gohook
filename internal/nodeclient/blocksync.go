@@ -184,29 +184,25 @@ func (a *Agent) applyFileBlocks(ctx context.Context, conn io.ReadWriter, taskID 
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return 0, 0, fmt.Errorf("create parent dir: %w", err)
 	}
-	tmp := dst + ".gohook-sync-tmp-" + fmt.Sprint(time.Now().UnixNano())
 
 	src, _ := os.Open(dst)
 	if src != nil {
 		defer src.Close()
 	}
 
-	out, err := os.OpenFile(tmp, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
-	if err != nil {
-		return 0, 0, fmt.Errorf("open temp file: %w", err)
-	}
-	defer out.Close()
-	if err := out.Truncate(file.Size); err != nil {
-		return 0, 0, fmt.Errorf("truncate temp file: %w", err)
+	canReuseLocal := false
+	if src != nil {
+		if st, err := src.Stat(); err == nil && st != nil && st.Mode().IsRegular() && st.Size() == file.Size {
+			canReuseLocal = true
+		}
 	}
 
 	missing := make([]int, 0, 64)
-	if src == nil {
+	if !canReuseLocal {
 		for i := range file.Blocks {
 			missing = append(missing, i)
 		}
 	} else {
-		_, _ = src.Seek(0, io.SeekStart)
 		buf := make([]byte, file.BlockSize)
 		for i, remoteHash := range file.Blocks {
 			blockOffset := int64(i) * file.BlockSize
@@ -225,13 +221,35 @@ func (a *Agent) applyFileBlocks(ctx context.Context, conn io.ReadWriter, taskID 
 			}
 			sum := sha256.Sum256(buf[:n])
 			if remoteHash != "" && hex.EncodeToString(sum[:]) == remoteHash {
-				if _, err := out.WriteAt(buf[:n], blockOffset); err != nil {
-					return 0, 0, fmt.Errorf("write local block: %w", err)
-				}
+				continue
 			} else {
 				missing = append(missing, i)
 			}
 		}
+	}
+
+	if len(missing) == 0 {
+		if !ignorePerms {
+			_ = os.Chmod(dst, os.FileMode(file.Mode))
+			_ = os.Chtimes(dst, time.Unix(file.MtimeUnix, 0), time.Unix(file.MtimeUnix, 0))
+		}
+		return 0, 0, nil
+	}
+
+	tmp := dst + ".gohook-sync-tmp-" + fmt.Sprint(time.Now().UnixNano())
+	out, err := os.OpenFile(tmp, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0o644)
+	if err != nil {
+		return 0, 0, fmt.Errorf("open temp file: %w", err)
+	}
+	defer out.Close()
+
+	if canReuseLocal {
+		if err := cloneOrCopyFile(out, src); err != nil {
+			return 0, 0, fmt.Errorf("seed temp file: %w", err)
+		}
+	}
+	if err := out.Truncate(file.Size); err != nil {
+		return 0, 0, fmt.Errorf("truncate temp file: %w", err)
 	}
 
 	const batchSize = 32
