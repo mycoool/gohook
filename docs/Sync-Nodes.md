@@ -360,13 +360,31 @@ GoHook 与 Agent 之间新增 TCP/TLS 长连接，用于任务即时推送与后
 - `ENOSPC`：磁盘空间不足
 - `INVALID_TARGET`：`targetPath` 配置不合法（不能为空或 `/`）
 - `PROTO`：连接/协议异常（检查主节点与 Agent 版本一致性）
-- `TIMEOUT`：任务超时（连接中断或 Agent 卡住；默认 30 分钟，可通过 `SYNC_TASK_TIMEOUT` 调整）
+- `TIMEOUT`：任务超时/网络读写超时（默认 30 分钟，可通过 `SYNC_TASK_TIMEOUT` 调整）
+- `BLOCK_HASH_MISMATCH`：块数据校验失败（强一致性校验；通常意味着传输异常或对端读块错误）
+- `BLOCK_READ`：主节点读取源文件块失败（路径不存在/权限/越界等）
 
 ### 传输优化（新增）
 
-- Agent 会先完整接收索引（`index_end`）再发起块请求，避免索引与块响应交错导致协议错误。
-- 块传输支持批量请求（`block_batch_request`），减少消息往返与 CPU 解析开销。
+- 默认模式：Agent 先完整接收索引（`index_end`）再发起块请求，避免索引与块响应交错导致协议错误。
+- 可选模式（Chunked Index）：主节点按批发送 `index_chunk`，Agent 每批同步完成后回 `index_chunk_done`；可降低双方峰值内存并更早开始落盘。
+- 块传输支持批量请求（`block_batch_request`），减少消息往返与 CPU 解析开销；Agent 会校验 `sha256` 哈希后再写入目标文件。
 - 任务会记录传输统计：`files/blocks/bytes/durationMs`，可在“任务详情”中查看。
+
+### 高性能开关（可选）
+
+以下为“默认关闭/不改变语义”的可选加速点；建议按需灰度开启：
+
+- `SYNC_TASK_MAX_ATTEMPTS`：可重试错误（如 `TIMEOUT/PROTO/DISCONNECTED`）的最大尝试次数（默认 3）。
+- `SYNC_HASHCACHE_ENTRIES`：主节点块哈希缓存条数上限（默认 2048），减少重复 hash（大项目多节点更明显）。
+- `SYNC_DELTA_INDEX_OVERLAY=1`：Overlay 策略启用增量索引（从 `sync_file_changes` 拉取未处理变更，仅下发变更文件的索引）。
+  - `SYNC_DELTA_MAX_FILES`：单次增量索引最大文件数（默认 5000；超过则自动回退全量 Walk 以保证正确性）。
+- `SYNC_MIRROR_FAST_DELETE=1`：Mirror 删除启用 manifest 快速路径（不全量 Walk）。
+  - 注意：该模式不会删除“目标端用户新创建、且不在 manifest 中”的额外文件；如需周期性恢复完整 mirror 语义，设置：
+  - `SYNC_MIRROR_FAST_FULLSCAN_EVERY=N`：每 N 次强制执行一次严格全量扫描删除。
+  - `SYNC_MIRROR_CLEAN_EMPTY_DIRS=1`：删除文件后尝试清理空父目录（不会越过 `targetRoot`）。
+- `SYNC_INDEX_CHUNKED=1`（Agent 侧）：启用 Chunked Index 协议（Agent 会在 hello 中声明 `index_chunk_v1`）。
+  - `SYNC_INDEX_CHUNK_SIZE`（主节点侧）：Chunk 大小（默认 128）；服务端会在帧过大时自动拆分。
 
 ## 块级同步（自适应固定块，已接入长连接）
 
@@ -384,8 +402,8 @@ GoHook 参考 Syncthing 的“自适应固定块 + SHA-256”策略：
 2. Agent 开始同步：`sync_start`
 3. 主节点下发索引：
    - `index_begin`
-   - 多条 `index_file`（每条包含：path/size/mtime/mode/blockSize/blocks[sha256]）
-   - `index_end`
+   - **默认模式**：多条 `index_file` → `index_end`
+   - **Chunked Index**：多条 `index_chunk`（files[] 批量）↔ `index_chunk_done`（逐批确认）→ `index_end`
 4. Agent 按需拉取缺块：
    - `block_request`（path + block index）
    - `block_response_bin`（JSON 头 + 二进制块帧）

@@ -473,6 +473,9 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 		touchConn(hello.NodeID)
 		if useIndexChunk {
 			if err := streamIndexChunks(ctx, conn, hello.NodeID, *task); err != nil {
+				if _, ok := err.(agentTaskReported); ok {
+					goto nextTask
+				}
 				_, _ = defaultTaskService.ReportTask(ctx, hello.NodeID, task.ID, TaskReport{Status: "failed", LastError: "index stream failed: " + err.Error(), ErrorCode: "INDEX"})
 				return
 			}
@@ -658,6 +661,14 @@ type indexChunkDone struct {
 	TaskID uint   `json:"taskId"`
 }
 
+type agentTaskReported struct {
+	rep taskReportMsg
+}
+
+func (e agentTaskReported) Error() string {
+	return "agent reported task_report"
+}
+
 func indexChunkSize() int {
 	size := 128
 	if raw := strings.TrimSpace(os.Getenv("SYNC_INDEX_CHUNK_SIZE")); raw != "" {
@@ -672,68 +683,167 @@ func streamIndexChunks(ctx context.Context, conn net.Conn, nodeID uint, task dat
 	chunkSize := indexChunkSize()
 	var chunk []IndexFileEntry
 
-	flush := func() error {
-		if len(chunk) == 0 {
+	flush := func(files []IndexFileEntry) error {
+		if len(files) == 0 {
 			return nil
 		}
-		entries := make(map[string]IndexFileEntry, len(chunk))
-		for i := range chunk {
-			entries[chunk[i].Path] = chunk[i]
-		}
-		_ = conn.SetWriteDeadline(time.Now().Add(2 * time.Minute))
-		if err := WriteStreamMessage(conn, indexChunk{Type: "index_chunk", TaskID: task.ID, Files: chunk}); err != nil {
-			_ = conn.SetWriteDeadline(time.Time{})
-			return err
-		}
-		_ = conn.SetWriteDeadline(time.Time{})
+		return serveIndexChunk(ctx, conn, nodeID, task, files)
+	}
 
-		// Serve block requests for this chunk until agent acknowledges completion.
-		for {
-			_ = conn.SetReadDeadline(time.Now().Add(5 * time.Minute))
-			var envelope map[string]any
-			if err := ReadStreamMessage(conn, &envelope); err != nil {
-				_ = conn.SetReadDeadline(time.Time{})
+	if err := defaultTaskService.StreamIndex(ctx, task, func(entry IndexFileEntry) error {
+		chunk = append(chunk, entry)
+		touchConn(nodeID)
+		if len(chunk) >= chunkSize {
+			files := append([]IndexFileEntry(nil), chunk...)
+			chunk = chunk[:0]
+			return flush(files)
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	if len(chunk) == 0 {
+		return nil
+	}
+	files := append([]IndexFileEntry(nil), chunk...)
+	chunk = chunk[:0]
+	return flush(files)
+}
+
+func isFrameTooLarge(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), "frame too large")
+}
+
+func serveIndexChunk(ctx context.Context, conn net.Conn, nodeID uint, task database.SyncTask, files []IndexFileEntry) error {
+	_ = conn.SetWriteDeadline(time.Now().Add(2 * time.Minute))
+	err := WriteStreamMessage(conn, indexChunk{Type: "index_chunk", TaskID: task.ID, Files: files})
+	_ = conn.SetWriteDeadline(time.Time{})
+	if err != nil {
+		if isFrameTooLarge(err) && len(files) > 1 {
+			mid := len(files) / 2
+			if mid <= 0 {
 				return err
 			}
-			_ = conn.SetReadDeadline(time.Time{})
+			if err := serveIndexChunk(ctx, conn, nodeID, task, files[:mid]); err != nil {
+				return err
+			}
+			return serveIndexChunk(ctx, conn, nodeID, task, files[mid:])
+		}
+		return err
+	}
 
-			typ, _ := envelope["type"].(string)
-			switch typ {
-			case "index_chunk_done":
-				raw, _ := json.Marshal(envelope)
-				var done indexChunkDone
-				_ = json.Unmarshal(raw, &done)
-				if done.TaskID == task.ID {
-					chunk = chunk[:0]
-					return nil
-				}
-			case "block_request":
-				raw, _ := json.Marshal(envelope)
-				var req blockRequest
-				_ = json.Unmarshal(raw, &req)
-				if req.TaskID != task.ID {
-					continue
-				}
-				touchConn(nodeID)
-				entry, ok := entries[req.Path]
-				if !ok {
-					_ = conn.SetWriteDeadline(time.Now().Add(2 * time.Minute))
-					_ = WriteStreamMessage(conn, blockResponse{Type: "block_response_bin", TaskID: task.ID, Path: req.Path, Index: req.Index, Hash: "", Size: 1, ErrorCode: "MISSING_ENTRY", Error: "index entry not found"})
+	entries := make(map[string]IndexFileEntry, len(files))
+	for i := range files {
+		entries[files[i].Path] = files[i]
+	}
+
+	// Serve block requests for this chunk until agent acknowledges completion.
+	for {
+		_ = conn.SetReadDeadline(time.Now().Add(5 * time.Minute))
+		var envelope map[string]any
+		if err := ReadStreamMessage(conn, &envelope); err != nil {
+			_ = conn.SetReadDeadline(time.Time{})
+			return err
+		}
+		_ = conn.SetReadDeadline(time.Time{})
+
+		typ, _ := envelope["type"].(string)
+		switch typ {
+		case "index_chunk_done":
+			raw, _ := json.Marshal(envelope)
+			var done indexChunkDone
+			_ = json.Unmarshal(raw, &done)
+			if done.TaskID == task.ID {
+				return nil
+			}
+		case "task_report":
+			raw, _ := json.Marshal(envelope)
+			var rep taskReportMsg
+			_ = json.Unmarshal(raw, &rep)
+			if rep.TaskID != task.ID {
+				continue
+			}
+			status := "failed"
+			if strings.ToLower(rep.Status) == "success" {
+				status = "success"
+			}
+			_, _ = defaultTaskService.ReportTask(ctx, nodeID, task.ID, TaskReport{
+				Status:     status,
+				Logs:       rep.Logs,
+				LastError:  rep.LastError,
+				ErrorCode:  rep.ErrorCode,
+				Files:      rep.Files,
+				Blocks:     rep.Blocks,
+				Bytes:      rep.Bytes,
+				DurationMs: rep.DurationMs,
+			})
+			return agentTaskReported{rep: rep}
+		case "block_request":
+			raw, _ := json.Marshal(envelope)
+			var req blockRequest
+			_ = json.Unmarshal(raw, &req)
+			if req.TaskID != task.ID {
+				continue
+			}
+			touchConn(nodeID)
+			entry, ok := entries[req.Path]
+			if !ok {
+				_ = conn.SetWriteDeadline(time.Now().Add(2 * time.Minute))
+				_ = WriteStreamMessage(conn, blockResponse{Type: "block_response_bin", TaskID: task.ID, Path: req.Path, Index: req.Index, Hash: "", Size: 1, ErrorCode: "MISSING_ENTRY", Error: "index entry not found"})
+				_ = WriteStreamFrame(conn, []byte{})
+				_ = conn.SetWriteDeadline(time.Time{})
+				continue
+			}
+			data, err := defaultTaskService.ReadBlock(task, entry, req.Index)
+			if err != nil {
+				_ = conn.SetWriteDeadline(time.Now().Add(2 * time.Minute))
+				_ = WriteStreamMessage(conn, blockResponse{Type: "block_response_bin", TaskID: task.ID, Path: req.Path, Index: req.Index, Hash: "", Size: 1, ErrorCode: "BLOCK_READ", Error: err.Error()})
+				_ = WriteStreamFrame(conn, []byte{})
+				_ = conn.SetWriteDeadline(time.Time{})
+				continue
+			}
+			sum := sha256.Sum256(data)
+			resp := blockResponse{Type: "block_response_bin", TaskID: task.ID, Path: req.Path, Index: req.Index, Hash: hex.EncodeToString(sum[:]), Size: len(data)}
+			_ = conn.SetWriteDeadline(time.Now().Add(2 * time.Minute))
+			if err := WriteStreamMessage(conn, resp); err != nil {
+				_ = conn.SetWriteDeadline(time.Time{})
+				return err
+			}
+			if err := WriteStreamFrame(conn, data); err != nil {
+				_ = conn.SetWriteDeadline(time.Time{})
+				return err
+			}
+			_ = conn.SetWriteDeadline(time.Time{})
+		case "block_batch_request":
+			raw, _ := json.Marshal(envelope)
+			var req blockBatchRequest
+			_ = json.Unmarshal(raw, &req)
+			if req.TaskID != task.ID || req.Path == "" || len(req.Indices) == 0 {
+				continue
+			}
+			touchConn(nodeID)
+			entry, ok := entries[req.Path]
+			_ = conn.SetWriteDeadline(time.Now().Add(2 * time.Minute))
+			if !ok {
+				for _, idx := range req.Indices {
+					_ = WriteStreamMessage(conn, blockResponse{Type: "block_response_bin", TaskID: task.ID, Path: req.Path, Index: idx, Hash: "", Size: 1, ErrorCode: "MISSING_ENTRY", Error: "index entry not found"})
 					_ = WriteStreamFrame(conn, []byte{})
-					_ = conn.SetWriteDeadline(time.Time{})
-					continue
 				}
-				data, err := defaultTaskService.ReadBlock(task, entry, req.Index)
+				_ = conn.SetWriteDeadline(time.Time{})
+				continue
+			}
+			for _, idx := range req.Indices {
+				data, err := defaultTaskService.ReadBlock(task, entry, idx)
 				if err != nil {
-					_ = conn.SetWriteDeadline(time.Now().Add(2 * time.Minute))
-					_ = WriteStreamMessage(conn, blockResponse{Type: "block_response_bin", TaskID: task.ID, Path: req.Path, Index: req.Index, Hash: "", Size: 1, ErrorCode: "BLOCK_READ", Error: err.Error()})
+					_ = WriteStreamMessage(conn, blockResponse{Type: "block_response_bin", TaskID: task.ID, Path: req.Path, Index: idx, Hash: "", Size: 1, ErrorCode: "BLOCK_READ", Error: err.Error()})
 					_ = WriteStreamFrame(conn, []byte{})
-					_ = conn.SetWriteDeadline(time.Time{})
 					continue
 				}
 				sum := sha256.Sum256(data)
-				resp := blockResponse{Type: "block_response_bin", TaskID: task.ID, Path: req.Path, Index: req.Index, Hash: hex.EncodeToString(sum[:]), Size: len(data)}
-				_ = conn.SetWriteDeadline(time.Now().Add(2 * time.Minute))
+				resp := blockResponse{Type: "block_response_bin", TaskID: task.ID, Path: req.Path, Index: idx, Hash: hex.EncodeToString(sum[:]), Size: len(data)}
 				if err := WriteStreamMessage(conn, resp); err != nil {
 					_ = conn.SetWriteDeadline(time.Time{})
 					return err
@@ -742,81 +852,32 @@ func streamIndexChunks(ctx context.Context, conn net.Conn, nodeID uint, task dat
 					_ = conn.SetWriteDeadline(time.Time{})
 					return err
 				}
-				_ = conn.SetWriteDeadline(time.Time{})
-			case "block_batch_request":
-				raw, _ := json.Marshal(envelope)
-				var req blockBatchRequest
-				_ = json.Unmarshal(raw, &req)
-				if req.TaskID != task.ID || req.Path == "" || len(req.Indices) == 0 {
-					continue
-				}
-				touchConn(nodeID)
-				entry, ok := entries[req.Path]
-				_ = conn.SetWriteDeadline(time.Now().Add(2 * time.Minute))
-				if !ok {
-					for _, idx := range req.Indices {
-						_ = WriteStreamMessage(conn, blockResponse{Type: "block_response_bin", TaskID: task.ID, Path: req.Path, Index: idx, Hash: "", Size: 1, ErrorCode: "MISSING_ENTRY", Error: "index entry not found"})
-						_ = WriteStreamFrame(conn, []byte{})
-					}
-					_ = conn.SetWriteDeadline(time.Time{})
-					continue
-				}
-				for _, idx := range req.Indices {
-					data, err := defaultTaskService.ReadBlock(task, entry, idx)
-					if err != nil {
-						_ = WriteStreamMessage(conn, blockResponse{Type: "block_response_bin", TaskID: task.ID, Path: req.Path, Index: idx, Hash: "", Size: 1, ErrorCode: "BLOCK_READ", Error: err.Error()})
-						_ = WriteStreamFrame(conn, []byte{})
-						continue
-					}
-					sum := sha256.Sum256(data)
-					resp := blockResponse{Type: "block_response_bin", TaskID: task.ID, Path: req.Path, Index: idx, Hash: hex.EncodeToString(sum[:]), Size: len(data)}
-					if err := WriteStreamMessage(conn, resp); err != nil {
-						_ = conn.SetWriteDeadline(time.Time{})
-						return err
-					}
-					if err := WriteStreamFrame(conn, data); err != nil {
-						_ = conn.SetWriteDeadline(time.Time{})
-						return err
-					}
-				}
-				_ = conn.SetWriteDeadline(time.Time{})
-			case "node_status":
-				raw, _ := json.Marshal(envelope)
-				var st nodeStatusMsg
-				if json.Unmarshal(raw, &st) == nil && st.NodeID != 0 {
-					updated := time.Now()
-					if ts, err := time.Parse(time.RFC3339, strings.TrimSpace(st.UpdatedAt)); err == nil {
-						updated = ts
-					}
-					rs := NodeRuntimeStatus{
-						UpdatedAt:       updated,
-						Hostname:        strings.TrimSpace(st.Hostname),
-						UptimeSec:       st.UptimeSec,
-						CPUPercent:      st.CPUPercent,
-						MemUsedPercent:  st.MemUsedPercent,
-						Load1:           st.Load1,
-						DiskUsedPercent: st.DiskUsedPercent,
-					}
-					setRuntimeStatus(st.NodeID, rs)
-					broadcastWS(wsTypeSyncNodeStatus, map[string]any{"nodeId": st.NodeID, "runtime": rs})
-				}
-			default:
-				continue
 			}
+			_ = conn.SetWriteDeadline(time.Time{})
+		case "node_status":
+			raw, _ := json.Marshal(envelope)
+			var st nodeStatusMsg
+			if json.Unmarshal(raw, &st) == nil && st.NodeID != 0 {
+				updated := time.Now()
+				if ts, err := time.Parse(time.RFC3339, strings.TrimSpace(st.UpdatedAt)); err == nil {
+					updated = ts
+				}
+				rs := NodeRuntimeStatus{
+					UpdatedAt:       updated,
+					Hostname:        strings.TrimSpace(st.Hostname),
+					UptimeSec:       st.UptimeSec,
+					CPUPercent:      st.CPUPercent,
+					MemUsedPercent:  st.MemUsedPercent,
+					Load1:           st.Load1,
+					DiskUsedPercent: st.DiskUsedPercent,
+				}
+				setRuntimeStatus(st.NodeID, rs)
+				broadcastWS(wsTypeSyncNodeStatus, map[string]any{"nodeId": st.NodeID, "runtime": rs})
+			}
+		default:
+			continue
 		}
 	}
-
-	if err := defaultTaskService.StreamIndex(ctx, task, func(entry IndexFileEntry) error {
-		chunk = append(chunk, entry)
-		touchConn(nodeID)
-		if len(chunk) >= chunkSize {
-			return flush()
-		}
-		return nil
-	}); err != nil {
-		return err
-	}
-	return flush()
 }
 
 func peerFingerprint(conn net.Conn) (string, error) {
