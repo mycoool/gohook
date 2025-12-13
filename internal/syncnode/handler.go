@@ -288,17 +288,21 @@ func mapNodes(nodes []database.SyncNode, summary map[uint]nodeTaskSummary) []nod
 }
 
 func mapNode(node *database.SyncNode, summary nodeTaskSummary) nodeResponse {
-	// ConnectionStatus merges pairing + lastSeen:
-	// - UNPAIRED: never connected (no lastSeen and no fingerprint)
-	// - CONNECTED: lastSeen within TTL
-	// - DISCONNECTED: has history but lastSeen stale
-	//
-	// Note: lastSeen is maintained by the TCP long connection (touch every ~30s).
-	const ttl = 90 * time.Second
-	now := time.Now()
+	// ConnectionStatus prefers in-memory TCP connection registry for real-time status.
+	// Fallback to persisted pairing/lastSeen when registry has no entry (e.g. after restart).
 	lastSeen := node.LastSeen
 	hasHistory := lastSeen != nil || strings.TrimSpace(node.AgentCertFingerprint) != ""
-	connected := lastSeen != nil && now.Sub(*lastSeen) <= ttl
+	connected := false
+	if st, ok := getConnState(node.ID); ok {
+		connected = st.Connected
+		if !st.LastSeen.IsZero() {
+			ts := st.LastSeen
+			lastSeen = &ts
+		}
+	} else if node.LastSeen != nil {
+		// Backward-compat: if we have DB lastSeen but no in-memory entry, assume disconnected.
+		connected = false
+	}
 
 	connectionStatus := "UNPAIRED"
 	if connected {
@@ -362,7 +366,7 @@ func mapNode(node *database.SyncNode, summary nodeTaskSummary) nodeResponse {
 		InstallStatus:        node.InstallStatus,
 		InstallLog:           node.InstallLog,
 		AgentVersion:         node.AgentVersion,
-		LastSeen:             node.LastSeen,
+		LastSeen:             lastSeen,
 		CreatedAt:            node.CreatedAt,
 		UpdatedAt:            node.UpdatedAt,
 	}

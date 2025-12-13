@@ -67,7 +67,15 @@ export class WebSocketStore {
         this.connectionStatus = this.reconnectAttempts > 0 ? 'reconnecting' : 'connecting';
         this.connectionError = null;
 
-        const wsUrl = config.get('url').replace('http', 'ws').replace('https', 'wss');
+        const wsUrl = (() => {
+            // Dev mode: CRA proxy doesn't reliably forward WebSocket upgrades, so connect to backend directly.
+            if (process.env.NODE_ENV !== 'production') {
+                const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+                const host = window.location.hostname || 'localhost';
+                return `${proto}://${host}:9000/`;
+            }
+            return config.get('url').replace('http://', 'ws://').replace('https://', 'wss://');
+        })();
         const ws = new WebSocket(wsUrl + 'stream', ['Authorization', this.currentUser.token()]);
 
         ws.onerror = (e) => {

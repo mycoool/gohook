@@ -270,25 +270,12 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 
 	_ = WriteStreamMessage(conn, helloAck{Type: "hello_ack", OK: true, Server: "gohook"})
 
-	// Heartbeat via TCP connection: mark online on connect, touch periodically, mark offline on close.
+	// Heartbeat via TCP connection: mark online on connect, mark offline on close.
 	_ = svc.RecordTCPConnected(ctx, hello.NodeID, hello.AgentName, hello.AgentVersion, conn.RemoteAddr().String())
-	touchStop := make(chan struct{})
-	defer close(touchStop)
-	go func() {
-		ticker := time.NewTicker(30 * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-touchStop:
-				return
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				svc.TouchTCPHeartbeat(ctx, hello.NodeID)
-			}
-		}
+	markConnConnected(hello.NodeID)
+	defer func() {
+		svc.RecordTCPDisconnected(ctx, hello.NodeID)
 	}()
-	defer svc.RecordTCPDisconnected(ctx, hello.NodeID)
 
 	// Single-task loop: push next task, then serve index/blocks until report arrives.
 	idleBackoff := 1 * time.Second
@@ -302,11 +289,24 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 		task, err := defaultTaskService.PullNextTask(ctx, hello.NodeID)
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
+				// Idle liveness check: send a small frame periodically so that server can detect
+				// closed sockets (agent stopped) even when no tasks are being dispatched.
+				//
+				// Important: keep this in the same goroutine to avoid concurrent writes which
+				// would corrupt the length-prefixed stream protocol.
+				_ = conn.SetWriteDeadline(time.Now().Add(2 * time.Second))
+				if err := WriteStreamMessage(conn, streamMessage{Type: "server_ping"}); err != nil {
+					_ = conn.SetWriteDeadline(time.Time{})
+					return
+				}
+				_ = conn.SetWriteDeadline(time.Time{})
+				touchConn(hello.NodeID)
+
 				time.Sleep(idleBackoff)
-				if idleBackoff < 10*time.Second {
+				if idleBackoff < 2*time.Second {
 					idleBackoff *= 2
-					if idleBackoff > 10*time.Second {
-						idleBackoff = 10 * time.Second
+					if idleBackoff > 2*time.Second {
+						idleBackoff = 2 * time.Second
 					}
 				}
 				continue
@@ -320,6 +320,7 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 		if err := WriteStreamMessage(conn, taskPush{Type: "task", Task: mapTask(task)}); err != nil {
 			return
 		}
+		touchConn(hello.NodeID)
 
 		indexEntries := map[string]IndexFileEntry{}
 
@@ -347,6 +348,7 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 					continue
 				}
 				_ = conn.SetReadDeadline(time.Time{})
+				touchConn(hello.NodeID)
 				goto started
 			case "task_report":
 				var rep taskReportMsg
@@ -356,6 +358,7 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 					continue
 				}
 				_ = conn.SetReadDeadline(time.Time{})
+				touchConn(hello.NodeID)
 				status := "failed"
 				if strings.ToLower(rep.Status) == "success" {
 					status = "success"
@@ -375,7 +378,7 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 				continue
 			}
 		}
-	started:
+		started:
 		_ = conn.SetReadDeadline(time.Time{})
 
 		// Stream index.
@@ -383,8 +386,10 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 			_, _ = defaultTaskService.ReportTask(ctx, hello.NodeID, task.ID, TaskReport{Status: "failed", LastError: "index_begin write failed: " + err.Error(), ErrorCode: "PROTO"})
 			return
 		}
+		touchConn(hello.NodeID)
 		if err := defaultTaskService.StreamIndex(ctx, *task, func(entry IndexFileEntry) error {
 			indexEntries[entry.Path] = entry
+			touchConn(hello.NodeID)
 			return WriteStreamMessage(conn, indexFile{Type: "index_file", TaskID: task.ID, File: entry})
 		}); err != nil {
 			_, _ = defaultTaskService.ReportTask(ctx, hello.NodeID, task.ID, TaskReport{Status: "failed", LastError: "index stream failed: " + err.Error(), ErrorCode: "INDEX"})
@@ -394,6 +399,7 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 			_, _ = defaultTaskService.ReportTask(ctx, hello.NodeID, task.ID, TaskReport{Status: "failed", LastError: "index_end write failed: " + err.Error(), ErrorCode: "PROTO"})
 			return
 		}
+		touchConn(hello.NodeID)
 
 		// Serve block requests until task_report.
 		for {
@@ -411,6 +417,7 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 				if req.TaskID != task.ID {
 					continue
 				}
+				touchConn(hello.NodeID)
 				entry, ok := indexEntries[req.Path]
 				if !ok {
 					_ = WriteStreamMessage(conn, blockResponse{Type: "block_response_bin", TaskID: task.ID, Path: req.Path, Index: req.Index, Hash: "", Size: 0})
@@ -438,6 +445,7 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 				if err := WriteStreamFrame(conn, data); err != nil {
 					return
 				}
+				touchConn(hello.NodeID)
 			case "block_batch_request":
 				var req blockBatchRequest
 				raw, _ := json.Marshal(envelope)
@@ -445,6 +453,7 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 				if req.TaskID != task.ID || req.Path == "" || len(req.Indices) == 0 {
 					continue
 				}
+				touchConn(hello.NodeID)
 				entry, ok := indexEntries[req.Path]
 				if !ok {
 					for _, idx := range req.Indices {
@@ -475,6 +484,7 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 					if err := WriteStreamFrame(conn, data); err != nil {
 						return
 					}
+					touchConn(hello.NodeID)
 				}
 			case "task_report":
 				var rep taskReportMsg
@@ -483,6 +493,7 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 				if rep.TaskID != task.ID {
 					continue
 				}
+				touchConn(hello.NodeID)
 				status := "failed"
 				if strings.ToLower(rep.Status) == "success" {
 					status = "success"

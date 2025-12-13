@@ -324,6 +324,7 @@ func (s *Service) RecordHeartbeat(ctx context.Context, id uint, req HeartbeatReq
 	if err := db.WithContext(ctx).Save(node).Error; err != nil {
 		return nil, err
 	}
+	touchConn(node.ID)
 	if prevStatus != node.Status || prevHealth != node.Health {
 		broadcastWS(wsTypeSyncNodeEvent, syncNodeEvent{NodeID: node.ID, Event: "heartbeat"})
 	}
@@ -380,15 +381,8 @@ func (s *Service) RecordTCPConnected(ctx context.Context, nodeID uint, agentName
 
 // TouchTCPHeartbeat updates last_seen while a TCP connection remains alive.
 func (s *Service) TouchTCPHeartbeat(ctx context.Context, nodeID uint) {
-	db, err := s.ensureDB()
-	if err != nil {
-		return
-	}
-	now := time.Now()
-	_ = db.WithContext(ctx).Model(&database.SyncNode{}).Where("id = ?", nodeID).Updates(map[string]interface{}{
-		"last_seen": now,
-		"status":    NodeStatusOnline,
-	}).Error
+	// Real-time presence is maintained in-memory for UI freshness.
+	touchConn(nodeID)
 }
 
 // RecordTCPDisconnected marks node offline when its TCP connection closes.
@@ -398,9 +392,11 @@ func (s *Service) RecordTCPDisconnected(ctx context.Context, nodeID uint) {
 		return
 	}
 	_ = db.WithContext(ctx).Model(&database.SyncNode{}).Where("id = ?", nodeID).Updates(map[string]interface{}{
-		"status": NodeStatusOffline,
-		"health": NodeHealthUnknown,
+		"status":    NodeStatusOffline,
+		"health":    NodeHealthUnknown,
+		"last_seen": nil,
 	}).Error
+	markConnDisconnected(nodeID)
 	broadcastWS(wsTypeSyncNodeEvent, syncNodeEvent{NodeID: nodeID, Event: "disconnected"})
 }
 
