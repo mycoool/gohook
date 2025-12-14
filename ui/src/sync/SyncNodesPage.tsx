@@ -333,7 +333,7 @@ const SyncNodesPage: React.FC<Props> = ({syncNodeStore, currentUser}) => {
                 <SyncTaskDialog
                     open={!!taskDialogNode}
                     title={`任务详情 - ${taskDialogNode.name}`}
-                    query={{nodeId: taskDialogNode.id, limit: 50}}
+                    query={{nodeId: taskDialogNode.id}}
                     onClose={() => setTaskDialogNode(null)}
                 />
             ) : null}

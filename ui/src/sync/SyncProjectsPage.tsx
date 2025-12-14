@@ -463,7 +463,7 @@ const SyncProjectsPage: React.FC<Props> = ({syncProjectStore, syncNodeStore, cur
                 <SyncTaskDialog
                     open={!!taskDialogProject}
                     title={`任务详情 - ${taskDialogProject.projectName}`}
-                    query={{projectName: taskDialogProject.projectName, limit: 50}}
+                    query={{projectName: taskDialogProject.projectName}}
                     onClose={() => setTaskDialogProject(null)}
                 />
             ) : null}

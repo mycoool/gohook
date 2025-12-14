@@ -267,6 +267,8 @@ func InitRouter() *gin.Engine {
 		syncAPI.GET("/projects", syncnode.HandleListSyncProjects)
 		syncAPI.PUT("/projects/:name/config", syncnode.HandleUpdateProjectSyncConfig)
 		syncAPI.GET("/tasks", syncnode.HandleListTasks)
+		syncAPI.GET("/tasks/:id", syncnode.HandleGetTask)
+		syncAPI.DELETE("/tasks", middleware.AdminMiddleware(), syncnode.HandleClearTasks)
 
 		nodeAPI := syncAPI.Group("/nodes")
 		nodeAPI.GET("", syncnode.HandleListNodes)

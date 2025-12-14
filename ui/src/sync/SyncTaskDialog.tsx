@@ -103,11 +103,40 @@ const hintForCode = (code?: string) => {
 const SyncTaskDialog: React.FC<Props> = ({open, title, query, onClose, syncTaskStore, wsStore}) => {
     const [includeLogs, setIncludeLogs] = useState(false);
     const [expanded, setExpanded] = useState<Record<number, boolean>>({});
+    const [logPages, setLogPages] = useState<Record<number, number>>({});
+    const [logLoading, setLogLoading] = useState<Record<number, boolean>>({});
+    const [pageCursors, setPageCursors] = useState<number[]>([0]);
+    const logPageSize = 5;
+    const taskPageSize = 5;
+
+    const queryKey = useMemo(
+        () =>
+            [
+                query.projectName || '',
+                String(query.nodeId || ''),
+                query.status || '',
+                String(query.limit || ''),
+            ].join('|'),
+        [query.projectName, query.nodeId, query.status, query.limit]
+    );
+
+    const beforeId = pageCursors[pageCursors.length - 1] || 0;
+    const effectiveQuery = useMemo(
+        () => ({
+            projectName: query.projectName,
+            nodeId: query.nodeId,
+            status: query.status,
+            includeLogs,
+            limit: taskPageSize,
+            ...(beforeId > 0 ? {beforeId} : {}),
+        }),
+        [query.projectName, query.nodeId, query.status, includeLogs, taskPageSize, beforeId]
+    );
 
     useEffect(() => {
         if (!open) return;
-        syncTaskStore.loadTasks({...query, includeLogs}).catch(() => undefined);
-    }, [open, includeLogs, query, syncTaskStore]);
+        syncTaskStore.loadTasks(effectiveQuery).catch(() => undefined);
+    }, [open, effectiveQuery, syncTaskStore]);
 
     useEffect(() => {
         if (!open) return;
@@ -125,7 +154,7 @@ const SyncTaskDialog: React.FC<Props> = ({open, title, query, onClose, syncTaskS
             if (timer) return;
             timer = setTimeout(() => {
                 timer = null;
-                syncTaskStore.loadTasks({...query, includeLogs}).catch(() => undefined);
+                syncTaskStore.loadTasks(effectiveQuery, {silent: true}).catch(() => undefined);
             }, 500);
         };
 
@@ -134,12 +163,26 @@ const SyncTaskDialog: React.FC<Props> = ({open, title, query, onClose, syncTaskS
             wsStore.offMessage(handler);
             if (timer) clearTimeout(timer);
         };
-    }, [open, includeLogs, query, syncTaskStore, wsStore]);
+    }, [open, effectiveQuery, query.projectName, query.nodeId, syncTaskStore, wsStore]);
 
     const tasks = useMemo(() => syncTaskStore.tasks || [], [syncTaskStore.tasks]);
+    const showProjectColumn = !query.projectName;
 
-    const toggleExpanded = (id: number) => {
-        setExpanded((prev) => ({...prev, [id]: !prev[id]}));
+    const toggleExpanded = (t: ISyncTask) => {
+        const id = Number(t.id);
+        if (!Number.isFinite(id) || id <= 0) return;
+        const next = !expanded[id];
+        setExpanded((prev) => ({...prev, [id]: next}));
+        if (next) {
+            setLogPages((pages) => ({...pages, [id]: 0}));
+            if (!includeLogs && !t.logs && !logLoading[id]) {
+                setLogLoading((m) => ({...m, [id]: true}));
+                syncTaskStore
+                    .loadTask(id, {includeLogs: true})
+                    .catch(() => undefined)
+                    .finally(() => setLogLoading((m) => ({...m, [id]: false})));
+            }
+        }
     };
 
     const copyText = async (text: string) => {
@@ -203,24 +246,110 @@ const SyncTaskDialog: React.FC<Props> = ({open, title, query, onClose, syncTaskS
         );
     };
 
+    const goOlder = () => {
+        if (!tasks.length) return;
+        const minID = Math.min(...tasks.map((t) => Number(t.id)).filter((v) => Number.isFinite(v)));
+        if (!Number.isFinite(minID) || minID <= 0) return;
+        setPageCursors((prev) => [...prev, minID]);
+    };
+
+    const goNewer = () => {
+        setPageCursors((prev) => (prev.length > 1 ? prev.slice(0, prev.length - 1) : prev));
+    };
+
+    const resetToLatest = () => {
+        setPageCursors([0]);
+    };
+
+    const clearRecords = async () => {
+        const scope = query.projectName
+            ? `项目 ${query.projectName}`
+            : query.nodeId
+            ? `节点 #${query.nodeId}`
+            : '全部';
+        if (!window.confirm(`确认清空 ${scope} 的任务记录（默认仅清空 success/failed）？`)) {
+            return;
+        }
+        try {
+            await syncTaskStore.clearTasks(query);
+            setExpanded({});
+            setLogPages({});
+            setLogLoading({});
+            resetToLatest();
+        } catch {
+            window.alert('清空失败（需要管理员权限或服务端异常）');
+        } finally {
+            syncTaskStore
+                .loadTasks({
+                    projectName: query.projectName,
+                    nodeId: query.nodeId,
+                    status: query.status,
+                    includeLogs,
+                    limit: taskPageSize,
+                })
+                .catch(() => undefined);
+        }
+    };
+
     return (
         <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
             <DialogTitle>{title}</DialogTitle>
             <DialogContent>
                 <Box sx={{display: 'flex', justifyContent: 'space-between', mb: 1}}>
                     <Typography variant="caption" color="textSecondary">
-                        默认仅展示最近任务；勾选“包含日志”可查看任务日志（可能较大）。
+                        默认展示最近 {taskPageSize} 条任务；翻页可查看更早记录。
                     </Typography>
-                    <Button
-                        size="small"
-                        variant={includeLogs ? 'contained' : 'outlined'}
-                        onClick={() => setIncludeLogs((v) => !v)}
-                        disabled={syncTaskStore.loading}>
-                        {includeLogs ? '包含日志' : '不含日志'}
-                    </Button>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                        {syncTaskStore.refreshing ? <CircularProgress size={14} /> : null}
+                        <Button
+                            size="small"
+                            variant={includeLogs ? 'contained' : 'outlined'}
+                            onClick={() => setIncludeLogs((v) => !v)}
+                            disabled={syncTaskStore.loading}>
+                            {includeLogs ? '包含日志' : '不含日志'}
+                        </Button>
+                        <Button
+                            size="small"
+                            variant="outlined"
+                            color="error"
+                            onClick={clearRecords}
+                            disabled={syncTaskStore.loading}>
+                            清空记录
+                        </Button>
+                    </Stack>
                 </Box>
 
-                {syncTaskStore.loading ? (
+                <Box sx={{display: 'flex', justifyContent: 'space-between', mb: 1}}>
+                    <Typography variant="caption" color="textSecondary">
+                        第 {pageCursors.length} 页
+                        {pageCursors.length > 1 ? `（beforeId=${beforeId}）` : ''}
+                    </Typography>
+                    <Stack direction="row" spacing={1}>
+                        <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={resetToLatest}
+                            disabled={syncTaskStore.loading || pageCursors.length <= 1}>
+                            最新
+                        </Button>
+                        <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={goNewer}
+                            disabled={syncTaskStore.loading || pageCursors.length <= 1}>
+                            下一页
+                        </Button>
+                        <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={goOlder}
+                            disabled={syncTaskStore.loading || tasks.length < taskPageSize}>
+                            上一页
+                        </Button>
+                    </Stack>
+                </Box>
+
+                {syncTaskStore.loading && tasks.length === 0 ? (
                     <Box sx={{display: 'flex', justifyContent: 'center', py: 4}}>
                         <CircularProgress />
                     </Box>
@@ -229,7 +358,7 @@ const SyncTaskDialog: React.FC<Props> = ({open, title, query, onClose, syncTaskS
                         <TableHead>
                             <TableRow>
                                 <TableCell>ID</TableCell>
-                                <TableCell>项目</TableCell>
+                                {showProjectColumn ? <TableCell>项目</TableCell> : null}
                                 <TableCell>节点</TableCell>
                                 <TableCell>状态</TableCell>
                                 <TableCell>时间</TableCell>
@@ -241,7 +370,7 @@ const SyncTaskDialog: React.FC<Props> = ({open, title, query, onClose, syncTaskS
                         <TableBody>
                             {tasks.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={8} align="center">
+                                    <TableCell colSpan={showProjectColumn ? 8 : 7} align="center">
                                         暂无任务
                                     </TableCell>
                                 </TableRow>
@@ -250,7 +379,9 @@ const SyncTaskDialog: React.FC<Props> = ({open, title, query, onClose, syncTaskS
                                     <React.Fragment key={t.id}>
                                         <TableRow hover>
                                             <TableCell>{t.id}</TableCell>
-                                            <TableCell>{t.projectName}</TableCell>
+                                            {showProjectColumn ? (
+                                                <TableCell>{t.projectName}</TableCell>
+                                            ) : null}
                                             <TableCell>
                                                 <Typography variant="body2">
                                                     {t.nodeName} (#{t.nodeId})
@@ -291,39 +422,175 @@ const SyncTaskDialog: React.FC<Props> = ({open, title, query, onClose, syncTaskS
                                             </TableCell>
                                             <TableCell>{renderError(t)}</TableCell>
                                             <TableCell>
-                                                {t.logs ? (
-                                                    <IconButton
-                                                        size="small"
-                                                        onClick={() => toggleExpanded(t.id)}
-                                                        title="展开/收起日志">
-                                                        {expanded[t.id] ? (
-                                                            <ExpandLessIcon fontSize="small" />
-                                                        ) : (
-                                                            <ExpandMoreIcon fontSize="small" />
-                                                        )}
-                                                    </IconButton>
-                                                ) : (
-                                                    '--'
-                                                )}
+                                                <IconButton
+                                                    size="small"
+                                                    onClick={() => toggleExpanded(t)}
+                                                    title={
+                                                        includeLogs
+                                                            ? '展开/收起日志'
+                                                            : '展开后按需加载日志'
+                                                    }>
+                                                    {expanded[t.id] ? (
+                                                        <ExpandLessIcon fontSize="small" />
+                                                    ) : (
+                                                        <ExpandMoreIcon fontSize="small" />
+                                                    )}
+                                                </IconButton>
                                             </TableCell>
                                         </TableRow>
-                                        {t.logs ? (
+                                        {expanded[t.id] || t.logs ? (
                                             <TableRow>
-                                                <TableCell colSpan={8} sx={{py: 0}}>
+                                                <TableCell
+                                                    colSpan={showProjectColumn ? 8 : 7}
+                                                    sx={{py: 0}}>
                                                     <Collapse
                                                         in={!!expanded[t.id]}
                                                         timeout="auto"
                                                         unmountOnExit>
                                                         <Box sx={{p: 1}}>
-                                                            <pre
-                                                                style={{
-                                                                    margin: 0,
-                                                                    maxHeight: 240,
-                                                                    overflow: 'auto',
-                                                                    whiteSpace: 'pre-wrap',
-                                                                }}>
-                                                                {t.logs}
-                                                            </pre>
+                                                            {(() => {
+                                                                if (logLoading[t.id]) {
+                                                                    return (
+                                                                        <Box
+                                                                            sx={{
+                                                                                display: 'flex',
+                                                                                justifyContent:
+                                                                                    'center',
+                                                                                py: 2,
+                                                                            }}>
+                                                                            <CircularProgress
+                                                                                size={20}
+                                                                            />
+                                                                        </Box>
+                                                                    );
+                                                                }
+                                                                const raw = String(
+                                                                    t.logs || ''
+                                                                ).replace(/\n$/, '');
+                                                                const lines =
+                                                                    raw === ''
+                                                                        ? []
+                                                                        : raw.split(/\r?\n/);
+                                                                const totalPages = Math.max(
+                                                                    1,
+                                                                    Math.ceil(
+                                                                        lines.length / logPageSize
+                                                                    )
+                                                                );
+                                                                const pageIndex = Math.min(
+                                                                    Math.max(
+                                                                        logPages[t.id] ?? 0,
+                                                                        0
+                                                                    ),
+                                                                    totalPages - 1
+                                                                );
+                                                                const end = Math.max(
+                                                                    0,
+                                                                    lines.length -
+                                                                        pageIndex * logPageSize
+                                                                );
+                                                                const start = Math.max(
+                                                                    0,
+                                                                    end - logPageSize
+                                                                );
+                                                                const view = lines
+                                                                    .slice(start, end)
+                                                                    .join('\n');
+
+                                                                return (
+                                                                    <>
+                                                                        <Stack
+                                                                            direction="row"
+                                                                            spacing={1}
+                                                                            alignItems="center"
+                                                                            justifyContent="space-between"
+                                                                            sx={{mb: 1}}>
+                                                                            <Typography
+                                                                                variant="caption"
+                                                                                color="textSecondary">
+                                                                                默认显示最新{' '}
+                                                                                {logPageSize} 行 ·
+                                                                                第{' '}
+                                                                                {Math.max(
+                                                                                    1,
+                                                                                    totalPages -
+                                                                                        pageIndex
+                                                                                )}
+                                                                                /{totalPages} 页
+                                                                            </Typography>
+                                                                            <Stack
+                                                                                direction="row"
+                                                                                spacing={1}
+                                                                                alignItems="center">
+                                                                                <Button
+                                                                                    size="small"
+                                                                                    variant="outlined"
+                                                                                    disabled={
+                                                                                        pageIndex >=
+                                                                                        totalPages -
+                                                                                            1
+                                                                                    }
+                                                                                    onClick={() =>
+                                                                                        setLogPages(
+                                                                                            (
+                                                                                                pages
+                                                                                            ) => ({
+                                                                                                ...pages,
+                                                                                                [t.id]:
+                                                                                                    (pages[
+                                                                                                        t
+                                                                                                            .id
+                                                                                                    ] ??
+                                                                                                        0) +
+                                                                                                    1,
+                                                                                            })
+                                                                                        )
+                                                                                    }>
+                                                                                    上一页
+                                                                                </Button>
+                                                                                <Button
+                                                                                    size="small"
+                                                                                    variant="outlined"
+                                                                                    disabled={
+                                                                                        pageIndex <=
+                                                                                        0
+                                                                                    }
+                                                                                    onClick={() =>
+                                                                                        setLogPages(
+                                                                                            (
+                                                                                                pages
+                                                                                            ) => ({
+                                                                                                ...pages,
+                                                                                                [t.id]:
+                                                                                                    Math.max(
+                                                                                                        (pages[
+                                                                                                            t
+                                                                                                                .id
+                                                                                                        ] ??
+                                                                                                            0) -
+                                                                                                            1,
+                                                                                                        0
+                                                                                                    ),
+                                                                                            })
+                                                                                        )
+                                                                                    }>
+                                                                                    下一页
+                                                                                </Button>
+                                                                            </Stack>
+                                                                        </Stack>
+                                                                        <pre
+                                                                            style={{
+                                                                                margin: 0,
+                                                                                maxHeight: 240,
+                                                                                overflow: 'auto',
+                                                                                whiteSpace:
+                                                                                    'pre-wrap',
+                                                                            }}>
+                                                                            {view || '--'}
+                                                                        </pre>
+                                                                    </>
+                                                                );
+                                                            })()}
                                                         </Box>
                                                     </Collapse>
                                                 </TableCell>
