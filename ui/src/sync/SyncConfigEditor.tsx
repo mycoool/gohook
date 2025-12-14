@@ -1,4 +1,4 @@
-import React, {useMemo, useState} from 'react';
+import React, {useState} from 'react';
 import {
     Box,
     Button,
@@ -105,16 +105,22 @@ const SyncConfigEditor: React.FC<Props> = ({
     const [expanded, setExpanded] = useState<Record<number, boolean>>({});
     const [tab, setTab] = useState(0);
 
-    const defaultNodeId = useMemo(
-        () => (availableNodes.length ? String(availableNodes[0].id) : ''),
-        [availableNodes]
-    );
+    const pickDefaultNodeId = (): string => {
+        const picked = new Set(syncNodes.map((r) => r.nodeId).filter((v) => v));
+        for (const n of availableNodes) {
+            const id = String(n.id);
+            if (!picked.has(id)) {
+                return id;
+            }
+        }
+        return availableNodes.length ? String(availableNodes[0].id) : '';
+    };
 
     const addSyncNodeRow = () => {
         onSyncNodesChange([
             ...syncNodes,
             {
-                nodeId: defaultNodeId,
+                nodeId: pickDefaultNodeId(),
                 targetPath: projectPath || '',
                 strategy: 'mirror',
                 ignorePatterns: '',
@@ -178,7 +184,7 @@ const SyncConfigEditor: React.FC<Props> = ({
                                             }
                                         />
                                     }
-                                    label="启用默认忽略列表 (.git、runtime、tmp)"
+                                    label="启用默认忽略列表 (.git、runtime)"
                                 />
                                 <FormControlLabel
                                     control={
@@ -195,7 +201,7 @@ const SyncConfigEditor: React.FC<Props> = ({
 
                             <TextField
                                 margin="dense"
-                                label="忽略规则（Syncthing 风格，支持 # 注释 与 ! 反选）"
+                                label="忽略规则（支持 # 注释 与 ! 反选）"
                                 value={ignorePatterns}
                                 onChange={(e) => onIgnorePatternsChange(e.target.value)}
                                 fullWidth

@@ -77,7 +77,7 @@ type ProjectSyncConfig struct {
 	Enabled           bool     `yaml:"enabled" json:"enabled"`
 	Driver            string   `yaml:"driver,omitempty" json:"driver,omitempty"`                        // agent | rsync | inherit
 	MaxParallelNodes  int      `yaml:"max_parallel_nodes,omitempty" json:"maxParallelNodes,omitempty"`  // concurrency guard
-	IgnoreDefaults    bool     `yaml:"ignore_defaults,omitempty" json:"ignoreDefaults,omitempty"`       // include built-in ignore set (.git/, runtime/, tmp/)
+	IgnoreDefaults    bool     `yaml:"ignore_defaults,omitempty" json:"ignoreDefaults,omitempty"`       // include built-in ignore set (.git/, runtime/)
 	IgnorePatterns    []string `yaml:"ignore_patterns,omitempty" json:"ignorePatterns,omitempty"`       // extra ignore globs
 	IgnoreFile        string   `yaml:"ignore_file,omitempty" json:"ignoreFile,omitempty"`               // optional ignore file path
 	IgnorePermissions bool     `yaml:"ignore_permissions,omitempty" json:"ignorePermissions,omitempty"` // do not sync chmod/chown
