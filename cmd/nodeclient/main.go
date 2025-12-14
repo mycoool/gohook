@@ -97,7 +97,7 @@ func loadConfig() runtimeConfig {
 
 	version := firstNonEmpty(*flagVersion, os.Getenv("GOHOOK_AGENT_VERSION"), os.Getenv("SYNC_AGENT_VERSION"))
 	if version == "" {
-		version = "dev"
+		version = Version
 	}
 
 	dataDir := firstNonEmpty(*flagDataDir, os.Getenv("GOHOOK_DATA_DIR"))

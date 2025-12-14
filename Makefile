@@ -19,10 +19,19 @@ help:
 
 all: build ## Build server binary by default
 
-build: clean build-linux-amd64 build-linux-arm64 build-windows-amd64 build-darwin-amd64 ## Build server for all major platforms
+build: clean build-server ## Build server for all major platforms
 
-agent: AGENT=1
-agent: clean build-linux-amd64 build-linux-arm64 build-windows-amd64 build-darwin-amd64 ## Build sync node agent binaries
+agent: clean build-agent ## Build sync node agent binaries
+
+build-server: ## Build server for all major platforms
+	@$(MAKE) build-linux-amd64 build-linux-arm64 build-windows-amd64 build-darwin-amd64
+
+build-agent: ## Build sync node agent for all major platforms
+	@$(MAKE) AGENT=1 build-linux-amd64 build-linux-arm64 build-windows-amd64 build-darwin-amd64
+
+build-all: clean ## Build server + agent for release
+	@$(MAKE) build-server
+	@$(MAKE) build-agent
 
 build-js: ## Build the web UI
 	(cd ui && yarn && yarn build)
@@ -43,13 +52,8 @@ deps: ## Install Go dependencies
 clean: ## Clean up build artifacts
 	rm -rf $(BUILD_DIR)
 
-ifeq ($(AGENT),1)
-	OUTPUT_NAME=$(AGENT_BINARY_NAME)
-	BUILD_TARGET=./cmd/nodeclient
-else
-	OUTPUT_NAME=$(BINARY_NAME)
-	BUILD_TARGET=.
-endif
+OUTPUT_NAME = $(if $(filter 1,$(AGENT)),$(AGENT_BINARY_NAME),$(BINARY_NAME))
+BUILD_TARGET = $(if $(filter 1,$(AGENT)),./cmd/nodeclient,.)
 
 GO_BUILD_CMD?=go build
 
@@ -76,9 +80,11 @@ build-darwin-amd64:
 
 package-zip: ## Package all builds into zip files
 	@echo "--> Packaging binaries into zip files..."
-	@for f in $(BUILD_DIR)/$(BINARY_NAME)-*; do \
-		zip -j "$$f.zip" "$$f"; \
+	@for f in $(BUILD_DIR)/*; do \
+		[ -f "$$f" ] || continue; \
+		case "$$f" in *.zip) continue ;; esac; \
+		zip -j "$$f.zip" "$$f" >/dev/null; \
 	done
 	@echo "Done. Find packages in $(BUILD_DIR)"
 
-.PHONY: all build build-js test deps clean build-linux-amd64 build-linux-arm64 build-windows-amd64 build-darwin-amd64 package-zip
+.PHONY: all build agent build-server build-agent build-all build-js test deps clean build-linux-amd64 build-linux-arm64 build-windows-amd64 build-darwin-amd64 package-zip
