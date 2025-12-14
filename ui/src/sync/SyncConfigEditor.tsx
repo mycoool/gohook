@@ -6,6 +6,7 @@ import {
     FormControlLabel,
     IconButton,
     MenuItem,
+    Paper,
     Stack,
     Switch,
     Tab,
@@ -14,10 +15,12 @@ import {
     Typography,
     Collapse,
 } from '@mui/material';
+import {alpha} from '@mui/material/styles';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import SettingsIcon from '@mui/icons-material/Settings';
 import CloseIcon from '@mui/icons-material/Close';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import {IProjectSyncNodeConfig, ISyncNode} from '../types';
 
 export type SyncNodeRow = {
@@ -86,6 +89,44 @@ const normalizeNodeRow = (row: SyncNodeRow): IProjectSyncNodeConfig => {
 export const normalizeNodes = (rows: SyncNodeRow[]): IProjectSyncNodeConfig[] =>
     rows.map(normalizeNodeRow).filter((n) => n.nodeId && n.targetPath);
 
+const IgnoreRulesHelp: React.FC<{open: boolean}> = ({open}) => (
+    <Collapse in={open}>
+        <Paper variant="outlined" sx={{p: 1, mt: 1}}>
+            <Stack spacing={0.5}>
+                <Typography variant="body2">
+                    <code>#</code> 注释（行首）
+                </Typography>
+                <Typography variant="body2">
+                    <code>!</code> 反选（取消忽略）
+                </Typography>
+                <Typography variant="body2">
+                    <code>*</code> 单层通配（不跨目录）
+                </Typography>
+                <Typography variant="body2">
+                    <code>**</code> 多层通配（可跨目录）
+                </Typography>
+                <Typography variant="body2">
+                    <code>?</code> / <code>[abc]</code> 单字符 / 字符组
+                </Typography>
+                <Typography variant="body2">
+                    <code>dir/</code> 目录规则（匹配该目录及其子路径）
+                </Typography>
+                <Typography variant="body2">
+                    <code>/pattern</code> 锚定到项目根目录
+                </Typography>
+                <Typography variant="body2">规则按顺序匹配，“最后匹配规则生效”。</Typography>
+                <Typography variant="body2">
+                    不含 <code>/</code> 的规则默认匹配任意层级（等同 <code>**/pattern</code>）。
+                </Typography>
+                <Typography variant="body2">
+                    示例：<code>node_modules/**</code>、<code>*.log</code>、<code>runtime/</code>、
+                    <code>!.env</code>
+                </Typography>
+            </Stack>
+        </Paper>
+    </Collapse>
+);
+
 const SyncConfigEditor: React.FC<Props> = ({
     enabled,
     ignoreDefaults,
@@ -118,6 +159,7 @@ const SyncConfigEditor: React.FC<Props> = ({
 }) => {
     const [expanded, setExpanded] = useState<Record<number, boolean>>({});
     const [tab, setTab] = useState(0);
+    const [showIgnoreHelp, setShowIgnoreHelp] = useState(false);
 
     const pickDefaultNodeId = (): string => {
         const picked = new Set(syncNodes.map((r) => r.nodeId).filter((v) => v));
@@ -191,18 +233,30 @@ const SyncConfigEditor: React.FC<Props> = ({
                     {enabled ? (
                         <>
                             <Box mt={1}>
-                                <FormControlLabel
-                                    control={
-                                        <Switch
-                                            checked={ignoreDefaults}
-                                            onChange={(_, checked) =>
-                                                onIgnoreDefaultsChange(checked)
-                                            }
-                                        />
-                                    }
-                                    label="启用默认忽略列表 (.git、runtime)"
-                                />
+                                <Stack
+                                    direction="row"
+                                    alignItems="center"
+                                    justifyContent="space-between">
+                                    <FormControlLabel
+                                        control={
+                                            <Switch
+                                                checked={ignoreDefaults}
+                                                onChange={(_, checked) =>
+                                                    onIgnoreDefaultsChange(checked)
+                                                }
+                                            />
+                                        }
+                                        label="启用默认忽略列表 (.git、runtime)"
+                                    />
+                                    <Button
+                                        size="small"
+                                        startIcon={<HelpOutlineIcon />}
+                                        onClick={() => setShowIgnoreHelp((v) => !v)}>
+                                        规则说明
+                                    </Button>
+                                </Stack>
                             </Box>
+                            <IgnoreRulesHelp open={showIgnoreHelp} />
 
                             <TextField
                                 margin="dense"
@@ -383,13 +437,35 @@ const SyncConfigEditor: React.FC<Props> = ({
                     ) : null}
                     <Box sx={{mt: 1}}>
                         {syncNodes.map((row, idx) => (
-                            <Box
+                            <Paper
                                 key={`${row.nodeId}-${idx}`}
+                                variant="outlined"
                                 sx={{
-                                    border: '1px solid rgba(0,0,0,0.08)',
                                     borderRadius: 1,
                                     p: 1,
                                     mb: 1,
+                                    borderColor: (theme) =>
+                                        theme.palette.mode === 'dark'
+                                            ? 'rgba(255,255,255,0.18)'
+                                            : 'rgba(0,0,0,0.14)',
+                                    backgroundColor: (theme) =>
+                                        alpha(
+                                            theme.palette.background.paper,
+                                            theme.palette.mode === 'dark' ? 0.35 : 0.85
+                                        ),
+                                    transition:
+                                        'border-color 120ms ease, background-color 120ms ease',
+                                    '&:hover': {
+                                        borderColor: (theme) =>
+                                            theme.palette.mode === 'dark'
+                                                ? 'rgba(255,255,255,0.28)'
+                                                : 'rgba(0,0,0,0.24)',
+                                        backgroundColor: (theme) =>
+                                            alpha(
+                                                theme.palette.background.paper,
+                                                theme.palette.mode === 'dark' ? 0.5 : 0.95
+                                            ),
+                                    },
                                 }}>
                                 <Box
                                     sx={{
@@ -471,6 +547,15 @@ const SyncConfigEditor: React.FC<Props> = ({
                                             placeholder={`# only for this node\n*.local\n!important.local`}
                                             helperText="与项目级规则合并后按顺序生效（支持 ! 反选）。"
                                         />
+                                        <Box sx={{display: 'flex', justifyContent: 'flex-end'}}>
+                                            <Button
+                                                size="small"
+                                                startIcon={<HelpOutlineIcon />}
+                                                onClick={() => setShowIgnoreHelp((v) => !v)}>
+                                                规则说明
+                                            </Button>
+                                        </Box>
+                                        <IgnoreRulesHelp open={showIgnoreHelp} />
                                         <TextField
                                             margin="dense"
                                             label="节点忽略文件路径（可选）"
@@ -546,7 +631,7 @@ const SyncConfigEditor: React.FC<Props> = ({
                                         ) : null}
                                     </Box>
                                 </Collapse>
-                            </Box>
+                            </Paper>
                         ))}
                     </Box>
                 </Box>
