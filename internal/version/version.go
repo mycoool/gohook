@@ -1,11 +1,14 @@
 package version
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
 	"os/exec"
+	"os/user"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -19,6 +22,25 @@ import (
 	"github.com/mycoool/gohook/internal/syncnode"
 	"github.com/mycoool/gohook/internal/types"
 )
+
+var errProjectPathNotWritable = errors.New("project path is not writable")
+
+func currentServiceUserAndGroup() (username, group string) {
+	u, err := user.Current()
+	if err != nil || u == nil || u.Username == "" {
+		return "unknown", "unknown"
+	}
+
+	username = u.Username
+	group = username
+	if u.Gid != "" {
+		if g, err := user.LookupGroupId(u.Gid); err == nil && g != nil && g.Name != "" {
+			group = g.Name
+		}
+	}
+
+	return username, group
+}
 
 // execGitCommand execute git command, automatically handle safe.directory permission issues
 func execGitCommand(projectPath string, args ...string) ([]byte, error) {
@@ -88,6 +110,9 @@ func initGit(projectPath string) error {
 
 	// check if it is a directory
 	if info, err := os.Stat(projectPath); err != nil {
+		if errors.Is(err, fs.ErrPermission) {
+			return fmt.Errorf("%w: %v", errProjectPathNotWritable, err)
+		}
 		return fmt.Errorf("cannot access project path: %s, error: %v", projectPath, err)
 	} else if !info.IsDir() {
 		return fmt.Errorf("project path is not a directory: %s", projectPath)
@@ -102,8 +127,7 @@ func initGit(projectPath string) error {
 	// try to create a temporary file to test write permission
 	testFile := filepath.Join(projectPath, ".gohook-permission-test")
 	if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
-		return fmt.Errorf("project path does not have write permission: %s, please check directory permission. recommended: sudo chown -R %s:%s %s",
-			projectPath, os.Getenv("USER"), os.Getenv("USER"), projectPath)
+		return fmt.Errorf("%w: %v", errProjectPathNotWritable, err)
 	}
 	// clean up test file
 	os.Remove(testFile)
@@ -1585,6 +1609,20 @@ func HandleInitGitRepository(c *gin.Context) {
 
 	if err := initGit(projectPath); err != nil {
 		fmt.Printf("Git initialization failed: project name=%s, path=%s, error=%v\n", projectName, projectPath, err)
+		if errors.Is(err, errProjectPathNotWritable) {
+			username, group := currentServiceUserAndGroup()
+			c.JSON(http.StatusForbidden, gin.H{
+				"error": fmt.Sprintf(
+					"目录没有写入权限：%s。请确保运行 GoHook 的用户（%s）对此目录有写权限。参考：sudo chown -R %s:%s %s",
+					projectPath,
+					username,
+					username,
+					group,
+					projectPath,
+				),
+			})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

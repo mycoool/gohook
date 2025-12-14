@@ -225,12 +225,10 @@ export class VersionStore {
             await this.refreshProjects(); // 初始化后刷新项目列表
         } catch (error: unknown) {
             const errorMessage =
-                error instanceof Error
-                    ? error.message
-                    : (error as {response?: {data?: {error?: string}}})?.response?.data?.error ??
-                      '未知错误';
+                (error as {response?: {data?: {error?: string}}})?.response?.data?.error ??
+                (error instanceof Error ? error.message : '未知错误');
             this.snack('Git仓库初始化失败: ' + errorMessage);
-            throw error;
+            return;
         }
     };
 
