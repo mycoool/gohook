@@ -539,18 +539,30 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 				touchConn(hello.NodeID)
 				entry, ok := indexEntries[req.Path]
 				if !ok {
-					_ = conn.SetWriteDeadline(time.Now().Add(2 * time.Minute))
-					_ = WriteStreamMessage(conn, blockResponse{Type: "block_response_bin", TaskID: task.ID, Path: req.Path, Index: req.Index, Hash: "", Size: 1, ErrorCode: "MISSING_ENTRY", Error: "index entry not found"})
-					_ = WriteStreamFrame(conn, []byte{})
-					_ = conn.SetWriteDeadline(time.Time{})
+					_ = writeBlockResponseBin(conn, blockResponse{
+						Type:      "block_response_bin",
+						TaskID:    task.ID,
+						Path:      req.Path,
+						Index:     req.Index,
+						Hash:      "",
+						Size:      0,
+						ErrorCode: "MISSING_ENTRY",
+						Error:     "index entry not found",
+					}, []byte{})
 					continue
 				}
 				data, err := defaultTaskService.ReadBlock(*task, entry, req.Index)
 				if err != nil {
-					_ = conn.SetWriteDeadline(time.Now().Add(2 * time.Minute))
-					_ = WriteStreamMessage(conn, blockResponse{Type: "block_response_bin", TaskID: task.ID, Path: req.Path, Index: req.Index, Hash: "", Size: 1, ErrorCode: "BLOCK_READ", Error: err.Error()})
-					_ = WriteStreamFrame(conn, []byte{})
-					_ = conn.SetWriteDeadline(time.Time{})
+					_ = writeBlockResponseBin(conn, blockResponse{
+						Type:      "block_response_bin",
+						TaskID:    task.ID,
+						Path:      req.Path,
+						Index:     req.Index,
+						Hash:      "",
+						Size:      0,
+						ErrorCode: "BLOCK_READ",
+						Error:     err.Error(),
+					}, []byte{})
 					continue
 				}
 				sum := sha256.Sum256(data)
@@ -562,16 +574,9 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 					Hash:   hex.EncodeToString(sum[:]),
 					Size:   len(data),
 				}
-				_ = conn.SetWriteDeadline(time.Now().Add(2 * time.Minute))
-				if err := WriteStreamMessage(conn, resp); err != nil {
-					_ = conn.SetWriteDeadline(time.Time{})
+				if err := writeBlockResponseBin(conn, resp, data); err != nil {
 					return
 				}
-				if err := WriteStreamFrame(conn, data); err != nil {
-					_ = conn.SetWriteDeadline(time.Time{})
-					return
-				}
-				_ = conn.SetWriteDeadline(time.Time{})
 				touchConn(hello.NodeID)
 			case "block_batch_request":
 				var req blockBatchRequest
@@ -583,20 +588,33 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 				touchConn(hello.NodeID)
 				entry, ok := indexEntries[req.Path]
 				if !ok {
-					_ = conn.SetWriteDeadline(time.Now().Add(2 * time.Minute))
 					for _, idx := range req.Indices {
-						_ = WriteStreamMessage(conn, blockResponse{Type: "block_response_bin", TaskID: task.ID, Path: req.Path, Index: idx, Hash: "", Size: 1, ErrorCode: "MISSING_ENTRY", Error: "index entry not found"})
-						_ = WriteStreamFrame(conn, []byte{})
+						_ = writeBlockResponseBin(conn, blockResponse{
+							Type:      "block_response_bin",
+							TaskID:    task.ID,
+							Path:      req.Path,
+							Index:     idx,
+							Hash:      "",
+							Size:      0,
+							ErrorCode: "MISSING_ENTRY",
+							Error:     "index entry not found",
+						}, []byte{})
 					}
-					_ = conn.SetWriteDeadline(time.Time{})
 					continue
 				}
-				_ = conn.SetWriteDeadline(time.Now().Add(2 * time.Minute))
 				for _, idx := range req.Indices {
 					data, err := defaultTaskService.ReadBlock(*task, entry, idx)
 					if err != nil {
-						_ = WriteStreamMessage(conn, blockResponse{Type: "block_response_bin", TaskID: task.ID, Path: req.Path, Index: idx, Hash: "", Size: 1, ErrorCode: "BLOCK_READ", Error: err.Error()})
-						_ = WriteStreamFrame(conn, []byte{})
+						_ = writeBlockResponseBin(conn, blockResponse{
+							Type:      "block_response_bin",
+							TaskID:    task.ID,
+							Path:      req.Path,
+							Index:     idx,
+							Hash:      "",
+							Size:      0,
+							ErrorCode: "BLOCK_READ",
+							Error:     err.Error(),
+						}, []byte{})
 						continue
 					}
 					sum := sha256.Sum256(data)
@@ -608,17 +626,11 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 						Hash:   hex.EncodeToString(sum[:]),
 						Size:   len(data),
 					}
-					if err := WriteStreamMessage(conn, resp); err != nil {
-						_ = conn.SetWriteDeadline(time.Time{})
-						return
-					}
-					if err := WriteStreamFrame(conn, data); err != nil {
-						_ = conn.SetWriteDeadline(time.Time{})
+					if err := writeBlockResponseBin(conn, resp, data); err != nil {
 						return
 					}
 					touchConn(hello.NodeID)
 				}
-				_ = conn.SetWriteDeadline(time.Time{})
 			case "task_report":
 				var rep taskReportMsg
 				raw, _ := json.Marshal(envelope)
@@ -813,32 +825,37 @@ func serveIndexChunk(ctx context.Context, conn net.Conn, nodeID uint, task datab
 			touchConn(nodeID)
 			entry, ok := entries[req.Path]
 			if !ok {
-				_ = conn.SetWriteDeadline(time.Now().Add(2 * time.Minute))
-				_ = WriteStreamMessage(conn, blockResponse{Type: "block_response_bin", TaskID: task.ID, Path: req.Path, Index: req.Index, Hash: "", Size: 1, ErrorCode: "MISSING_ENTRY", Error: "index entry not found"})
-				_ = WriteStreamFrame(conn, []byte{})
-				_ = conn.SetWriteDeadline(time.Time{})
+				_ = writeBlockResponseBin(conn, blockResponse{
+					Type:      "block_response_bin",
+					TaskID:    task.ID,
+					Path:      req.Path,
+					Index:     req.Index,
+					Hash:      "",
+					Size:      0,
+					ErrorCode: "MISSING_ENTRY",
+					Error:     "index entry not found",
+				}, []byte{})
 				continue
 			}
 			data, err := defaultTaskService.ReadBlock(task, entry, req.Index)
 			if err != nil {
-				_ = conn.SetWriteDeadline(time.Now().Add(2 * time.Minute))
-				_ = WriteStreamMessage(conn, blockResponse{Type: "block_response_bin", TaskID: task.ID, Path: req.Path, Index: req.Index, Hash: "", Size: 1, ErrorCode: "BLOCK_READ", Error: err.Error()})
-				_ = WriteStreamFrame(conn, []byte{})
-				_ = conn.SetWriteDeadline(time.Time{})
+				_ = writeBlockResponseBin(conn, blockResponse{
+					Type:      "block_response_bin",
+					TaskID:    task.ID,
+					Path:      req.Path,
+					Index:     req.Index,
+					Hash:      "",
+					Size:      0,
+					ErrorCode: "BLOCK_READ",
+					Error:     err.Error(),
+				}, []byte{})
 				continue
 			}
 			sum := sha256.Sum256(data)
 			resp := blockResponse{Type: "block_response_bin", TaskID: task.ID, Path: req.Path, Index: req.Index, Hash: hex.EncodeToString(sum[:]), Size: len(data)}
-			_ = conn.SetWriteDeadline(time.Now().Add(2 * time.Minute))
-			if err := WriteStreamMessage(conn, resp); err != nil {
-				_ = conn.SetWriteDeadline(time.Time{})
+			if err := writeBlockResponseBin(conn, resp, data); err != nil {
 				return err
 			}
-			if err := WriteStreamFrame(conn, data); err != nil {
-				_ = conn.SetWriteDeadline(time.Time{})
-				return err
-			}
-			_ = conn.SetWriteDeadline(time.Time{})
 		case "block_batch_request":
 			raw, _ := json.Marshal(envelope)
 			var req blockBatchRequest
@@ -848,34 +865,42 @@ func serveIndexChunk(ctx context.Context, conn net.Conn, nodeID uint, task datab
 			}
 			touchConn(nodeID)
 			entry, ok := entries[req.Path]
-			_ = conn.SetWriteDeadline(time.Now().Add(2 * time.Minute))
 			if !ok {
 				for _, idx := range req.Indices {
-					_ = WriteStreamMessage(conn, blockResponse{Type: "block_response_bin", TaskID: task.ID, Path: req.Path, Index: idx, Hash: "", Size: 1, ErrorCode: "MISSING_ENTRY", Error: "index entry not found"})
-					_ = WriteStreamFrame(conn, []byte{})
+					_ = writeBlockResponseBin(conn, blockResponse{
+						Type:      "block_response_bin",
+						TaskID:    task.ID,
+						Path:      req.Path,
+						Index:     idx,
+						Hash:      "",
+						Size:      0,
+						ErrorCode: "MISSING_ENTRY",
+						Error:     "index entry not found",
+					}, []byte{})
 				}
-				_ = conn.SetWriteDeadline(time.Time{})
 				continue
 			}
 			for _, idx := range req.Indices {
 				data, err := defaultTaskService.ReadBlock(task, entry, idx)
 				if err != nil {
-					_ = WriteStreamMessage(conn, blockResponse{Type: "block_response_bin", TaskID: task.ID, Path: req.Path, Index: idx, Hash: "", Size: 1, ErrorCode: "BLOCK_READ", Error: err.Error()})
-					_ = WriteStreamFrame(conn, []byte{})
+					_ = writeBlockResponseBin(conn, blockResponse{
+						Type:      "block_response_bin",
+						TaskID:    task.ID,
+						Path:      req.Path,
+						Index:     idx,
+						Hash:      "",
+						Size:      0,
+						ErrorCode: "BLOCK_READ",
+						Error:     err.Error(),
+					}, []byte{})
 					continue
 				}
 				sum := sha256.Sum256(data)
 				resp := blockResponse{Type: "block_response_bin", TaskID: task.ID, Path: req.Path, Index: idx, Hash: hex.EncodeToString(sum[:]), Size: len(data)}
-				if err := WriteStreamMessage(conn, resp); err != nil {
-					_ = conn.SetWriteDeadline(time.Time{})
-					return err
-				}
-				if err := WriteStreamFrame(conn, data); err != nil {
-					_ = conn.SetWriteDeadline(time.Time{})
+				if err := writeBlockResponseBin(conn, resp, data); err != nil {
 					return err
 				}
 			}
-			_ = conn.SetWriteDeadline(time.Time{})
 		case "node_status":
 			raw, _ := json.Marshal(envelope)
 			var st nodeStatusMsg
@@ -900,6 +925,20 @@ func serveIndexChunk(ctx context.Context, conn net.Conn, nodeID uint, task datab
 			continue
 		}
 	}
+}
+
+func writeBlockResponseBin(conn net.Conn, resp blockResponse, data []byte) error {
+	_ = conn.SetWriteDeadline(time.Now().Add(2 * time.Minute))
+	if err := WriteStreamMessage(conn, resp); err != nil {
+		_ = conn.SetWriteDeadline(time.Time{})
+		return err
+	}
+	if err := WriteStreamFrame(conn, data); err != nil {
+		_ = conn.SetWriteDeadline(time.Time{})
+		return err
+	}
+	_ = conn.SetWriteDeadline(time.Time{})
+	return nil
 }
 
 func peerFingerprint(conn net.Conn) (string, error) {

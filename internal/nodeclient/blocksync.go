@@ -11,6 +11,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -89,6 +90,16 @@ type taskReportMsg struct {
 	Blocks     int    `json:"blocks,omitempty"`
 	Bytes      int64  `json:"bytes,omitempty"`
 	DurationMs int64  `json:"durationMs,omitempty"`
+}
+
+type fileResumeMeta struct {
+	Version      int      `json:"version"`
+	Path         string   `json:"path"`
+	Size         int64    `json:"size"`
+	BlockSize    int64    `json:"blockSize"`
+	BlocksDigest string   `json:"blocksDigest"`
+	Done         []uint64 `json:"done"`
+	UpdatedUnix  int64    `json:"updatedUnix"`
 }
 
 func (a *Agent) runTaskTCP(ctx context.Context, conn io.ReadWriter, task *taskResponse) {
@@ -292,9 +303,30 @@ func (a *Agent) applyFileBlocks(ctx context.Context, conn io.ReadWriter, taskID 
 		return 0, 0, fmt.Errorf("create parent dir: %w", err)
 	}
 
-	src, _ := os.Open(dst)
+	partial := dst + ".gohook-sync-tmp-partial"
+	metaPath := partial + ".json"
+	srcPath := dst
+	if st, err := os.Stat(partial); err == nil && st != nil && st.Mode().IsRegular() && st.Size() == file.Size {
+		srcPath = partial
+	}
+
+	var meta fileResumeMeta
+	metaOK := false
+	usedMeta := false
+	if srcPath == partial {
+		if m, ok := loadResumeMeta(metaPath, file); ok {
+			meta = m
+			metaOK = true
+		}
+	}
+
+	src, _ := os.Open(srcPath)
 	if src != nil {
-		defer src.Close()
+		defer func() {
+			if src != nil {
+				_ = src.Close()
+			}
+		}()
 	}
 
 	canReuseLocal := false
@@ -304,8 +336,19 @@ func (a *Agent) applyFileBlocks(ctx context.Context, conn io.ReadWriter, taskID 
 		}
 	}
 
+	words := (len(file.Blocks) + 63) / 64
+	done := make([]uint64, words)
+
 	missing := make([]int, 0, 64)
-	if !canReuseLocal {
+	if metaOK && len(meta.Done) == words {
+		copy(done, meta.Done)
+		usedMeta = true
+		for i := range file.Blocks {
+			if (done[i/64] & (uint64(1) << uint(i%64))) == 0 {
+				missing = append(missing, i)
+			}
+		}
+	} else if !canReuseLocal {
 		for i := range file.Blocks {
 			missing = append(missing, i)
 		}
@@ -328,6 +371,7 @@ func (a *Agent) applyFileBlocks(ctx context.Context, conn io.ReadWriter, taskID 
 			}
 			sum := sha256.Sum256(buf[:n])
 			if remoteHash != "" && hex.EncodeToString(sum[:]) == remoteHash {
+				done[i/64] |= uint64(1) << uint(i%64)
 				continue
 			} else {
 				missing = append(missing, i)
@@ -336,6 +380,28 @@ func (a *Agent) applyFileBlocks(ctx context.Context, conn io.ReadWriter, taskID 
 	}
 
 	if len(missing) == 0 {
+		if srcPath == partial {
+			// If we skipped verification using a checkpoint, verify before finalizing.
+			if usedMeta {
+				if err := verifyFileBlocks(partial, file); err != nil {
+					_ = os.Remove(metaPath)
+					return 0, 0, err
+				}
+			}
+			// If an interrupted run already built a complete temp file, finalize it.
+			if src != nil {
+				_ = src.Close()
+				src = nil
+			}
+			if err := os.Rename(partial, dst); err != nil {
+				return 0, 0, fmt.Errorf("finalize partial file: %w", err)
+			}
+			_ = os.Remove(metaPath)
+		} else {
+			// Best-effort cleanup of stale resume files.
+			_ = os.Remove(partial)
+			_ = os.Remove(metaPath)
+		}
 		if !ignorePerms {
 			_ = os.Chmod(dst, os.FileMode(file.Mode))
 			_ = os.Chtimes(dst, time.Unix(file.MtimeUnix, 0), time.Unix(file.MtimeUnix, 0))
@@ -343,14 +409,13 @@ func (a *Agent) applyFileBlocks(ctx context.Context, conn io.ReadWriter, taskID 
 		return 0, 0, nil
 	}
 
-	tmp := dst + ".gohook-sync-tmp-" + fmt.Sprint(time.Now().UnixNano())
-	out, err := os.OpenFile(tmp, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0o644)
+	out, err := os.OpenFile(partial, os.O_CREATE|os.O_RDWR, 0o644)
 	if err != nil {
 		return 0, 0, fmt.Errorf("open temp file: %w", err)
 	}
 	defer out.Close()
 
-	if canReuseLocal {
+	if srcPath != partial && canReuseLocal {
 		if err := cloneOrCopyFile(out, src); err != nil {
 			return 0, 0, fmt.Errorf("seed temp file: %w", err)
 		}
@@ -359,7 +424,10 @@ func (a *Agent) applyFileBlocks(ctx context.Context, conn io.ReadWriter, taskID 
 		return 0, 0, fmt.Errorf("truncate temp file: %w", err)
 	}
 
-	const batchSize = 32
+	// Best-effort: resume metadata is an optimization; sync should still work without it.
+	_ = saveResumeMeta(metaPath, file, done)
+
+	batchSize := blockBatchSize(file.BlockSize)
 	var blocksFetched int
 	var bytesFetched int64
 	for i := 0; i < len(missing); i += batchSize {
@@ -438,22 +506,148 @@ func (a *Agent) applyFileBlocks(ctx context.Context, conn io.ReadWriter, taskID 
 			}
 			blocksFetched++
 			bytesFetched += int64(len(data))
+			done[idx/64] |= uint64(1) << uint(idx%64)
 		}
+		_ = saveResumeMeta(metaPath, file, done)
 	}
 
 	if err := out.Close(); err != nil {
 		return blocksFetched, bytesFetched, err
 	}
 
+	if usedMeta {
+		if err := verifyFileBlocks(partial, file); err != nil {
+			_ = os.Remove(metaPath)
+			return blocksFetched, bytesFetched, err
+		}
+	}
+
 	// Atomic replace.
-	if err := os.Rename(tmp, dst); err != nil {
+	if err := os.Rename(partial, dst); err != nil {
 		return blocksFetched, bytesFetched, fmt.Errorf("replace file: %w", err)
 	}
+	_ = os.Remove(metaPath)
 	if !ignorePerms {
 		_ = os.Chmod(dst, os.FileMode(file.Mode))
 		_ = os.Chtimes(dst, time.Unix(file.MtimeUnix, 0), time.Unix(file.MtimeUnix, 0))
 	}
 	return blocksFetched, bytesFetched, nil
+}
+
+func blockBatchSize(blockSize int64) int {
+	if blockSize <= 0 {
+		return 32
+	}
+	if raw := strings.TrimSpace(os.Getenv("SYNC_BLOCK_BATCH_SIZE")); raw != "" {
+		if v, err := strconv.Atoi(raw); err == nil && v > 0 {
+			if v > 2048 {
+				v = 2048
+			}
+			return v
+		}
+	}
+
+	target := int64(32 << 20) // 32MiB
+	if raw := strings.TrimSpace(os.Getenv("SYNC_BLOCK_BATCH_TARGET_BYTES")); raw != "" {
+		if v, err := strconv.ParseInt(raw, 10, 64); err == nil && v > 0 {
+			target = v
+		}
+	}
+
+	n := int(target / blockSize)
+	if n < 8 {
+		n = 8
+	}
+	if n > 256 {
+		n = 256
+	}
+	return n
+}
+
+func resumeBlocksDigest(file syncnode.IndexFileEntry) string {
+	h := sha256.New()
+	_, _ = h.Write([]byte(file.Path))
+	_, _ = h.Write([]byte{0})
+	_, _ = h.Write([]byte(fmt.Sprint(file.Size)))
+	_, _ = h.Write([]byte{0})
+	_, _ = h.Write([]byte(fmt.Sprint(file.BlockSize)))
+	_, _ = h.Write([]byte{0})
+	for _, b := range file.Blocks {
+		_, _ = h.Write([]byte(b))
+		_, _ = h.Write([]byte{0})
+	}
+	return hex.EncodeToString(h.Sum(nil))
+}
+
+func loadResumeMeta(path string, file syncnode.IndexFileEntry) (fileResumeMeta, bool) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return fileResumeMeta{}, false
+	}
+	var m fileResumeMeta
+	if err := json.Unmarshal(b, &m); err != nil {
+		return fileResumeMeta{}, false
+	}
+	if m.Version != 1 {
+		return fileResumeMeta{}, false
+	}
+	if m.Path != file.Path || m.Size != file.Size || m.BlockSize != file.BlockSize {
+		return fileResumeMeta{}, false
+	}
+	if strings.TrimSpace(m.BlocksDigest) == "" || m.BlocksDigest != resumeBlocksDigest(file) {
+		return fileResumeMeta{}, false
+	}
+	return m, true
+}
+
+func saveResumeMeta(path string, file syncnode.IndexFileEntry, done []uint64) error {
+	m := fileResumeMeta{
+		Version:      1,
+		Path:         file.Path,
+		Size:         file.Size,
+		BlockSize:    file.BlockSize,
+		BlocksDigest: resumeBlocksDigest(file),
+		Done:         append([]uint64(nil), done...),
+		UpdatedUnix:  time.Now().Unix(),
+	}
+	b, err := json.MarshalIndent(m, "", "  ")
+	if err != nil {
+		return err
+	}
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, b, 0o600); err != nil {
+		return err
+	}
+	return os.Rename(tmp, path)
+}
+
+func verifyFileBlocks(path string, file syncnode.IndexFileEntry) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return fmt.Errorf("verify open: %w", err)
+	}
+	defer f.Close()
+
+	buf := make([]byte, file.BlockSize)
+	for i, remoteHash := range file.Blocks {
+		blockOffset := int64(i) * file.BlockSize
+		blockLen := minInt64(file.BlockSize, file.Size-blockOffset)
+		if blockLen <= 0 {
+			break
+		}
+		n, err := f.ReadAt(buf[:blockLen], blockOffset)
+		if err != nil && !errors.Is(err, io.EOF) {
+			return fmt.Errorf("verify read: %w", err)
+		}
+		if int64(n) != blockLen {
+			return fmt.Errorf("verify short read: %s[%d]", file.Path, i)
+		}
+		sum := sha256.Sum256(buf[:blockLen])
+		if remoteHash != "" && hex.EncodeToString(sum[:]) != remoteHash {
+			return fmt.Errorf("BLOCK_HASH_MISMATCH: %s[%d]", file.Path, i)
+		}
+	}
+	return nil
 }
 
 func mirrorDeleteExtras(targetRoot string, expected map[string]struct{}, ig *syncignore.Matcher) error {

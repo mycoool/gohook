@@ -138,6 +138,10 @@
 
 **目标：** 失败重试尽量复用已完成工作。
 
+已实现（最小闭环）：
+- Agent 端对单文件使用固定 partial 文件 `<dst>.gohook-sync-tmp-partial`，断线/重启后可继续在该文件上补齐缺块。
+- 同目录写入 checkpoint `<dst>.gohook-sync-tmp-partial.json`（记录 block 列表指纹 + 已完成 block 位图），重试时优先按 checkpoint 计算缺块；在 finalize（rename）前做全块校验，保证正确性。
+
 候选方向：
 - 为单次任务引入“已完成文件/缺块列表”的本地状态（可保存在目标端 data-dir），重试时优先复用。
 - 或服务端允许 task 在 retrying 时继续同一 taskId（需要更明确的幂等与生命周期管理）。
@@ -148,6 +152,10 @@
 ### Phase C：吞吐提升（并发/窗口化）
 
 **目标：** 在高 RTT 与大文件场景提升块拉取吞吐。
+
+已实现（最小闭环）：
+- Agent 端按 `blockSize` 做自适应 “batch/window”（默认目标约 32MiB/批，且限制在 8–256），减少高 RTT 下的往返次数；可用 `SYNC_BLOCK_BATCH_SIZE` 固定批大小，或用 `SYNC_BLOCK_BATCH_TARGET_BYTES` 调整目标字节数。
+- 主节点在发送 `block_batch_request` 的响应时按“每个 block”刷新写入 deadline，避免大批次响应被固定 2 分钟 deadline 误杀。
 
 候选方向：
 - 在协议中引入 `requestId` 或类似机制，允许并发请求/乱序响应而不破坏帧协议。
