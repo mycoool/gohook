@@ -18,6 +18,9 @@ import {MessagesStore} from './message/MessagesStore';
 import {PluginStore} from './plugin/PluginStore';
 import {AppConfigStore} from './app/AppConfigStore';
 import {registerReactions} from './reactions';
+import {SyncNodeStore} from './sync/SyncNodeStore';
+import {SyncProjectStore} from './sync/SyncProjectStore';
+import {SyncTaskStore} from './sync/SyncTaskStore';
 import './i18n';
 
 const devUrl = 'http://localhost:3000/';
@@ -35,6 +38,9 @@ const initStores = (): StoreMapping => {
     const currentUser = new CurrentUser(snackManager.snack);
     const hookStore = new HookStore(snackManager.snack, () => currentUser.token());
     const versionStore = new VersionStore(snackManager.snack, () => currentUser.token());
+    const syncNodeStore = new SyncNodeStore(snackManager.snack, () => currentUser.token());
+    const syncProjectStore = new SyncProjectStore(snackManager.snack, () => currentUser.token());
+    const syncTaskStore = new SyncTaskStore(snackManager.snack, () => currentUser.token());
     const userStore = new UserStore(snackManager.snack, () => currentUser.token());
     const messagesStore = new MessagesStore(snackManager.snack, () => currentUser.token());
     const appConfigStore = new AppConfigStore(() => currentUser.token(), snackManager.snack);
@@ -52,6 +58,9 @@ const initStores = (): StoreMapping => {
         wsStore,
         pluginStore,
         appConfigStore,
+        syncNodeStore,
+        syncProjectStore,
+        syncTaskStore,
     };
 };
 

@@ -10,13 +10,18 @@ interface IProps {
     title: string;
     text: string;
     fClose: VoidFunction;
-    fOnSubmit: VoidFunction;
+    fOnSubmit: () => void | Promise<void>;
 }
 
 export default function ConfirmDialog({title, text, fClose, fOnSubmit}: IProps) {
-    const submitAndClose = () => {
-        fOnSubmit();
-        fClose();
+    const submitAndClose = async () => {
+        try {
+            await fOnSubmit();
+        } catch (error) {
+            console.error('ConfirmDialog submit failed:', error);
+        } finally {
+            fClose();
+        }
     };
     return (
         <Dialog

@@ -9,6 +9,7 @@ interface IProps {
     maxWidth?: number;
     centerTitle?: boolean;
     children?: React.ReactNode;
+    subtitle?: React.ReactNode;
 }
 
 const DefaultPage: FC<IProps> = ({
@@ -17,6 +18,7 @@ const DefaultPage: FC<IProps> = ({
     maxWidth = 700,
     centerTitle = false,
     children,
+    subtitle,
 }) => {
     const theme = useTheme();
 
@@ -44,6 +46,18 @@ const DefaultPage: FC<IProps> = ({
                     </Typography>
                     {rightControl}
                 </Grid>
+                {subtitle ? (
+                    <Grid
+                        size={12}
+                        style={{
+                            marginTop: '-8px',
+                            marginBottom: '8px',
+                        }}>
+                        <Typography variant="body2" color="textSecondary">
+                            {subtitle}
+                        </Typography>
+                    </Grid>
+                ) : null}
                 {children}
             </Grid>
         </main>

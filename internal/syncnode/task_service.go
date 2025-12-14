@@ -1,0 +1,1021 @@
+package syncnode
+
+import (
+	"archive/tar"
+	"compress/gzip"
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/mycoool/gohook/internal/database"
+	syncignore "github.com/mycoool/gohook/internal/syncnode/ignore"
+	"github.com/mycoool/gohook/internal/types"
+	"gorm.io/gorm"
+)
+
+const (
+	TaskStatusPending  = "pending"
+	TaskStatusRetrying = "retrying"
+	TaskStatusRunning  = "running"
+	TaskStatusSuccess  = "success"
+	TaskStatusFailed   = "failed"
+	TaskDriverAgent    = "agent"
+	TaskDriverRsync    = "rsync"
+	defaultBundleLimit = int64(1024 * 1024 * 1024) // 1GiB safety cap
+)
+
+type TaskService struct {
+	db *gorm.DB
+}
+
+func NewTaskService() *TaskService {
+	return &TaskService{db: database.GetDB()}
+}
+
+type TaskPayload struct {
+	ProjectName             string   `json:"projectName"`
+	TargetPath              string   `json:"targetPath"`
+	Strategy                string   `json:"strategy"` // mirror | overlay
+	IgnoreDefaults          bool     `json:"ignoreDefaults"`
+	IgnorePatterns          []string `json:"ignorePatterns,omitempty"`
+	IgnoreFile              string   `json:"ignoreFile,omitempty"`
+	IgnoreFiles             []string `json:"ignoreFiles,omitempty"`
+	IgnorePermissions       bool     `json:"ignorePermissions"`
+	PreserveMode            bool     `json:"preserveMode,omitempty"`
+	PreserveMtime           bool     `json:"preserveMtime,omitempty"`
+	SymlinkPolicy           string   `json:"symlinkPolicy,omitempty"` // ignore | preserve
+	MirrorFastDelete        bool     `json:"mirrorFastDelete,omitempty"`
+	MirrorFastFullscanEvery int      `json:"mirrorFastFullscanEvery,omitempty"`
+	MirrorCleanEmptyDirs    bool     `json:"mirrorCleanEmptyDirs,omitempty"`
+	MirrorSyncEmptyDirs     bool     `json:"mirrorSyncEmptyDirs,omitempty"`
+}
+
+type IndexFileEntry struct {
+	Path       string   `json:"path"`
+	Kind       string   `json:"kind,omitempty"` // file | dir | symlink (default file)
+	LinkTarget string   `json:"linkTarget,omitempty"`
+	Size       int64    `json:"size,omitempty"`
+	Mode       uint32   `json:"mode,omitempty"`
+	MtimeUnix  int64    `json:"mtime,omitempty"`
+	BlockSize  int64    `json:"blockSize,omitempty"`
+	Blocks     []string `json:"blocks,omitempty"`
+}
+
+type TaskReport struct {
+	Status     string `json:"status" binding:"required"` // success | failed
+	Logs       string `json:"logs"`
+	LastError  string `json:"lastError"`
+	ErrorCode  string `json:"errorCode"`
+	Files      int    `json:"files,omitempty"`
+	Blocks     int    `json:"blocks,omitempty"`
+	Bytes      int64  `json:"bytes,omitempty"`
+	DurationMs int64  `json:"durationMs,omitempty"`
+}
+
+func (s *TaskService) ensureDB() (*gorm.DB, error) {
+	if s.db == nil {
+		s.db = database.GetDB()
+	}
+	if s.db == nil {
+		return nil, errors.New("database not initialized")
+	}
+	return s.db, nil
+}
+
+func (s *TaskService) CreateProjectTasks(ctx context.Context, projectName string) ([]database.SyncTask, error) {
+	if types.GoHookVersionData == nil {
+		return nil, errors.New("version config not loaded")
+	}
+	var project *types.ProjectConfig
+	for i := range types.GoHookVersionData.Projects {
+		if types.GoHookVersionData.Projects[i].Name == projectName {
+			project = &types.GoHookVersionData.Projects[i]
+			break
+		}
+	}
+	if project == nil {
+		return nil, fmt.Errorf("project not found: %s", projectName)
+	}
+	if project.Sync == nil || !project.Sync.Enabled {
+		return nil, fmt.Errorf("project sync not enabled: %s", projectName)
+	}
+	if len(project.Sync.Nodes) == 0 {
+		return nil, fmt.Errorf("project has no sync nodes: %s", projectName)
+	}
+
+	db, err := s.ensureDB()
+	if err != nil {
+		return nil, err
+	}
+
+	var created []database.SyncTask
+	for _, nodeCfg := range project.Sync.Nodes {
+		id64, parseErr := strconv.ParseUint(strings.TrimSpace(nodeCfg.NodeID), 10, 64)
+		if parseErr != nil || id64 == 0 {
+			return nil, fmt.Errorf("invalid node_id: %s", nodeCfg.NodeID)
+		}
+		nodeID := uint(id64)
+
+		var node database.SyncNode
+		if err := db.WithContext(ctx).First(&node, nodeID).Error; err != nil {
+			return nil, err
+		}
+
+		payload := TaskPayload{
+			ProjectName:             projectName,
+			TargetPath:              nodeCfg.TargetPath,
+			Strategy:                defaultStrategy(nodeCfg.Strategy),
+			IgnoreDefaults:          project.Sync.IgnoreDefaults,
+			IgnorePatterns:          append(append([]string{}, project.Sync.IgnorePatterns...), nodeCfg.IgnorePatterns...),
+			IgnoreFiles:             []string{project.Sync.IgnoreFile, nodeCfg.IgnoreFile},
+			IgnorePermissions:       project.Sync.IgnorePermissions,
+			PreserveMode:            effectivePreserveMode(project.Sync),
+			PreserveMtime:           effectivePreserveMtime(project.Sync),
+			SymlinkPolicy:           strings.ToLower(strings.TrimSpace(project.Sync.SymlinkPolicy)),
+			MirrorFastDelete:        nodeCfg.MirrorFastDelete,
+			MirrorFastFullscanEvery: nodeCfg.MirrorFastFullscanEvery,
+			MirrorCleanEmptyDirs:    nodeCfg.MirrorCleanEmptyDirs,
+			MirrorSyncEmptyDirs:     nodeCfg.MirrorSyncEmptyDirs,
+		}
+		raw, _ := json.Marshal(payload)
+
+		task := database.SyncTask{
+			ProjectName: projectName,
+			NodeID:      nodeID,
+			NodeName:    node.Name,
+			Driver:      TaskDriverAgent,
+			Status:      TaskStatusPending,
+			Payload:     string(raw),
+		}
+		if err := db.WithContext(ctx).Create(&task).Error; err != nil {
+			return nil, err
+		}
+		created = append(created, task)
+	}
+
+	if len(created) > 0 {
+		taskIDs := make([]uint, 0, len(created))
+		for i := range created {
+			taskIDs = append(taskIDs, created[i].ID)
+		}
+		broadcastWS(wsTypeSyncTaskEvent, map[string]any{
+			"event":       "created",
+			"projectName": projectName,
+			"taskIds":     taskIDs,
+		})
+		broadcastWS(wsTypeSyncProjectEvent, syncProjectEvent{ProjectName: projectName, Event: "tasks"})
+	}
+
+	return created, nil
+}
+
+func effectivePreserveMode(cfg *types.ProjectSyncConfig) bool {
+	if cfg == nil {
+		return true
+	}
+	if cfg.IgnorePermissions {
+		return false
+	}
+	if cfg.PreserveMode != nil {
+		return *cfg.PreserveMode
+	}
+	return true
+}
+
+func effectivePreserveMtime(cfg *types.ProjectSyncConfig) bool {
+	if cfg == nil {
+		return true
+	}
+	if cfg.IgnorePermissions {
+		return false
+	}
+	if cfg.PreserveMtime != nil {
+		return *cfg.PreserveMtime
+	}
+	return true
+}
+
+func defaultStrategy(v string) string {
+	v = strings.ToLower(strings.TrimSpace(v))
+	switch v {
+	case "overlay":
+		return "overlay"
+	default:
+		return "mirror"
+	}
+}
+
+func (s *TaskService) PullNextTask(ctx context.Context, nodeID uint) (*database.SyncTask, error) {
+	db, err := s.ensureDB()
+	if err != nil {
+		return nil, err
+	}
+
+	var task database.SyncTask
+	err = db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		q := tx.Where("node_id = ? AND status IN ?", nodeID, []string{TaskStatusPending, TaskStatusRetrying}).
+			Order("created_at ASC").
+			First(&task)
+		if q.Error != nil {
+			return q.Error
+		}
+		task.Status = TaskStatusRunning
+		task.Attempt += 1
+		return tx.Save(&task).Error
+	})
+	if err != nil {
+		return nil, err
+	}
+	broadcastWS(wsTypeSyncTaskEvent, syncTaskEvent{
+		TaskID:      task.ID,
+		ProjectName: task.ProjectName,
+		NodeID:      task.NodeID,
+		Status:      task.Status,
+		Event:       "running",
+	})
+	broadcastWS(wsTypeSyncProjectEvent, syncProjectEvent{ProjectName: task.ProjectName, Event: "tasks"})
+	return &task, nil
+}
+
+// RequeueRunningTasksForNode turns RUNNING tasks back into RETRYING when an agent disconnects.
+// This allows self-recovery on agent restart without leaving the UI stuck in RUNNING/SYNCING.
+func (s *TaskService) RequeueRunningTasksForNode(ctx context.Context, nodeID uint, reason, code string) {
+	if nodeID == 0 {
+		return
+	}
+	db, err := s.ensureDB()
+	if err != nil {
+		return
+	}
+
+	type row struct {
+		ID          uint
+		ProjectName string
+	}
+	var rows []row
+	if err := db.WithContext(ctx).
+		Model(&database.SyncTask{}).
+		Select("id, project_name").
+		Where("node_id = ? AND status = ?", nodeID, TaskStatusRunning).
+		Find(&rows).Error; err != nil {
+		return
+	}
+	if len(rows) == 0 {
+		return
+	}
+
+	ids := make([]uint, 0, len(rows))
+	projects := map[string]struct{}{}
+	for i := range rows {
+		ids = append(ids, rows[i].ID)
+		if strings.TrimSpace(rows[i].ProjectName) != "" {
+			projects[strings.TrimSpace(rows[i].ProjectName)] = struct{}{}
+		}
+	}
+
+	_ = db.WithContext(ctx).Model(&database.SyncTask{}).Where("id IN ?", ids).Updates(map[string]any{
+		"status":     TaskStatusRetrying,
+		"last_error": strings.TrimSpace(reason),
+		"error_code": strings.TrimSpace(code),
+	}).Error
+
+	broadcastWS(wsTypeSyncTaskEvent, map[string]any{
+		"event":   "requeued",
+		"nodeId":  nodeID,
+		"taskIds": ids,
+	})
+	for projectName := range projects {
+		broadcastWS(wsTypeSyncProjectEvent, syncProjectEvent{ProjectName: projectName, Event: "tasks"})
+	}
+}
+
+func (s *TaskService) ReportTask(ctx context.Context, nodeID, taskID uint, report TaskReport) (*database.SyncTask, error) {
+	db, err := s.ensureDB()
+	if err != nil {
+		return nil, err
+	}
+
+	var task database.SyncTask
+	if err := db.WithContext(ctx).First(&task, taskID).Error; err != nil {
+		return nil, err
+	}
+	if task.NodeID != nodeID {
+		return nil, errors.New("task does not belong to node")
+	}
+
+	status := strings.ToLower(strings.TrimSpace(report.Status))
+	switch status {
+	case "success":
+		task.Status = TaskStatusSuccess
+	case "failed":
+		maxAttempts := 3
+		if raw := strings.TrimSpace(os.Getenv("SYNC_TASK_MAX_ATTEMPTS")); raw != "" {
+			if v, err := strconv.Atoi(raw); err == nil && v > 0 {
+				maxAttempts = v
+			}
+		}
+		retryable := strings.EqualFold(report.ErrorCode, "TIMEOUT") ||
+			strings.EqualFold(report.ErrorCode, "PROTO") ||
+			strings.EqualFold(report.ErrorCode, "DISCONNECTED")
+		if retryable && task.Attempt < maxAttempts {
+			task.Status = TaskStatusRetrying
+		} else {
+			task.Status = TaskStatusFailed
+		}
+	default:
+		return nil, fmt.Errorf("invalid status: %s", report.Status)
+	}
+	if report.Logs != "" {
+		task.Logs = appendLogLine(task.Logs, report.Logs)
+	}
+	task.LastError = report.LastError
+	task.ErrorCode = report.ErrorCode
+	if report.Files > 0 {
+		task.FilesTotal = report.Files
+	}
+	if report.Blocks > 0 {
+		task.BlocksTotal = report.Blocks
+	}
+	if report.Bytes > 0 {
+		task.BytesTotal = report.Bytes
+	}
+	if report.DurationMs > 0 {
+		task.DurationMs = report.DurationMs
+	}
+	if err := db.WithContext(ctx).Save(&task).Error; err != nil {
+		return nil, err
+	}
+
+	// Best-effort: when overlay sync succeeds, mark queued changes processed so delta indexing can advance.
+	if task.Status == TaskStatusSuccess {
+		var payload TaskPayload
+		if json.Unmarshal([]byte(task.Payload), &payload) == nil {
+			// Only mark changes created at/before task creation as processed.
+			// Changes during sync stay pending and will trigger a follow-up run.
+			_ = db.WithContext(ctx).
+				Model(&database.SyncFileChange{}).
+				Where("project_name = ? AND processed = ? AND created_at <= ?", payload.ProjectName, false, task.CreatedAt).
+				Updates(map[string]any{"processed": true}).Error
+
+			// If there are still pending changes (e.g. happened during this run), re-notify autosync.
+			var remaining int64
+			if err := db.WithContext(ctx).
+				Model(&database.SyncFileChange{}).
+				Where("project_name = ? AND processed = ?", payload.ProjectName, false).
+				Count(&remaining).Error; err == nil && remaining > 0 {
+				notifyAutoSyncProject(payload.ProjectName)
+			}
+		}
+	}
+
+	broadcastWS(wsTypeSyncTaskEvent, syncTaskEvent{
+		TaskID:      task.ID,
+		ProjectName: task.ProjectName,
+		NodeID:      task.NodeID,
+		Status:      task.Status,
+		Event:       "reported",
+	})
+	broadcastWS(wsTypeSyncProjectEvent, syncProjectEvent{ProjectName: task.ProjectName, Event: "tasks"})
+	return &task, nil
+}
+
+// FailStaleRunningTasks marks long-running tasks as failed to avoid "RUNNING forever" when a connection drops.
+func (s *TaskService) FailStaleRunningTasks(ctx context.Context, maxAge time.Duration) {
+	if maxAge <= 0 {
+		maxAge = 30 * time.Minute
+	}
+	db, err := s.ensureDB()
+	if err != nil {
+		return
+	}
+	cutoff := time.Now().Add(-maxAge)
+	res := db.WithContext(ctx).
+		Model(&database.SyncTask{}).
+		Where("status = ? AND updated_at < ?", TaskStatusRunning, cutoff).
+		Updates(map[string]any{
+			"status":     TaskStatusFailed,
+			"last_error": "task timeout (connection lost or agent stuck)",
+			"error_code": "TIMEOUT",
+		})
+	if res.Error == nil && res.RowsAffected > 0 {
+		broadcastWS(wsTypeSyncTaskEvent, syncTaskEvent{Event: "reaped"})
+	}
+}
+
+func (s *TaskService) StreamBundle(ctx context.Context, w io.Writer, task database.SyncTask) error {
+	var payload TaskPayload
+	if err := json.Unmarshal([]byte(task.Payload), &payload); err != nil {
+		return fmt.Errorf("invalid task payload: %w", err)
+	}
+	project := findProject(payload.ProjectName)
+	if project == nil {
+		return fmt.Errorf("project not found: %s", payload.ProjectName)
+	}
+	root := project.Path
+	if root == "" {
+		return fmt.Errorf("project path is empty: %s", payload.ProjectName)
+	}
+	info, err := os.Stat(root)
+	if err != nil || !info.IsDir() {
+		return fmt.Errorf("project path invalid: %s", root)
+	}
+
+	gw := gzip.NewWriter(w)
+	defer gw.Close()
+	tw := tar.NewWriter(gw)
+	defer tw.Close()
+
+	ig := newIgnoreMatcher(payload, root)
+	var bytesWritten int64
+
+	return filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		if rel == "." {
+			return nil
+		}
+		rel = filepath.ToSlash(rel)
+
+		if ig.Match(rel, d.IsDir()) {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		fi, err := d.Info()
+		if err != nil {
+			return err
+		}
+		hdr, err := tar.FileInfoHeader(fi, "")
+		if err != nil {
+			return err
+		}
+		hdr.Name = rel
+
+		// hard cap to avoid streaming huge bundles accidentally
+		if fi.Mode().IsRegular() {
+			bytesWritten += fi.Size()
+			if bytesWritten > defaultBundleLimit {
+				return fmt.Errorf("bundle size exceeds limit")
+			}
+		}
+
+		if err := tw.WriteHeader(hdr); err != nil {
+			return err
+		}
+		if !fi.Mode().IsRegular() {
+			return nil
+		}
+		f, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		_, err = io.Copy(tw, f)
+		return err
+	})
+}
+
+// StreamIndex streams file index with per-block hashes to the writer via callback.
+func (s *TaskService) StreamIndex(ctx context.Context, task database.SyncTask, emit func(IndexFileEntry) error) error {
+	var payload TaskPayload
+	if err := json.Unmarshal([]byte(task.Payload), &payload); err != nil {
+		return fmt.Errorf("invalid task payload: %w", err)
+	}
+	project := findProject(payload.ProjectName)
+	if project == nil {
+		return fmt.Errorf("project not found: %s", payload.ProjectName)
+	}
+	root := project.Path
+	if root == "" {
+		return fmt.Errorf("project path is empty: %s", payload.ProjectName)
+	}
+	info, err := os.Stat(root)
+	if err != nil || !info.IsDir() {
+		return fmt.Errorf("project path invalid: %s", root)
+	}
+
+	ig := newIgnoreMatcher(payload, root)
+
+	if shouldUseDeltaIndex(payload, project.Sync) && !shouldForceOverlayFullScanWithConfig(payload.ProjectName, task.ID, project.Sync) {
+		if ok, derr := s.streamDeltaIndex(ctx, payload, root, ig, emit); derr != nil {
+			return derr
+		} else if ok {
+			return nil
+		}
+	}
+
+	if strings.EqualFold(strings.TrimSpace(payload.Strategy), "overlay") {
+		markOverlayFullScan(payload.ProjectName)
+	}
+
+	return filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		if rel == "." {
+			return nil
+		}
+		rel = filepath.ToSlash(rel)
+		if ig.Match(rel, d.IsDir()) {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		// Use Lstat so symlink handling is explicit and never follows outside of root.
+		lst, err := os.Lstat(path)
+		if err != nil || lst == nil {
+			return nil
+		}
+		if lst.IsDir() {
+			if strings.EqualFold(strings.TrimSpace(payload.Strategy), "mirror") && payload.MirrorSyncEmptyDirs {
+				entry := IndexFileEntry{
+					Path:      rel,
+					Kind:      "dir",
+					Mode:      uint32(lst.Mode().Perm()),
+					MtimeUnix: lst.ModTime().Unix(),
+				}
+				return emit(entry)
+			}
+			return nil
+		}
+		if lst.Mode()&os.ModeSymlink != 0 {
+			if strings.EqualFold(strings.TrimSpace(payload.SymlinkPolicy), "preserve") {
+				target, rerr := os.Readlink(path)
+				if rerr != nil {
+					return nil
+				}
+				entry := IndexFileEntry{
+					Path:       rel,
+					Kind:       "symlink",
+					LinkTarget: target,
+					Mode:       uint32(lst.Mode().Perm()),
+					MtimeUnix:  lst.ModTime().Unix(),
+				}
+				return emit(entry)
+			}
+			return nil
+		}
+		if !lst.Mode().IsRegular() {
+			return nil
+		}
+
+		blockSize := adaptiveBlockSize(lst.Size())
+		key := hashCacheKey(path, lst.Size(), lst.ModTime(), blockSize)
+		hashes, ok := globalHashCache.Get(key)
+		var hashErr error
+		if !ok {
+			hashes, hashErr = hashFileBlocks(path, blockSize)
+			if hashErr != nil {
+				return hashErr
+			}
+			globalHashCache.Put(key, hashes)
+		}
+
+		entry := IndexFileEntry{
+			Path:      rel,
+			Kind:      "file",
+			Size:      lst.Size(),
+			Mode:      uint32(lst.Mode().Perm()),
+			MtimeUnix: lst.ModTime().Unix(),
+			BlockSize: blockSize,
+			Blocks:    hashes,
+		}
+		return emit(entry)
+	})
+}
+
+func shouldUseDeltaIndex(payload TaskPayload, cfg *types.ProjectSyncConfig) bool {
+	if strings.ToLower(strings.TrimSpace(payload.Strategy)) != "overlay" {
+		return false
+	}
+	// Env can force-enable/force-disable.
+	if v, ok := parseBoolEnv("SYNC_DELTA_INDEX_OVERLAY"); ok {
+		return v
+	}
+	// UI-managed config: nil means "use default" (default enabled).
+	if cfg != nil && cfg.DeltaIndexOverlay != nil {
+		return *cfg.DeltaIndexOverlay
+	}
+	return true
+}
+
+func overlayFullScanEvery(cfg *types.ProjectSyncConfig) int {
+	if cfg != nil && cfg.OverlayFullScanEvery > 0 {
+		return cfg.OverlayFullScanEvery
+	}
+	raw := strings.TrimSpace(os.Getenv("SYNC_OVERLAY_FULLSCAN_EVERY"))
+	if raw == "" {
+		return 0
+	}
+	v, err := strconv.Atoi(raw)
+	if err != nil || v <= 0 {
+		return 0
+	}
+	return v
+}
+
+func overlayFullScanInterval(cfg *types.ProjectSyncConfig) time.Duration {
+	if cfg != nil && strings.TrimSpace(cfg.OverlayFullScanInterval) != "" {
+		if d, err := time.ParseDuration(strings.TrimSpace(cfg.OverlayFullScanInterval)); err == nil && d > 0 {
+			return d
+		}
+	}
+	raw := strings.TrimSpace(os.Getenv("SYNC_OVERLAY_FULLSCAN_INTERVAL"))
+	if raw == "" {
+		// Default baseline interval when overlay delta index is enabled.
+		if cfg == nil || cfg.DeltaIndexOverlay == nil || (cfg.DeltaIndexOverlay != nil && *cfg.DeltaIndexOverlay) {
+			return 1 * time.Hour
+		}
+		return 0
+	}
+	d, err := time.ParseDuration(raw)
+	if err != nil || d <= 0 {
+		return 0
+	}
+	return d
+}
+
+func parseBoolEnv(key string) (bool, bool) {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return false, false
+	}
+	switch strings.ToLower(raw) {
+	case "1", "true", "yes", "y", "on":
+		return true, true
+	case "0", "false", "no", "n", "off":
+		return false, true
+	default:
+		return false, false
+	}
+}
+
+// streamDeltaIndex returns (usedDelta, err).
+// If usedDelta is false, caller should fall back to full walk for correctness.
+func (s *TaskService) streamDeltaIndex(ctx context.Context, payload TaskPayload, root string, ig *ignoreMatcher, emit func(IndexFileEntry) error) (bool, error) {
+	db, err := s.ensureDB()
+	if err != nil {
+		return false, nil
+	}
+
+	maxFiles := 5000
+	if proj := findProject(payload.ProjectName); proj != nil && proj.Sync != nil && proj.Sync.DeltaMaxFiles > 0 {
+		maxFiles = proj.Sync.DeltaMaxFiles
+	} else if raw := strings.TrimSpace(os.Getenv("SYNC_DELTA_MAX_FILES")); raw != "" {
+		if v, err := strconv.Atoi(raw); err == nil && v > 0 {
+			maxFiles = v
+		}
+	}
+
+	var changes []database.SyncFileChange
+	if err := db.WithContext(ctx).
+		Model(&database.SyncFileChange{}).
+		Where("project_name = ? AND processed = ?", payload.ProjectName, false).
+		Order("id ASC").
+		Limit(maxFiles + 1).
+		Find(&changes).Error; err != nil {
+		return false, nil
+	}
+
+	if len(changes) == 0 {
+		return false, nil
+	}
+	if len(changes) > maxFiles {
+		return false, nil
+	}
+	for i := range changes {
+		if strings.EqualFold(strings.TrimSpace(changes[i].Type), "renamed") {
+			return false, nil
+		}
+	}
+
+	seen := make(map[string]struct{}, len(changes))
+	for i := range changes {
+		rel := filepath.ToSlash(filepath.Clean(changes[i].Path))
+		if rel == "" || rel == "." || strings.HasPrefix(rel, "..") {
+			continue
+		}
+		if _, ok := seen[rel]; ok {
+			continue
+		}
+		seen[rel] = struct{}{}
+
+		// overlay: deletions are intentionally ignored (no remote delete)
+		if strings.EqualFold(strings.TrimSpace(changes[i].Type), "deleted") {
+			continue
+		}
+
+		if ig != nil && ig.Match(rel, false) {
+			continue
+		}
+		full := filepath.Join(root, filepath.FromSlash(rel))
+		fi, err := os.Lstat(full)
+		if err != nil || fi == nil {
+			continue
+		}
+		if fi.IsDir() {
+			continue
+		}
+		if fi.Mode()&os.ModeSymlink != 0 {
+			if strings.EqualFold(strings.TrimSpace(payload.SymlinkPolicy), "preserve") {
+				target, rerr := os.Readlink(full)
+				if rerr != nil {
+					continue
+				}
+				entry := IndexFileEntry{
+					Path:       rel,
+					Kind:       "symlink",
+					LinkTarget: target,
+					Mode:       uint32(fi.Mode().Perm()),
+					MtimeUnix:  fi.ModTime().Unix(),
+				}
+				if err := emit(entry); err != nil {
+					return true, err
+				}
+			}
+			continue
+		}
+		if !fi.Mode().IsRegular() {
+			continue
+		}
+
+		blockSize := adaptiveBlockSize(fi.Size())
+		key := hashCacheKey(full, fi.Size(), fi.ModTime(), blockSize)
+		hashes, ok := globalHashCache.Get(key)
+		var hashErr error
+		if !ok {
+			hashes, hashErr = hashFileBlocks(full, blockSize)
+			if hashErr != nil {
+				return true, hashErr
+			}
+			globalHashCache.Put(key, hashes)
+		}
+
+		entry := IndexFileEntry{
+			Path:      rel,
+			Kind:      "file",
+			Size:      fi.Size(),
+			Mode:      uint32(fi.Mode().Perm()),
+			MtimeUnix: fi.ModTime().Unix(),
+			BlockSize: blockSize,
+			Blocks:    hashes,
+		}
+		if err := emit(entry); err != nil {
+			return true, err
+		}
+	}
+
+	return true, nil
+}
+
+func adaptiveBlockSize(size int64) int64 {
+	const min = 128 * 1024
+	const max = 4 * 1024 * 1024
+	block := int64(min)
+	// Keep blocks per file <= 256, doubling as needed.
+	for block < max && size/block > 256 {
+		block *= 2
+	}
+	if block > max {
+		block = max
+	}
+	return block
+}
+
+func hashFileBlocks(path string, blockSize int64) ([]string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	var hashes []string
+	buf := make([]byte, blockSize)
+	for {
+		n, err := io.ReadFull(f, buf)
+		if err != nil {
+			if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+				if n > 0 {
+					sum := sha256.Sum256(buf[:n])
+					hashes = append(hashes, hex.EncodeToString(sum[:]))
+				}
+				break
+			}
+			return nil, err
+		}
+		sum := sha256.Sum256(buf[:n])
+		hashes = append(hashes, hex.EncodeToString(sum[:]))
+	}
+	return hashes, nil
+}
+
+func (s *TaskService) ReadBlock(task database.SyncTask, entry IndexFileEntry, index int) ([]byte, error) {
+	var payload TaskPayload
+	if err := json.Unmarshal([]byte(task.Payload), &payload); err != nil {
+		return nil, err
+	}
+	proj := findProject(payload.ProjectName)
+	if proj == nil {
+		return nil, fmt.Errorf("project not found")
+	}
+	if index < 0 {
+		return nil, fmt.Errorf("invalid block index")
+	}
+	if strings.TrimSpace(entry.Kind) != "" && strings.TrimSpace(entry.Kind) != "file" {
+		return nil, fmt.Errorf("invalid block entry kind")
+	}
+	if entry.BlockSize <= 0 {
+		return nil, fmt.Errorf("invalid block size")
+	}
+	root := proj.Path
+	full := filepath.Join(root, filepath.FromSlash(entry.Path))
+	f, err := os.Open(full)
+	if err != nil {
+		return nil, fmt.Errorf("open %s: %w", entry.Path, err)
+	}
+	defer f.Close()
+	offset := int64(index) * entry.BlockSize
+	if offset < 0 || offset >= entry.Size {
+		return nil, fmt.Errorf("block index out of range")
+	}
+	if _, err := f.Seek(offset, io.SeekStart); err != nil {
+		return nil, err
+	}
+	toRead := entry.BlockSize
+	if remaining := entry.Size - offset; remaining < toRead {
+		toRead = remaining
+	}
+	if toRead <= 0 {
+		return nil, fmt.Errorf("block index out of range")
+	}
+	buf := make([]byte, toRead)
+	if _, err := io.ReadFull(f, buf); err != nil {
+		if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+			return nil, fmt.Errorf("short read %s block %d", entry.Path, index)
+		}
+		return nil, err
+	}
+	return buf, nil
+}
+
+func findProject(name string) *types.ProjectConfig {
+	if types.GoHookVersionData == nil {
+		return nil
+	}
+	for i := range types.GoHookVersionData.Projects {
+		if types.GoHookVersionData.Projects[i].Name == name {
+			return &types.GoHookVersionData.Projects[i]
+		}
+	}
+	return nil
+}
+
+type ignoreMatcher struct {
+	m *syncignore.Matcher
+}
+
+func newIgnoreMatcher(payload TaskPayload, root string) *ignoreMatcher {
+	files := append([]string{}, payload.IgnoreFiles...)
+	if strings.TrimSpace(payload.IgnoreFile) != "" {
+		files = append(files, payload.IgnoreFile)
+	}
+	return &ignoreMatcher{
+		m: syncignore.New(root, payload.IgnoreDefaults, payload.IgnorePatterns, files...),
+	}
+}
+
+func (m *ignoreMatcher) Match(rel string, isDir bool) bool {
+	if m == nil || m.m == nil {
+		return false
+	}
+	return m.m.Match(rel, isDir)
+}
+
+// BuildIndexEntry returns an IndexFileEntry for a relative path, or (nil, nil) when not applicable.
+func (s *TaskService) BuildIndexEntry(ctx context.Context, task database.SyncTask, rel string) (*IndexFileEntry, error) {
+	var payload TaskPayload
+	if err := json.Unmarshal([]byte(task.Payload), &payload); err != nil {
+		return nil, fmt.Errorf("invalid task payload: %w", err)
+	}
+	project := findProject(payload.ProjectName)
+	if project == nil {
+		return nil, fmt.Errorf("project not found: %s", payload.ProjectName)
+	}
+	root := project.Path
+	if root == "" {
+		return nil, fmt.Errorf("project path is empty: %s", payload.ProjectName)
+	}
+	if rel == "" {
+		return nil, nil
+	}
+	rel = filepath.ToSlash(filepath.Clean(rel))
+	if rel == "" || rel == "." || strings.HasPrefix(rel, "..") {
+		return nil, nil
+	}
+	ig := newIgnoreMatcher(payload, root)
+	if ig != nil && ig.Match(rel, false) {
+		return nil, nil
+	}
+
+	full := filepath.Join(root, filepath.FromSlash(rel))
+	fi, err := os.Lstat(full)
+	if err != nil || fi == nil {
+		return nil, nil
+	}
+	if fi.IsDir() {
+		return nil, nil
+	}
+	if fi.Mode()&os.ModeSymlink != 0 {
+		if strings.EqualFold(strings.TrimSpace(payload.SymlinkPolicy), "preserve") {
+			target, rerr := os.Readlink(full)
+			if rerr != nil {
+				return nil, nil
+			}
+			entry := &IndexFileEntry{
+				Path:       rel,
+				Kind:       "symlink",
+				LinkTarget: target,
+				Mode:       uint32(fi.Mode().Perm()),
+				MtimeUnix:  fi.ModTime().Unix(),
+			}
+			return entry, nil
+		}
+		return nil, nil
+	}
+	if !fi.Mode().IsRegular() {
+		return nil, nil
+	}
+
+	blockSize := adaptiveBlockSize(fi.Size())
+	key := hashCacheKey(full, fi.Size(), fi.ModTime(), blockSize)
+	hashes, ok := globalHashCache.Get(key)
+	var hashErr error
+	if !ok {
+		hashes, hashErr = hashFileBlocks(full, blockSize)
+		if hashErr != nil {
+			return nil, hashErr
+		}
+		globalHashCache.Put(key, hashes)
+	}
+
+	entry := &IndexFileEntry{
+		Path:      rel,
+		Kind:      "file",
+		Size:      fi.Size(),
+		Mode:      uint32(fi.Mode().Perm()),
+		MtimeUnix: fi.ModTime().Unix(),
+		BlockSize: blockSize,
+		Blocks:    hashes,
+	}
+	return entry, nil
+}
+
+// StreamIndexWithForcedPaths emits forced paths first (when present), then streams index as usual.
+// This is used to heal target drift when delta indexing would otherwise omit unchanged-but-missing files.
+func (s *TaskService) StreamIndexWithForcedPaths(ctx context.Context, task database.SyncTask, forcedPaths []string, emit func(IndexFileEntry) error) error {
+	emitted := make(map[string]struct{}, len(forcedPaths))
+	for _, p := range forcedPaths {
+		e, err := s.BuildIndexEntry(ctx, task, p)
+		if err != nil {
+			return err
+		}
+		if e == nil || e.Path == "" {
+			continue
+		}
+		if _, ok := emitted[e.Path]; ok {
+			continue
+		}
+		emitted[e.Path] = struct{}{}
+		if err := emit(*e); err != nil {
+			return err
+		}
+	}
+
+	return s.StreamIndex(ctx, task, func(e IndexFileEntry) error {
+		if _, ok := emitted[e.Path]; ok {
+			return nil
+		}
+		emitted[e.Path] = struct{}{}
+		return emit(e)
+	})
+}

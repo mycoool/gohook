@@ -61,7 +61,14 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
     @action
     private handleWebSocketMessage = (message: IWebSocketMessage) => {
         // 过滤掉连接和心跳消息
-        if (message.type === 'connected' || message.type === 'pong') {
+        if (
+            message.type === 'connected' ||
+            message.type === 'pong' ||
+            message.type === 'sync_node_event' ||
+            message.type === 'sync_task_event' ||
+            message.type === 'sync_project_event' ||
+            message.type === 'sync_node_status'
+        ) {
             return;
         }
 

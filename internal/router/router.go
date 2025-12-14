@@ -10,6 +10,7 @@ import (
 	"github.com/mycoool/gohook/internal/config"
 	"github.com/mycoool/gohook/internal/middleware"
 	"github.com/mycoool/gohook/internal/stream"
+	"github.com/mycoool/gohook/internal/syncnode"
 	"github.com/mycoool/gohook/internal/types"
 	"github.com/mycoool/gohook/internal/version"
 	"github.com/mycoool/gohook/internal/webhook"
@@ -256,6 +257,44 @@ func InitRouter() *gin.Engine {
 
 		// delete project
 		versionAPI.DELETE("/:name", version.HandleDeleteProject)
+	}
+
+	// sync node management API (user-authenticated)
+	syncAPI := g.Group("/api/sync")
+	syncAPI.Use(middleware.AuthMiddleware(), middleware.DisableLogMiddleware())
+	{
+		// sync projects (folders) management
+		syncAPI.GET("/projects", syncnode.HandleListSyncProjects)
+		syncAPI.PUT("/projects/:name/config", syncnode.HandleUpdateProjectSyncConfig)
+		syncAPI.GET("/tasks", syncnode.HandleListTasks)
+		syncAPI.GET("/tasks/:id", syncnode.HandleGetTask)
+		syncAPI.DELETE("/tasks", middleware.AdminMiddleware(), syncnode.HandleClearTasks)
+
+		nodeAPI := syncAPI.Group("/nodes")
+		nodeAPI.GET("", syncnode.HandleListNodes)
+		nodeAPI.POST("", syncnode.HandleCreateNode)
+		nodeAPI.GET("/:id", syncnode.HandleGetNode)
+		nodeAPI.PUT("/:id", syncnode.HandleUpdateNode)
+		nodeAPI.DELETE("/:id", syncnode.HandleDeleteNode)
+		nodeAPI.POST("/:id/rotate-token", syncnode.HandleRotateToken)
+		nodeAPI.POST("/:id/reset-pairing", syncnode.HandleResetPairing)
+		nodeAPI.POST("/:id/install", syncnode.HandleInstallNode)
+	}
+
+	// sync agent endpoints (agent-token authenticated)
+	agentSyncAPI := g.Group("/api/sync")
+	agentSyncAPI.Use(middleware.DisableLogMiddleware())
+	{
+		agentNodeAPI := agentSyncAPI.Group("/nodes")
+		agentNodeAPI.GET("/:id/tasks/pull", syncnode.AgentTokenMiddleware(), syncnode.HandlePullTask)
+		agentNodeAPI.POST("/:id/tasks/:taskId/report", syncnode.AgentTokenMiddleware(), syncnode.HandleReportTask)
+		agentNodeAPI.GET("/:id/tasks/:taskId/bundle", syncnode.AgentTokenMiddleware(), syncnode.HandleDownloadBundle)
+	}
+
+	// sync tasks (admin/manual)
+	syncTaskAPI := syncAPI.Group("/projects")
+	{
+		syncTaskAPI.POST("/:name/run", syncnode.HandleRunProjectSync)
 	}
 
 	// GitHook webhook endpoint

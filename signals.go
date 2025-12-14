@@ -11,6 +11,7 @@ import (
 	"syscall"
 
 	"github.com/mycoool/gohook/internal/webhook"
+	"github.com/mycoool/gohook/internal/syncnode"
 )
 
 func setupSignals() {
@@ -41,6 +42,7 @@ func watchForSignals() {
 
 		case os.Interrupt, syscall.SIGTERM:
 			log.Printf("caught %s signal; exiting\n", sig)
+			syncnode.StopProjectWatchers()
 			if pidFile != nil {
 				err := pidFile.Remove()
 				if err != nil {

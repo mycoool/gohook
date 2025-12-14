@@ -30,6 +30,7 @@ gohook
 gohook.db
 
 # Folders
+sync_tls/
 node_modules/
 **/*-packr.go
 /hooks.json
@@ -37,3 +38,5 @@ server.log
 *.tmp
 *.backup
 
+*.backup
+*.tmp

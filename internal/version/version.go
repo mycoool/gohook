@@ -1,11 +1,14 @@
 package version
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
 	"os/exec"
+	"os/user"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -16,8 +19,28 @@ import (
 	"github.com/mycoool/gohook/internal/database"
 	"github.com/mycoool/gohook/internal/middleware"
 	"github.com/mycoool/gohook/internal/stream"
+	"github.com/mycoool/gohook/internal/syncnode"
 	"github.com/mycoool/gohook/internal/types"
 )
+
+var errProjectPathNotWritable = errors.New("project path is not writable")
+
+func currentServiceUserAndGroup() (username, group string) {
+	u, err := user.Current()
+	if err != nil || u == nil || u.Username == "" {
+		return "unknown", "unknown"
+	}
+
+	username = u.Username
+	group = username
+	if u.Gid != "" {
+		if g, err := user.LookupGroupId(u.Gid); err == nil && g != nil && g.Name != "" {
+			group = g.Name
+		}
+	}
+
+	return username, group
+}
 
 // execGitCommand execute git command, automatically handle safe.directory permission issues
 func execGitCommand(projectPath string, args ...string) ([]byte, error) {
@@ -87,6 +110,9 @@ func initGit(projectPath string) error {
 
 	// check if it is a directory
 	if info, err := os.Stat(projectPath); err != nil {
+		if errors.Is(err, fs.ErrPermission) {
+			return fmt.Errorf("%w: %v", errProjectPathNotWritable, err)
+		}
 		return fmt.Errorf("cannot access project path: %s, error: %v", projectPath, err)
 	} else if !info.IsDir() {
 		return fmt.Errorf("project path is not a directory: %s", projectPath)
@@ -101,8 +127,7 @@ func initGit(projectPath string) error {
 	// try to create a temporary file to test write permission
 	testFile := filepath.Join(projectPath, ".gohook-permission-test")
 	if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
-		return fmt.Errorf("project path does not have write permission: %s, please check directory permission. recommended: sudo chown -R %s:%s %s",
-			projectPath, os.Getenv("USER"), os.Getenv("USER"), projectPath)
+		return fmt.Errorf("%w: %v", errProjectPathNotWritable, err)
 	}
 	// clean up test file
 	os.Remove(testFile)
@@ -682,9 +707,10 @@ func HandleEditProject(c *gin.Context) {
 	projectName := c.Param("name")
 
 	var req struct {
-		Name        string `json:"name" binding:"required"`
-		Path        string `json:"path" binding:"required"`
-		Description string `json:"description"`
+		Name        string                   `json:"name" binding:"required"`
+		Path        string                   `json:"path" binding:"required"`
+		Description string                   `json:"description"`
+		Sync        *types.ProjectSyncConfig `json:"sync,omitempty"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -735,11 +761,16 @@ func HandleEditProject(c *gin.Context) {
 		Name:        req.Name,
 		Path:        req.Path,
 		Description: req.Description,
-		Enabled:     currentProject.Enabled,    // preserve enabled status
-		Enhook:      currentProject.Enhook,     // preserve hook configuration
-		Hookmode:    currentProject.Hookmode,   // preserve hook mode
-		Hookbranch:  currentProject.Hookbranch, // preserve hook branch
-		Hooksecret:  currentProject.Hooksecret, // preserve hook secret
+		Enabled:     currentProject.Enabled,
+		Enhook:      currentProject.Enhook,
+		Hookmode:    currentProject.Hookmode,
+		Hookbranch:  currentProject.Hookbranch,
+		Hooksecret:  currentProject.Hooksecret,
+		ForceSync:   currentProject.ForceSync,
+		Sync:        currentProject.Sync,
+	}
+	if req.Sync != nil {
+		types.GoHookVersionData.Projects[projectIndex].Sync = req.Sync
 	}
 
 	// save config file
@@ -775,15 +806,19 @@ func HandleEditProject(c *gin.Context) {
 	}
 	stream.Global.Broadcast(wsMessage)
 
+	// Refresh sync watchers so config changes take effect without restart.
+	syncnode.RefreshProjectWatchers()
+
 	c.JSON(http.StatusOK, gin.H{"message": "Project updated successfully"})
 }
 
 // AddProject add project
 func HandleAddProject(c *gin.Context) {
 	var req struct {
-		Name        string `json:"name" binding:"required"`
-		Path        string `json:"path" binding:"required"`
-		Description string `json:"description"`
+		Name        string                   `json:"name" binding:"required"`
+		Path        string                   `json:"path" binding:"required"`
+		Description string                   `json:"description"`
+		Sync        *types.ProjectSyncConfig `json:"sync,omitempty"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -816,6 +851,7 @@ func HandleAddProject(c *gin.Context) {
 		Path:        req.Path,
 		Description: req.Description,
 		Enabled:     true,
+		Sync:        req.Sync,
 	}
 
 	types.GoHookVersionData.Projects = append(types.GoHookVersionData.Projects, newProject)
@@ -863,6 +899,9 @@ func HandleAddProject(c *gin.Context) {
 		},
 	}
 	stream.Global.Broadcast(wsMessage)
+
+	// Refresh sync watchers so newly enabled sync projects start watching without restart.
+	syncnode.RefreshProjectWatchers()
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Project added successfully",
@@ -921,6 +960,9 @@ func HandleDeleteProject(c *gin.Context) {
 		},
 	}
 	stream.Global.Broadcast(wsMessage)
+
+	// Refresh sync watchers so removed projects stop watching without restart.
+	syncnode.RefreshProjectWatchers()
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Project deleted successfully",
@@ -1567,6 +1609,20 @@ func HandleInitGitRepository(c *gin.Context) {
 
 	if err := initGit(projectPath); err != nil {
 		fmt.Printf("Git initialization failed: project name=%s, path=%s, error=%v\n", projectName, projectPath, err)
+		if errors.Is(err, errProjectPathNotWritable) {
+			username, group := currentServiceUserAndGroup()
+			c.JSON(http.StatusForbidden, gin.H{
+				"error": fmt.Sprintf(
+					"目录没有写入权限：%s。请确保运行 GoHook 的用户（%s）对此目录有写权限。参考：sudo chown -R %s:%s %s",
+					projectPath,
+					username,
+					username,
+					group,
+					projectPath,
+				),
+			})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -1666,6 +1722,7 @@ func HandleGetProjects(c *gin.Context) {
 				Description: proj.Description,
 				Mode:        "none",
 				Status:      "not-git",
+				Sync:        proj.Sync,
 			})
 			continue
 		}
@@ -1678,6 +1735,7 @@ func HandleGetProjects(c *gin.Context) {
 		gitStatus.Hookbranch = proj.Hookbranch
 		gitStatus.Hooksecret = proj.Hooksecret
 		gitStatus.ForceSync = proj.ForceSync
+		gitStatus.Sync = proj.Sync
 		projects = append(projects, *gitStatus)
 	}
 

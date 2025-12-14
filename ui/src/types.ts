@@ -84,6 +84,63 @@ export interface IVersion {
     hookbranch?: string; // 具体分支名或'*'表示任意分支
     hooksecret?: string; // webhook密码
     forcesync?: boolean; // GitHook 是否使用强制同步
+    sync?: IProjectSyncConfig;
+}
+
+export interface IProjectSyncNodeConfig {
+    nodeId: string;
+    targetPath: string;
+    strategy?: string;
+    driver?: string;
+    include?: string[];
+    exclude?: string[];
+    ignoreFile?: string;
+    ignorePatterns?: string[];
+    mirrorFastDelete?: boolean;
+    mirrorFastFullscanEvery?: number;
+    mirrorCleanEmptyDirs?: boolean;
+    mirrorSyncEmptyDirs?: boolean;
+}
+
+export interface IProjectSyncConfig {
+    enabled: boolean;
+    driver?: string;
+    maxParallelNodes?: number;
+    ignoreDefaults?: boolean;
+    ignorePatterns?: string[];
+    ignoreFile?: string;
+    ignorePermissions?: boolean;
+    watchEnabled?: boolean;
+    preserveMode?: boolean;
+    preserveMtime?: boolean;
+    symlinkPolicy?: string;
+    deltaIndexOverlay?: boolean;
+    deltaMaxFiles?: number;
+    overlayFullScanEvery?: number;
+    overlayFullScanInterval?: string;
+    nodes?: IProjectSyncNodeConfig[];
+}
+
+export interface ISyncProjectNodeSummary {
+    nodeId: number;
+    nodeName: string;
+    health: string;
+    targetPath: string;
+    lastTaskId?: number;
+    lastStatus?: string;
+    lastTaskAt?: string;
+    lastError?: string;
+    lastErrorCode?: string;
+    lastSuccessAt?: string;
+}
+
+export interface ISyncProjectSummary {
+    projectName: string;
+    path: string;
+    sync: IProjectSyncConfig;
+    status: string;
+    lastSyncAt?: string;
+    nodes: ISyncProjectNodeSummary[];
 }
 
 export interface IBranch {
@@ -218,4 +275,65 @@ export interface IHookManageMessage {
     hookName: string; // Hook名称
     success: boolean; // 是否成功
     error?: string; // 错误信息
+}
+
+export interface ISyncNode {
+    id: number;
+    name: string;
+    address: string;
+    remark?: string;
+    type: string;
+    status: string;
+    health: string;
+    agentCertFingerprint?: string;
+    connectionStatus?: string;
+    syncStatus?: string;
+    lastSyncAt?: string;
+    lastTaskProject?: string;
+    lastTaskTargetPath?: string;
+    lastError?: string;
+    lastErrorCode?: string;
+    tags: string[];
+    metadata: Record<string, unknown>;
+    sshUser?: string;
+    sshPort?: number;
+    authType?: string;
+    credentialRef?: string;
+    agentToken?: string;
+    installStatus?: string;
+    installLog?: string;
+    agentVersion?: string;
+    lastSeen?: string;
+    runtime?: ISyncNodeRuntime;
+    createdAt?: string;
+    updatedAt?: string;
+}
+
+export interface ISyncNodeRuntime {
+    updatedAt?: string;
+    hostname?: string;
+    uptimeSec?: number;
+    cpuPercent?: number;
+    memUsedPercent?: number;
+    load1?: number;
+    diskUsedPercent?: number;
+}
+
+export interface ISyncTask {
+    id: number;
+    projectName: string;
+    nodeId: number;
+    nodeName: string;
+    driver: string;
+    status: string;
+    attempt: number;
+    createdAt: string;
+    updatedAt: string;
+    lastError?: string;
+    errorCode?: string;
+    files?: number;
+    blocks?: number;
+    bytes?: number;
+    durationMs?: number;
+    logs?: string;
 }

@@ -67,7 +67,15 @@ export class WebSocketStore {
         this.connectionStatus = this.reconnectAttempts > 0 ? 'reconnecting' : 'connecting';
         this.connectionError = null;
 
-        const wsUrl = config.get('url').replace('http', 'ws').replace('https', 'wss');
+        const wsUrl = (() => {
+            // Dev mode: CRA proxy doesn't reliably forward WebSocket upgrades, so connect to backend directly.
+            if (process.env.NODE_ENV !== 'production') {
+                const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+                const host = window.location.hostname || 'localhost';
+                return `${proto}://${host}:9000/`;
+            }
+            return config.get('url').replace('http://', 'ws://').replace('https://', 'wss://');
+        })();
         const ws = new WebSocket(wsUrl + 'stream', ['Authorization', this.currentUser.token()]);
 
         ws.onerror = (e) => {
@@ -183,6 +191,12 @@ export class WebSocketStore {
         switch (message.type) {
             case 'connected':
                 // 连接消息不显示通知
+                break;
+            case 'sync_node_event':
+            case 'sync_task_event':
+            case 'sync_project_event':
+            case 'sync_node_status':
+                // 同步相关事件用于驱动页面数据刷新，不弹通知，避免刷屏
                 break;
             case 'hook_triggered': {
                 const hookMsg = message.data as IHookTriggeredMessage;

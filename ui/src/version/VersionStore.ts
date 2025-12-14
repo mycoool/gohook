@@ -2,7 +2,7 @@ import axios from 'axios';
 import * as config from '../config';
 import {action, observable} from 'mobx';
 import {SnackReporter} from '../snack/SnackManager';
-import {IVersion, IBranch, ITag, ITagsResponse} from '../types';
+import {IVersion, IBranch, ITag, ITagsResponse, IProjectSyncConfig} from '../types';
 import {GitHookConfig} from './GitHookDialog';
 import translate from '../i18n/translator';
 
@@ -163,7 +163,8 @@ export class VersionStore {
         originalName: string,
         name: string,
         path: string,
-        description: string
+        description: string,
+        sync?: IProjectSyncConfig
     ): Promise<void> => {
         try {
             const response = await axios.put(
@@ -172,6 +173,7 @@ export class VersionStore {
                     name,
                     path,
                     description,
+                    ...(sync ? {sync} : {}),
                 },
                 {
                     headers: {'X-GoHook-Key': this.tokenProvider()},
@@ -223,12 +225,10 @@ export class VersionStore {
             await this.refreshProjects(); // 初始化后刷新项目列表
         } catch (error: unknown) {
             const errorMessage =
-                error instanceof Error
-                    ? error.message
-                    : (error as {response?: {data?: {error?: string}}})?.response?.data?.error ??
-                      '未知错误';
+                (error as {response?: {data?: {error?: string}}})?.response?.data?.error ??
+                (error instanceof Error ? error.message : '未知错误');
             this.snack('Git仓库初始化失败: ' + errorMessage);
-            throw error;
+            return;
         }
     };
 

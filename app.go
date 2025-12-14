@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"flag"
@@ -10,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -17,6 +19,7 @@ import (
 	"github.com/mycoool/gohook/internal/database"
 	"github.com/mycoool/gohook/internal/middleware"
 	"github.com/mycoool/gohook/internal/pidfile"
+	"github.com/mycoool/gohook/internal/syncnode"
 	"github.com/mycoool/gohook/internal/types"
 	"github.com/mycoool/gohook/internal/webhook"
 
@@ -247,11 +250,16 @@ func main() {
 		} else {
 			log.Printf("found %d hook(s) in file\n", len(newHooks))
 
+			seenHooksIds := make(map[string]bool)
 			for _, hookValue := range newHooks {
+				if seenHooksIds[hookValue.ID] {
+					log.Fatalf("error: hook with the id %s has already been loaded!\nplease check your hooks file for duplicate hooks ids!\n", hookValue.ID)
+				}
 				if webhook.HookManager.MatchLoadedHook(hookValue.ID) != nil {
 					log.Fatalf("error: hook with the id %s has already been loaded!\nplease check your hooks file for duplicate hooks ids!\n", hookValue.ID)
 				}
 				log.Printf("\tloaded: %s\n", hookValue.ID)
+				seenHooksIds[hookValue.ID] = true
 			}
 
 			loadedHooksFromFiles[hooksFilePath] = newHooks
@@ -283,6 +291,7 @@ func main() {
 		}
 		defer watcher.Close()
 
+		watchedDirs := map[string]struct{}{}
 		for _, hooksFilePath := range hooksFiles {
 			// set up file watcher
 			log.Printf("setting up file watcher for %s\n", hooksFilePath)
@@ -291,6 +300,13 @@ func main() {
 			if err != nil {
 				log.Print("error adding hooks file to the watcher\n", err)
 				return
+			}
+
+			dir := filepath.Dir(hooksFilePath)
+			if _, ok := watchedDirs[dir]; !ok {
+				if err := watcher.Add(dir); err == nil {
+					watchedDirs[dir] = struct{}{}
+				}
 			}
 		}
 
@@ -368,6 +384,17 @@ func main() {
 		if err := database.AutoMigrate(); err != nil {
 			log.Printf("Failed to migrate database: %v", err)
 		}
+
+		// Start sync project file watchers (primary node).
+		syncnode.StartAutoSyncController(context.Background())
+		syncnode.StartProjectWatchers()
+
+		// Start agent TCP mTLS transport (primary node).
+		go func() {
+			if err := syncnode.StartAgentTCPServer(context.Background()); err != nil {
+				log.Printf("syncnode: agent TCP server error: %v", err)
+			}
+		}()
 
 		// Initialize global log service
 		database.InitLogService()
