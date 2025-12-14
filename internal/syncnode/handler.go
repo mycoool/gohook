@@ -313,8 +313,8 @@ func mapNode(node *database.SyncNode, summary nodeTaskSummary) nodeResponse {
 	}
 
 	// Normalize status/health for UI consistency.
-	status := node.Status
-	health := node.Health
+	var status string
+	var health string
 	if connected {
 		status = NodeStatusOnline
 		health = NodeHealthHealthy

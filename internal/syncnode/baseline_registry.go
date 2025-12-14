@@ -14,10 +14,6 @@ var overlayBaselineRegistry = struct {
 	m: make(map[string]time.Time),
 }
 
-func shouldForceOverlayFullScan(projectName string, taskID uint) bool {
-	return shouldForceOverlayFullScanWithConfig(projectName, taskID, nil)
-}
-
 func shouldForceOverlayFullScanWithConfig(projectName string, taskID uint, cfg *types.ProjectSyncConfig) bool {
 	every := overlayFullScanEvery(cfg)
 	if every > 0 && taskID > 0 && taskID%uint(every) == 0 {

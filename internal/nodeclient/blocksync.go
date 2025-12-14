@@ -55,13 +55,6 @@ type indexNeedMsg struct {
 	Paths  []string `json:"paths"`
 }
 
-type blockReqMsg struct {
-	Type   string `json:"type"`
-	TaskID uint   `json:"taskId"`
-	Path   string `json:"path"`
-	Index  int    `json:"index"`
-}
-
 type blockBatchReqMsg struct {
 	Type    string `json:"type"`
 	TaskID  uint   `json:"taskId"`

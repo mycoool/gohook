@@ -72,7 +72,6 @@ func runAutoSyncController(ctx context.Context) {
 					t.Stop()
 				}
 			}
-			timers = map[string]*time.Timer{}
 			mu.Unlock()
 			return
 		case projectName := <-autoSyncCh:

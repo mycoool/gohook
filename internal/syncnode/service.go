@@ -685,7 +685,7 @@ func decodeMap(raw string) map[string]interface{} {
 }
 
 // Validate ensures create input contains essentials
-func (req CreateNodeRequest) Validate() error {
+func (req *CreateNodeRequest) Validate() error {
 	if strings.TrimSpace(req.Name) == "" {
 		return errors.New("name is required")
 	}

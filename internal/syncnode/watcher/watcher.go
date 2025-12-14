@@ -2,13 +2,11 @@ package watcher
 
 import (
 	"crypto/sha1"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -34,7 +32,6 @@ type Scanner struct {
 	watcher  *fsnotify.Watcher
 	root     string
 	ignore   *syncignore.Matcher
-	mux      sync.Mutex
 }
 
 // ChangeQueue defines storage interface for detected file changes.
@@ -196,17 +193,6 @@ func buildIgnoreMatcher(project types.ProjectConfig) *syncignore.Matcher {
 		files = append(files, project.Sync.IgnoreFile)
 	}
 	return syncignore.New(project.Path, project.Sync.IgnoreDefaults, project.Sync.IgnorePatterns, files...)
-}
-
-func decodeStringSlice(raw string) []string {
-	if strings.TrimSpace(raw) == "" {
-		return nil
-	}
-	var out []string
-	if err := json.Unmarshal([]byte(raw), &out); err != nil {
-		return nil
-	}
-	return out
 }
 
 func toRel(root, path string) string {

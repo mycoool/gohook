@@ -86,11 +86,6 @@ func (r rule) matches(rel string, isDir bool) bool {
 	if r.re == nil {
 		return false
 	}
-	if r.dirOnly && !isDir {
-		// dir-only rules still match files under the directory via the regex,
-		// so only skip when it's an exact directory marker and the path isn't under it.
-		// (Handled by regex; nothing extra needed here.)
-	}
 	return r.re.MatchString(rel)
 }
 
