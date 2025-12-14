@@ -811,3 +811,91 @@ func (m *ignoreMatcher) Match(rel string, isDir bool) bool {
 	}
 	return m.m.Match(rel, isDir)
 }
+
+// BuildIndexEntry returns an IndexFileEntry for a relative path, or (nil, nil) when not applicable.
+func (s *TaskService) BuildIndexEntry(ctx context.Context, task database.SyncTask, rel string) (*IndexFileEntry, error) {
+	var payload TaskPayload
+	if err := json.Unmarshal([]byte(task.Payload), &payload); err != nil {
+		return nil, fmt.Errorf("invalid task payload: %w", err)
+	}
+	project := findProject(payload.ProjectName)
+	if project == nil {
+		return nil, fmt.Errorf("project not found: %s", payload.ProjectName)
+	}
+	root := project.Path
+	if root == "" {
+		return nil, fmt.Errorf("project path is empty: %s", payload.ProjectName)
+	}
+	if rel == "" {
+		return nil, nil
+	}
+	rel = filepath.ToSlash(filepath.Clean(rel))
+	if rel == "" || rel == "." || strings.HasPrefix(rel, "..") {
+		return nil, nil
+	}
+	ig := newIgnoreMatcher(payload, root)
+	if ig != nil && ig.Match(rel, false) {
+		return nil, nil
+	}
+
+	full := filepath.Join(root, filepath.FromSlash(rel))
+	fi, err := os.Stat(full)
+	if err != nil || fi == nil {
+		return nil, nil
+	}
+	if fi.IsDir() || !fi.Mode().IsRegular() {
+		return nil, nil
+	}
+
+	blockSize := adaptiveBlockSize(fi.Size())
+	key := hashCacheKey(full, fi.Size(), fi.ModTime(), blockSize)
+	hashes, ok := globalHashCache.Get(key)
+	var hashErr error
+	if !ok {
+		hashes, hashErr = hashFileBlocks(full, blockSize)
+		if hashErr != nil {
+			return nil, hashErr
+		}
+		globalHashCache.Put(key, hashes)
+	}
+
+	entry := &IndexFileEntry{
+		Path:      rel,
+		Size:      fi.Size(),
+		Mode:      uint32(fi.Mode().Perm()),
+		MtimeUnix: fi.ModTime().Unix(),
+		BlockSize: blockSize,
+		Blocks:    hashes,
+	}
+	return entry, nil
+}
+
+// StreamIndexWithForcedPaths emits forced paths first (when present), then streams index as usual.
+// This is used to heal target drift when delta indexing would otherwise omit unchanged-but-missing files.
+func (s *TaskService) StreamIndexWithForcedPaths(ctx context.Context, task database.SyncTask, forcedPaths []string, emit func(IndexFileEntry) error) error {
+	emitted := make(map[string]struct{}, len(forcedPaths))
+	for _, p := range forcedPaths {
+		e, err := s.BuildIndexEntry(ctx, task, p)
+		if err != nil {
+			return err
+		}
+		if e == nil || e.Path == "" {
+			continue
+		}
+		if _, ok := emitted[e.Path]; ok {
+			continue
+		}
+		emitted[e.Path] = struct{}{}
+		if err := emit(*e); err != nil {
+			return err
+		}
+	}
+
+	return s.StreamIndex(ctx, task, func(e IndexFileEntry) error {
+		if _, ok := emitted[e.Path]; ok {
+			return nil
+		}
+		emitted[e.Path] = struct{}{}
+		return emit(e)
+	})
+}

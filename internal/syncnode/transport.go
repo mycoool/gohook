@@ -61,6 +61,12 @@ type syncStart struct {
 	TaskID uint   `json:"taskId"`
 }
 
+type indexNeed struct {
+	Type   string   `json:"type"`
+	TaskID uint     `json:"taskId"`
+	Paths  []string `json:"paths"`
+}
+
 type indexBegin struct {
 	Type      string `json:"type"`
 	TaskID    uint   `json:"taskId"`
@@ -389,6 +395,7 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 
 		// Expect sync_start (or an immediate task_report when agent fails preflight).
 		_ = conn.SetReadDeadline(time.Now().Add(30 * time.Second))
+		forcedIndexPaths := make([]string, 0, 32)
 		for {
 			var envelope map[string]any
 			if err := ReadStreamMessage(conn, &envelope); err != nil {
@@ -403,6 +410,21 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 
 			typ, _ := envelope["type"].(string)
 			switch typ {
+			case "index_need":
+				raw, _ := json.Marshal(envelope)
+				var need indexNeed
+				_ = json.Unmarshal(raw, &need)
+				if need.TaskID != task.ID || len(need.Paths) == 0 {
+					continue
+				}
+				for _, p := range need.Paths {
+					p = strings.TrimSpace(p)
+					if p == "" {
+						continue
+					}
+					forcedIndexPaths = append(forcedIndexPaths, p)
+				}
+				continue
 			case "node_status":
 				raw, _ := json.Marshal(envelope)
 				var st nodeStatusMsg
@@ -472,7 +494,7 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 		}
 		touchConn(hello.NodeID)
 		if useIndexChunk {
-			if err := streamIndexChunks(ctx, conn, hello.NodeID, *task); err != nil {
+			if err := streamIndexChunks(ctx, conn, hello.NodeID, *task, forcedIndexPaths); err != nil {
 				if _, ok := err.(agentTaskReported); ok {
 					goto nextTask
 				}
@@ -480,7 +502,7 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 				return
 			}
 		} else {
-			if err := defaultTaskService.StreamIndex(ctx, *task, func(entry IndexFileEntry) error {
+			if err := defaultTaskService.StreamIndexWithForcedPaths(ctx, *task, forcedIndexPaths, func(entry IndexFileEntry) error {
 				indexEntries[entry.Path] = entry
 				touchConn(hello.NodeID)
 				return WriteStreamMessage(conn, indexFile{Type: "index_file", TaskID: task.ID, File: entry})
@@ -679,7 +701,7 @@ func indexChunkSize() int {
 	return size
 }
 
-func streamIndexChunks(ctx context.Context, conn net.Conn, nodeID uint, task database.SyncTask) error {
+func streamIndexChunks(ctx context.Context, conn net.Conn, nodeID uint, task database.SyncTask, forcedPaths []string) error {
 	chunkSize := indexChunkSize()
 	var chunk []IndexFileEntry
 
@@ -690,7 +712,7 @@ func streamIndexChunks(ctx context.Context, conn net.Conn, nodeID uint, task dat
 		return serveIndexChunk(ctx, conn, nodeID, task, files)
 	}
 
-	if err := defaultTaskService.StreamIndex(ctx, task, func(entry IndexFileEntry) error {
+	if err := defaultTaskService.StreamIndexWithForcedPaths(ctx, task, forcedPaths, func(entry IndexFileEntry) error {
 		chunk = append(chunk, entry)
 		touchConn(nodeID)
 		if len(chunk) >= chunkSize {

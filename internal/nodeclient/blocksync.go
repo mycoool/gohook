@@ -47,6 +47,12 @@ type indexChunkDoneMsg struct {
 	TaskID uint   `json:"taskId"`
 }
 
+type indexNeedMsg struct {
+	Type   string   `json:"type"`
+	TaskID uint     `json:"taskId"`
+	Paths  []string `json:"paths"`
+}
+
 type blockReqMsg struct {
 	Type   string `json:"type"`
 	TaskID uint   `json:"taskId"`
@@ -103,6 +109,28 @@ func (a *Agent) runTaskTCP(ctx context.Context, conn io.ReadWriter, task *taskRe
 		ce := classifyError(err)
 		_ = syncnode.WriteStreamMessage(conn, taskReportMsg{Type: "task_report", TaskID: task.ID, Status: "failed", LastError: ce.Message, ErrorCode: ce.Code})
 		return
+	}
+
+	// Optional drift healing: request index entries for missing paths from last successful sync.
+	if strings.ToLower(payload.Strategy) == "" || strings.ToLower(payload.Strategy) == "overlay" {
+		if m, err := readExpectedManifest(payload.TargetPath); err == nil && m != nil && len(m.Paths) > 0 {
+			const maxNeed = 512
+			need := make([]string, 0, 32)
+			for _, rel := range m.Paths {
+				if len(need) >= maxNeed {
+					break
+				}
+				full := filepath.Join(payload.TargetPath, filepath.FromSlash(rel))
+				if _, err := os.Stat(full); err != nil {
+					if os.IsNotExist(err) {
+						need = append(need, rel)
+					}
+				}
+			}
+			if len(need) > 0 {
+				_ = syncnode.WriteStreamMessage(conn, indexNeedMsg{Type: "index_need", TaskID: task.ID, Paths: need})
+			}
+		}
 	}
 
 	if err := syncnode.WriteStreamMessage(conn, map[string]any{"type": "sync_start", "taskId": task.ID}); err != nil {
@@ -243,6 +271,8 @@ indexDone:
 		// Best-effort: persist expected file list for future fast mirror deletions.
 		_ = writeMirrorManifest(payload.TargetPath, expectedPaths, ig, runCount)
 	}
+
+	_ = writeExpectedManifest(payload.TargetPath, expectedPaths)
 
 	_ = syncnode.WriteStreamMessage(conn, taskReportMsg{
 		Type:       "task_report",
