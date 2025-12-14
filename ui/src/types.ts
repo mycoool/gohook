@@ -110,6 +110,7 @@ export interface IProjectSyncConfig {
     ignorePatterns?: string[];
     ignoreFile?: string;
     ignorePermissions?: boolean;
+    watchEnabled?: boolean;
     preserveMode?: boolean;
     preserveMtime?: boolean;
     symlinkPolicy?: string;

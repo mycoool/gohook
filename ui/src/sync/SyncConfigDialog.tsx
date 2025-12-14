@@ -34,6 +34,7 @@ const SyncConfigDialog: React.FC<Props> = ({
     onSave,
 }) => {
     const [enabled, setEnabled] = useState(false);
+    const [watchEnabled, setWatchEnabled] = useState(true);
     const [ignoreDefaults, setIgnoreDefaults] = useState(true);
     const [ignorePermissions, setIgnorePermissions] = useState(false);
     const [preserveMode, setPreserveMode] = useState(true);
@@ -51,6 +52,7 @@ const SyncConfigDialog: React.FC<Props> = ({
         if (!open) return;
         const sync = initialSync;
         setEnabled(sync?.enabled ?? true);
+        setWatchEnabled(sync?.watchEnabled ?? true);
         setIgnoreDefaults(sync?.ignoreDefaults ?? true);
         setIgnorePermissions(sync?.ignorePermissions ?? false);
         setPreserveMode(sync?.preserveMode ?? true);
@@ -86,6 +88,7 @@ const SyncConfigDialog: React.FC<Props> = ({
     const handleSave = async () => {
         const sync: IProjectSyncConfig = {
             enabled,
+            watchEnabled: watchEnabled ? undefined : false,
             ignoreDefaults,
             ignorePermissions,
             preserveMode,
@@ -109,6 +112,7 @@ const SyncConfigDialog: React.FC<Props> = ({
             <DialogContent>
                 <SyncConfigEditor
                     enabled={enabled}
+                    watchEnabled={watchEnabled}
                     ignoreDefaults={ignoreDefaults}
                     ignorePermissions={ignorePermissions}
                     preserveMode={preserveMode}
@@ -124,6 +128,7 @@ const SyncConfigDialog: React.FC<Props> = ({
                     availableNodes={availableNodes}
                     projectPath={projectPath}
                     onEnabledChange={setEnabled}
+                    onWatchEnabledChange={setWatchEnabled}
                     onIgnoreDefaultsChange={setIgnoreDefaults}
                     onIgnorePermissionsChange={setIgnorePermissions}
                     onPreserveModeChange={setPreserveMode}

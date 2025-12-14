@@ -28,9 +28,10 @@ type rule struct {
 func New(root string, ignoreDefaults bool, patterns []string, ignoreFiles ...string) *Matcher {
 	var lines []string
 	if ignoreDefaults {
-		// Default ignore list: ignore contents, but do not force-delete target-side runtime.
-		// Use dir-only rules so scanners can SkipDir early.
-		lines = append(lines, ".git/", "runtime/")
+		// Default ignore list:
+		// - ".git/": ignore directory and contents.
+		// - "runtime/**": ignore contents but still allow the directory itself to exist when it exists on source.
+		lines = append(lines, ".git/", "runtime/**")
 	}
 	lines = append(lines, patterns...)
 	for _, ignoreFile := range ignoreFiles {

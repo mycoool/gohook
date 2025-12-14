@@ -359,11 +359,20 @@ func (s *TaskService) ReportTask(ctx context.Context, nodeID, taskID uint, repor
 	if task.Status == TaskStatusSuccess {
 		var payload TaskPayload
 		if json.Unmarshal([]byte(task.Payload), &payload) == nil {
-			if strings.EqualFold(strings.TrimSpace(payload.Strategy), "overlay") {
-				_ = db.WithContext(ctx).
-					Model(&database.SyncFileChange{}).
-					Where("project_name = ? AND processed = ?", payload.ProjectName, false).
-					Updates(map[string]any{"processed": true}).Error
+			// Only mark changes created at/before task creation as processed.
+			// Changes during sync stay pending and will trigger a follow-up run.
+			_ = db.WithContext(ctx).
+				Model(&database.SyncFileChange{}).
+				Where("project_name = ? AND processed = ? AND created_at <= ?", payload.ProjectName, false, task.CreatedAt).
+				Updates(map[string]any{"processed": true}).Error
+
+			// If there are still pending changes (e.g. happened during this run), re-notify autosync.
+			var remaining int64
+			if err := db.WithContext(ctx).
+				Model(&database.SyncFileChange{}).
+				Where("project_name = ? AND processed = ?", payload.ProjectName, false).
+				Count(&remaining).Error; err == nil && remaining > 0 {
+				notifyAutoSyncProject(payload.ProjectName)
 			}
 		}
 	}

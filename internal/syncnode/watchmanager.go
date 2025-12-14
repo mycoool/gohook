@@ -47,7 +47,7 @@ func (m *WatchManager) Start() {
 			log.Printf("syncnode: database not initialized, skipping project watchers")
 			return
 		}
-		m.queue = NewDBChangeQueue(db)
+		m.queue = NewNotifyingChangeQueue(db, notifyAutoSyncProject)
 	}
 
 	versionData := types.GoHookVersionData
@@ -56,7 +56,7 @@ func (m *WatchManager) Start() {
 	}
 
 	for _, project := range versionData.Projects {
-		if !project.Enabled || project.Sync == nil || !project.Sync.Enabled {
+		if !project.Enabled || project.Sync == nil || !project.Sync.Enabled || !watchEnabled(project.Sync) {
 			continue
 		}
 		if project.Path == "" {
@@ -121,7 +121,7 @@ func (m *WatchManager) Refresh() {
 			log.Printf("syncnode: database not initialized, skipping project watchers")
 			return
 		}
-		m.queue = NewDBChangeQueue(db)
+		m.queue = NewNotifyingChangeQueue(db, notifyAutoSyncProject)
 	}
 
 	versionData := types.GoHookVersionData
@@ -130,7 +130,7 @@ func (m *WatchManager) Refresh() {
 	}
 
 	for _, project := range versionData.Projects {
-		if !project.Enabled || project.Sync == nil || !project.Sync.Enabled {
+		if !project.Enabled || project.Sync == nil || !project.Sync.Enabled || !watchEnabled(project.Sync) {
 			continue
 		}
 		if project.Path == "" {

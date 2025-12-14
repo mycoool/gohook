@@ -284,10 +284,6 @@ indexDone:
 
 	if strings.ToLower(payload.Strategy) == "" || strings.ToLower(payload.Strategy) == "mirror" {
 		ig := syncignore.New(payload.TargetPath, payload.IgnoreDefaults, payload.IgnorePatterns)
-		// Keep runtime directory even when ignoring its contents.
-		if payload.IgnoreDefaults {
-			_ = os.MkdirAll(filepath.Join(payload.TargetPath, "runtime"), 0o755)
-		}
 
 		fastDelete := payload.MirrorFastDelete || shouldUseFastMirrorDelete()
 		cleanEmpty := payload.MirrorCleanEmptyDirs || shouldCleanEmptyDirs()

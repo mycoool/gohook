@@ -81,6 +81,9 @@ type ProjectSyncConfig struct {
 	IgnorePatterns    []string `yaml:"ignore_patterns,omitempty" json:"ignorePatterns,omitempty"`       // extra ignore globs
 	IgnoreFile        string   `yaml:"ignore_file,omitempty" json:"ignoreFile,omitempty"`               // optional ignore file path
 	IgnorePermissions bool     `yaml:"ignore_permissions,omitempty" json:"ignorePermissions,omitempty"` // do not sync chmod/chown
+	// Watch toggles (primary node fsnotify scanner + auto task enqueue).
+	// Nil means enabled (default on) to preserve backward compatibility.
+	WatchEnabled *bool `yaml:"watch_enabled,omitempty" json:"watchEnabled,omitempty"`
 	// Semantics knobs (UI-managed, applied by agent).
 	PreserveMode  *bool  `yaml:"preserve_mode,omitempty" json:"preserveMode,omitempty"`   // keep file/dir permission bits (default true)
 	PreserveMtime *bool  `yaml:"preserve_mtime,omitempty" json:"preserveMtime,omitempty"` // keep mtime (default true)

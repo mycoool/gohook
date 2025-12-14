@@ -37,6 +37,7 @@ export type SyncNodeRow = {
 
 interface Props {
     enabled: boolean;
+    watchEnabled: boolean;
     ignoreDefaults: boolean;
     ignorePermissions: boolean;
     preserveMode: boolean;
@@ -52,6 +53,7 @@ interface Props {
     availableNodes: ISyncNode[];
     projectPath: string;
     onEnabledChange: (value: boolean) => void;
+    onWatchEnabledChange: (value: boolean) => void;
     onIgnoreDefaultsChange: (value: boolean) => void;
     onIgnorePermissionsChange: (value: boolean) => void;
     onPreserveModeChange: (value: boolean) => void;
@@ -119,8 +121,8 @@ const IgnoreRulesHelp: React.FC<{open: boolean}> = ({open}) => (
                     不含 <code>/</code> 的规则默认匹配任意层级（等同 <code>**/pattern</code>）。
                 </Typography>
                 <Typography variant="body2">
-                    示例：<code>node_modules/**</code>、<code>*.log</code>、<code>runtime/</code>、
-                    <code>!.env</code>
+                    示例：<code>node_modules/**</code>、<code>*.log</code>、<code>runtime/**</code>
+                    、<code>!.env</code>
                 </Typography>
             </Stack>
         </Paper>
@@ -129,6 +131,7 @@ const IgnoreRulesHelp: React.FC<{open: boolean}> = ({open}) => (
 
 const SyncConfigEditor: React.FC<Props> = ({
     enabled,
+    watchEnabled,
     ignoreDefaults,
     ignorePermissions,
     preserveMode,
@@ -144,6 +147,7 @@ const SyncConfigEditor: React.FC<Props> = ({
     availableNodes,
     projectPath,
     onEnabledChange,
+    onWatchEnabledChange,
     onIgnoreDefaultsChange,
     onIgnorePermissionsChange,
     onPreserveModeChange,
@@ -232,6 +236,21 @@ const SyncConfigEditor: React.FC<Props> = ({
 
                     {enabled ? (
                         <>
+                            <Box mt={1}>
+                                <FormControlLabel
+                                    control={
+                                        <Switch
+                                            checked={watchEnabled}
+                                            onChange={(_, checked) => onWatchEnabledChange(checked)}
+                                        />
+                                    }
+                                    label="文件监听"
+                                />
+                                <Typography variant="caption" color="textSecondary">
+                                    开启后将通过文件系统事件监控变化并自动触发同步。
+                                </Typography>
+                            </Box>
+
                             <Box mt={1}>
                                 <Stack
                                     direction="row"
