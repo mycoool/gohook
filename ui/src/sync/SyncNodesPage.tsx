@@ -117,7 +117,7 @@ const SyncNodesPage: React.FC<Props> = ({syncNodeStore, currentUser}) => {
     };
 
     const handleSubmit = async (payload: SyncNodePayload, nodeId?: number) => {
-        if (dialogMode === 'edit' && nodeId) {
+        if (nodeId) {
             await syncNodeStore.updateNode(nodeId, payload);
             const updated = syncNodeStore.all.find((n) => n.id === nodeId);
             return updated;

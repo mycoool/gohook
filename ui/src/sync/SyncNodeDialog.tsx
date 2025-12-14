@@ -124,7 +124,8 @@ const SyncNodeDialog: React.FC<SyncNodeDialogProps> = ({
             payload.address = form.sshAddress.trim();
         }
 
-        const result = await onSubmit(payload, node?.id);
+        const submitNodeId = createdNode?.id ?? node?.id;
+        const result = await onSubmit(payload, submitNodeId);
         if (mode === 'create' && result) {
             if (payload.type === 'agent') {
                 setCreatedNode(result);
