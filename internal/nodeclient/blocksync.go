@@ -11,6 +11,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -122,6 +123,10 @@ func (a *Agent) runTaskTCP(ctx context.Context, conn io.ReadWriter, task *taskRe
 		return
 	}
 
+	preserveMode := !payload.IgnorePermissions && payload.PreserveMode
+	preserveMtime := !payload.IgnorePermissions && payload.PreserveMtime
+	symlinkPolicy := strings.ToLower(strings.TrimSpace(payload.SymlinkPolicy))
+
 	// Optional drift healing: request index entries for missing paths from last successful sync.
 	if strings.ToLower(payload.Strategy) == "" || strings.ToLower(payload.Strategy) == "overlay" {
 		if m, err := readExpectedManifest(payload.TargetPath); err == nil && m != nil && len(m.Paths) > 0 {
@@ -154,10 +159,13 @@ func (a *Agent) runTaskTCP(ctx context.Context, conn io.ReadWriter, task *taskRe
 		return
 	}
 
-	expectedPaths := map[string]struct{}{}
+	expectedFiles := map[string]struct{}{}
+	expectedDirs := map[string]struct{}{}
 	entries := make([]syncnode.IndexFileEntry, 0, 128)
 	var blocksFetched int
 	var bytesFetched int64
+	var filesApplied int
+	var linksApplied int
 	chunked := false
 	for {
 		var envelope map[string]any
@@ -180,14 +188,36 @@ func (a *Agent) runTaskTCP(ctx context.Context, conn io.ReadWriter, task *taskRe
 				if c.Files[i].Path == "" {
 					continue
 				}
-				expectedPaths[c.Files[i].Path] = struct{}{}
-				bc, by, err := a.applyFileBlocks(ctx, conn, task.ID, payload.TargetPath, payload.IgnorePermissions, c.Files[i])
-				blocksFetched += bc
-				bytesFetched += by
-				if err != nil {
-					ce := classifyError(err)
-					_ = syncnode.WriteStreamMessage(conn, taskReportMsg{Type: "task_report", TaskID: task.ID, Status: "failed", LastError: ce.Message, ErrorCode: ce.Code})
-					return
+				switch strings.ToLower(strings.TrimSpace(c.Files[i].Kind)) {
+				case "dir":
+					if err := applyDirEntry(payload.TargetPath, preserveMode, preserveMtime, c.Files[i]); err != nil {
+						ce := classifyError(err)
+						_ = syncnode.WriteStreamMessage(conn, taskReportMsg{Type: "task_report", TaskID: task.ID, Status: "failed", LastError: ce.Message, ErrorCode: ce.Code})
+						return
+					}
+					expectedDirs[c.Files[i].Path] = struct{}{}
+				case "symlink":
+					if symlinkPolicy != "preserve" {
+						continue
+					}
+					if err := applySymlinkEntry(payload.TargetPath, c.Files[i]); err != nil {
+						ce := classifyError(err)
+						_ = syncnode.WriteStreamMessage(conn, taskReportMsg{Type: "task_report", TaskID: task.ID, Status: "failed", LastError: ce.Message, ErrorCode: ce.Code})
+						return
+					}
+					expectedFiles[c.Files[i].Path] = struct{}{}
+					linksApplied++
+				default:
+					expectedFiles[c.Files[i].Path] = struct{}{}
+					bc, by, err := a.applyFileBlocks(ctx, conn, task.ID, payload.TargetPath, preserveMode, preserveMtime, c.Files[i])
+					blocksFetched += bc
+					bytesFetched += by
+					if err != nil {
+						ce := classifyError(err)
+						_ = syncnode.WriteStreamMessage(conn, taskReportMsg{Type: "task_report", TaskID: task.ID, Status: "failed", LastError: ce.Message, ErrorCode: ce.Code})
+						return
+					}
+					filesApplied++
 				}
 			}
 			_ = syncnode.WriteStreamMessage(conn, indexChunkDoneMsg{Type: "index_chunk_done", TaskID: task.ID})
@@ -199,8 +229,29 @@ func (a *Agent) runTaskTCP(ctx context.Context, conn io.ReadWriter, task *taskRe
 			if f.TaskID != task.ID || f.File.Path == "" {
 				continue
 			}
-			expectedPaths[f.File.Path] = struct{}{}
-			entries = append(entries, f.File)
+			switch strings.ToLower(strings.TrimSpace(f.File.Kind)) {
+			case "dir":
+				if err := applyDirEntry(payload.TargetPath, preserveMode, preserveMtime, f.File); err != nil {
+					ce := classifyError(err)
+					_ = syncnode.WriteStreamMessage(conn, taskReportMsg{Type: "task_report", TaskID: task.ID, Status: "failed", LastError: ce.Message, ErrorCode: ce.Code})
+					return
+				}
+				expectedDirs[f.File.Path] = struct{}{}
+			case "symlink":
+				if symlinkPolicy != "preserve" {
+					continue
+				}
+				if err := applySymlinkEntry(payload.TargetPath, f.File); err != nil {
+					ce := classifyError(err)
+					_ = syncnode.WriteStreamMessage(conn, taskReportMsg{Type: "task_report", TaskID: task.ID, Status: "failed", LastError: ce.Message, ErrorCode: ce.Code})
+					return
+				}
+				expectedFiles[f.File.Path] = struct{}{}
+				linksApplied++
+			default:
+				expectedFiles[f.File.Path] = struct{}{}
+				entries = append(entries, f.File)
+			}
 		case "index_end":
 			raw, _ := json.Marshal(envelope)
 			var end indexEndMsg
@@ -219,7 +270,7 @@ indexDone:
 	// with the still-streaming index_file messages.
 	if !chunked {
 		for i := range entries {
-			bc, by, err := a.applyFileBlocks(ctx, conn, task.ID, payload.TargetPath, payload.IgnorePermissions, entries[i])
+			bc, by, err := a.applyFileBlocks(ctx, conn, task.ID, payload.TargetPath, preserveMode, preserveMtime, entries[i])
 			blocksFetched += bc
 			bytesFetched += by
 			if err != nil {
@@ -227,6 +278,7 @@ indexDone:
 				_ = syncnode.WriteStreamMessage(conn, taskReportMsg{Type: "task_report", TaskID: task.ID, Status: "failed", LastError: ce.Message, ErrorCode: ce.Code})
 				return
 			}
+			filesApplied++
 		}
 	}
 
@@ -258,46 +310,46 @@ indexDone:
 			}
 
 			if needFull {
-				if err := mirrorDeleteExtras(payload.TargetPath, expectedPaths, ig); err != nil {
+				if err := mirrorDeleteExtras(payload.TargetPath, expectedFiles, expectedDirs, ig, cleanEmpty); err != nil {
 					ce := classifyError(err)
 					_ = syncnode.WriteStreamMessage(conn, taskReportMsg{Type: "task_report", TaskID: task.ID, Status: "failed", LastError: ce.Message, ErrorCode: ce.Code})
 					return
 				}
 			} else {
-				if _, err := mirrorDeleteFromManifest(payload.TargetPath, expectedPaths, ig, cleanEmpty); err != nil {
+				if _, err := mirrorDeleteFromManifest(payload.TargetPath, expectedFiles, expectedDirs, ig, cleanEmpty); err != nil {
 					// Fallback to strict cleanup when manifest is missing/corrupt.
-					if err := mirrorDeleteExtras(payload.TargetPath, expectedPaths, ig); err != nil {
+					if err := mirrorDeleteExtras(payload.TargetPath, expectedFiles, expectedDirs, ig, cleanEmpty); err != nil {
 						ce := classifyError(err)
 						_ = syncnode.WriteStreamMessage(conn, taskReportMsg{Type: "task_report", TaskID: task.ID, Status: "failed", LastError: ce.Message, ErrorCode: ce.Code})
 						return
 					}
 				}
 			}
-		} else if err := mirrorDeleteExtras(payload.TargetPath, expectedPaths, ig); err != nil {
+		} else if err := mirrorDeleteExtras(payload.TargetPath, expectedFiles, expectedDirs, ig, cleanEmpty); err != nil {
 			ce := classifyError(err)
 			_ = syncnode.WriteStreamMessage(conn, taskReportMsg{Type: "task_report", TaskID: task.ID, Status: "failed", LastError: ce.Message, ErrorCode: ce.Code})
 			return
 		}
 
 		// Best-effort: persist expected file list for future fast mirror deletions.
-		_ = writeMirrorManifest(payload.TargetPath, expectedPaths, ig, runCount)
+		_ = writeMirrorManifest(payload.TargetPath, expectedFiles, ig, runCount)
 	}
 
-	_ = writeExpectedManifest(payload.TargetPath, expectedPaths)
+	_ = writeExpectedManifest(payload.TargetPath, expectedFiles)
 
 	_ = syncnode.WriteStreamMessage(conn, taskReportMsg{
 		Type:       "task_report",
 		TaskID:     task.ID,
 		Status:     "success",
-		Logs:       fmt.Sprintf("synced %d files, fetched %d blocks (%d bytes)", len(entries), blocksFetched, bytesFetched),
-		Files:      len(entries),
+		Logs:       fmt.Sprintf("synced %d files (+%d symlinks), fetched %d blocks (%d bytes)", filesApplied, linksApplied, blocksFetched, bytesFetched),
+		Files:      filesApplied,
 		Blocks:     blocksFetched,
 		Bytes:      bytesFetched,
 		DurationMs: time.Since(startedAt).Milliseconds(),
 	})
 }
 
-func (a *Agent) applyFileBlocks(ctx context.Context, conn io.ReadWriter, taskID uint, targetRoot string, ignorePerms bool, file syncnode.IndexFileEntry) (int, int64, error) {
+func (a *Agent) applyFileBlocks(ctx context.Context, conn io.ReadWriter, taskID uint, targetRoot string, preserveMode, preserveMtime bool, file syncnode.IndexFileEntry) (int, int64, error) {
 	dst := filepath.Join(targetRoot, filepath.FromSlash(file.Path))
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return 0, 0, fmt.Errorf("create parent dir: %w", err)
@@ -402,8 +454,10 @@ func (a *Agent) applyFileBlocks(ctx context.Context, conn io.ReadWriter, taskID 
 			_ = os.Remove(partial)
 			_ = os.Remove(metaPath)
 		}
-		if !ignorePerms {
+		if preserveMode {
 			_ = os.Chmod(dst, os.FileMode(file.Mode))
+		}
+		if preserveMtime {
 			_ = os.Chtimes(dst, time.Unix(file.MtimeUnix, 0), time.Unix(file.MtimeUnix, 0))
 		}
 		return 0, 0, nil
@@ -527,8 +581,10 @@ func (a *Agent) applyFileBlocks(ctx context.Context, conn io.ReadWriter, taskID 
 		return blocksFetched, bytesFetched, fmt.Errorf("replace file: %w", err)
 	}
 	_ = os.Remove(metaPath)
-	if !ignorePerms {
+	if preserveMode {
 		_ = os.Chmod(dst, os.FileMode(file.Mode))
+	}
+	if preserveMtime {
 		_ = os.Chtimes(dst, time.Unix(file.MtimeUnix, 0), time.Unix(file.MtimeUnix, 0))
 	}
 	return blocksFetched, bytesFetched, nil
@@ -650,12 +706,46 @@ func verifyFileBlocks(path string, file syncnode.IndexFileEntry) error {
 	return nil
 }
 
-func mirrorDeleteExtras(targetRoot string, expected map[string]struct{}, ig *syncignore.Matcher) error {
+func applyDirEntry(targetRoot string, preserveMode, preserveMtime bool, entry syncnode.IndexFileEntry) error {
+	dst := filepath.Join(targetRoot, filepath.FromSlash(entry.Path))
+	if err := os.MkdirAll(dst, 0o755); err != nil {
+		return fmt.Errorf("create dir: %w", err)
+	}
+	if preserveMode {
+		_ = os.Chmod(dst, os.FileMode(entry.Mode))
+	}
+	if preserveMtime && entry.MtimeUnix > 0 {
+		_ = os.Chtimes(dst, time.Unix(entry.MtimeUnix, 0), time.Unix(entry.MtimeUnix, 0))
+	}
+	return nil
+}
+
+func applySymlinkEntry(targetRoot string, entry syncnode.IndexFileEntry) error {
+	if strings.TrimSpace(entry.LinkTarget) == "" {
+		return fmt.Errorf("SYMLINK: missing linkTarget")
+	}
+	dst := filepath.Join(targetRoot, filepath.FromSlash(entry.Path))
+	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+		return fmt.Errorf("create parent dir: %w", err)
+	}
+	if st, err := os.Lstat(dst); err == nil && st != nil {
+		if st.IsDir() {
+			return fmt.Errorf("SYMLINK: destination exists as directory")
+		}
+		_ = os.Remove(dst)
+	}
+	if err := os.Symlink(entry.LinkTarget, dst); err != nil {
+		return fmt.Errorf("SYMLINK: %w", err)
+	}
+	return nil
+}
+
+func mirrorDeleteExtras(targetRoot string, expectedFiles, expectedDirs map[string]struct{}, ig *syncignore.Matcher, cleanEmptyDirs bool) error {
 	clean := filepath.Clean(targetRoot)
 	if clean == "" || clean == "/" || clean == "." {
 		return fmt.Errorf("refuse to mirror-delete on unsafe targetPath")
 	}
-	return filepath.WalkDir(clean, func(path string, d os.DirEntry, err error) error {
+	if err := filepath.WalkDir(clean, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -680,11 +770,79 @@ func mirrorDeleteExtras(targetRoot string, expected map[string]struct{}, ig *syn
 		if d.IsDir() {
 			return nil
 		}
-		if _, ok := expected[rel]; ok {
+		if _, ok := expectedFiles[rel]; ok {
 			return nil
 		}
 		return os.Remove(path)
+	}); err != nil {
+		return err
+	}
+	if cleanEmptyDirs {
+		return mirrorDeleteEmptyDirs(clean, expectedDirs, ig)
+	}
+	return nil
+}
+
+func mirrorDeleteEmptyDirs(targetRoot string, expectedDirs map[string]struct{}, ig *syncignore.Matcher) error {
+	clean := filepath.Clean(targetRoot)
+	if clean == "" || clean == "/" || clean == "." {
+		return fmt.Errorf("refuse to mirror-delete on unsafe targetPath")
+	}
+	var dirs []string
+	if err := filepath.WalkDir(clean, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() {
+			return nil
+		}
+		rel, err := filepath.Rel(clean, path)
+		if err != nil {
+			return err
+		}
+		if rel == "." {
+			return nil
+		}
+		rel = filepath.ToSlash(rel)
+		if ig != nil && ig.Match(rel, true) {
+			return filepath.SkipDir
+		}
+		dirs = append(dirs, path)
+		return nil
+	}); err != nil {
+		return err
+	}
+	// Bottom-up: remove deepest directories first.
+	slices.SortFunc(dirs, func(a, b string) int {
+		if len(a) == len(b) {
+			switch {
+			case a > b:
+				return -1
+			case a < b:
+				return 1
+			default:
+				return 0
+			}
+		}
+		if len(a) > len(b) {
+			return -1
+		}
+		return 1
 	})
+	for _, dir := range dirs {
+		rel, err := filepath.Rel(clean, dir)
+		if err != nil {
+			continue
+		}
+		rel = filepath.ToSlash(rel)
+		if expectedDirs != nil {
+			if _, ok := expectedDirs[rel]; ok {
+				continue
+			}
+		}
+		_ = os.Remove(dir)
+	}
+	return nil
 }
 
 func minInt64(a, b int64) int64 {

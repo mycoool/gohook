@@ -36,9 +36,13 @@ type taskPayload struct {
 	IgnorePatterns          []string `json:"ignorePatterns"`
 	IgnoreFile              string   `json:"ignoreFile"`
 	IgnorePermissions       bool     `json:"ignorePermissions"`
+	PreserveMode            bool     `json:"preserveMode,omitempty"`
+	PreserveMtime           bool     `json:"preserveMtime,omitempty"`
+	SymlinkPolicy           string   `json:"symlinkPolicy,omitempty"`
 	MirrorFastDelete        bool     `json:"mirrorFastDelete,omitempty"`
 	MirrorFastFullscanEvery int      `json:"mirrorFastFullscanEvery,omitempty"`
 	MirrorCleanEmptyDirs    bool     `json:"mirrorCleanEmptyDirs,omitempty"`
+	MirrorSyncEmptyDirs     bool     `json:"mirrorSyncEmptyDirs,omitempty"`
 }
 
 type taskReport struct {
@@ -131,14 +135,16 @@ func (a *Agent) runTask(ctx context.Context, task *taskResponse) {
 		a.reportTask(ctx, task.ID, taskReport{Status: "failed", LastError: err.Error()})
 		return
 	}
-	if err := extractBundle(bundlePath, stage, payload.IgnorePermissions); err != nil {
+	preserveMode := !payload.IgnorePermissions && payload.PreserveMode
+	preserveMtime := !payload.IgnorePermissions && payload.PreserveMtime
+	if err := extractBundle(bundlePath, stage, preserveMode, preserveMtime); err != nil {
 		a.reportTask(ctx, task.ID, taskReport{Status: "failed", LastError: err.Error()})
 		return
 	}
 
 	switch strings.ToLower(payload.Strategy) {
 	case "overlay":
-		if err := overlayApply(stage, payload.TargetPath, payload.IgnorePermissions); err != nil {
+		if err := overlayApply(stage, payload.TargetPath, preserveMode, preserveMtime); err != nil {
 			a.reportTask(ctx, task.ID, taskReport{Status: "failed", LastError: err.Error()})
 			return
 		}
@@ -179,7 +185,7 @@ func (a *Agent) downloadBundle(ctx context.Context, taskID uint, dst string) err
 	return err
 }
 
-func extractBundle(path, dst string, ignorePerms bool) error {
+func extractBundle(path, dst string, preserveMode, preserveMtime bool) error {
 	f, err := os.Open(path)
 	if err != nil {
 		return err
@@ -207,9 +213,9 @@ func extractBundle(path, dst string, ignorePerms bool) error {
 		target := filepath.Join(dst, rel)
 		switch hdr.Typeflag {
 		case tar.TypeDir:
-			mode := os.FileMode(hdr.Mode)
-			if ignorePerms {
-				mode = 0o755
+			mode := os.FileMode(0o755)
+			if preserveMode {
+				mode = os.FileMode(hdr.Mode)
 			}
 			if err := os.MkdirAll(target, mode); err != nil {
 				return err
@@ -218,9 +224,9 @@ func extractBundle(path, dst string, ignorePerms bool) error {
 			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 				return err
 			}
-			mode := os.FileMode(hdr.Mode)
-			if ignorePerms {
-				mode = 0o644
+			mode := os.FileMode(0o644)
+			if preserveMode {
+				mode = os.FileMode(hdr.Mode)
 			}
 			out, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode)
 			if err != nil {
@@ -231,7 +237,7 @@ func extractBundle(path, dst string, ignorePerms bool) error {
 				return err
 			}
 			out.Close()
-			if !ignorePerms {
+			if preserveMtime {
 				_ = os.Chtimes(target, hdr.ModTime, hdr.ModTime)
 			}
 		}
@@ -263,7 +269,7 @@ func mirrorSwap(stage, target string) error {
 	return nil
 }
 
-func overlayApply(stage, target string, ignorePerms bool) error {
+func overlayApply(stage, target string, preserveMode, preserveMtime bool) error {
 	return filepath.WalkDir(stage, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -274,7 +280,20 @@ func overlayApply(stage, target string, ignorePerms bool) error {
 		}
 		dst := filepath.Join(target, rel)
 		if d.IsDir() {
-			return os.MkdirAll(dst, 0o755)
+			if err := os.MkdirAll(dst, 0o755); err != nil {
+				return err
+			}
+			if preserveMode {
+				if st, err := os.Stat(path); err == nil && st != nil {
+					_ = os.Chmod(dst, st.Mode().Perm())
+				}
+			}
+			if preserveMtime {
+				if st, err := os.Stat(path); err == nil && st != nil {
+					_ = os.Chtimes(dst, st.ModTime(), st.ModTime())
+				}
+			}
+			return nil
 		}
 		fi, err := d.Info()
 		if err != nil {
@@ -283,9 +302,9 @@ func overlayApply(stage, target string, ignorePerms bool) error {
 		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 			return err
 		}
-		mode := fi.Mode()
-		if ignorePerms {
-			mode = 0o644
+		mode := os.FileMode(0o644)
+		if preserveMode {
+			mode = fi.Mode()
 		}
 		in, err := os.Open(path)
 		if err != nil {
@@ -301,6 +320,9 @@ func overlayApply(stage, target string, ignorePerms bool) error {
 			return err
 		}
 		out.Close()
+		if preserveMtime {
+			_ = os.Chtimes(dst, fi.ModTime(), fi.ModTime())
+		}
 		return nil
 	})
 }

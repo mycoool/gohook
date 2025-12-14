@@ -52,7 +52,7 @@ func TestMirrorDeleteFromManifest_RemovesStalePaths(t *testing.T) {
 	expectedNew := map[string]struct{}{
 		"keep.txt": {},
 	}
-	if _, err := mirrorDeleteFromManifest(root, expectedNew, nil, false); err != nil {
+	if _, err := mirrorDeleteFromManifest(root, expectedNew, nil, nil, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(root, "old.txt")); !os.IsNotExist(err) {
@@ -81,11 +81,35 @@ func TestMirrorDeleteFromManifest_CleansEmptyDirs(t *testing.T) {
 	expectedNew := map[string]struct{}{
 		"keep.txt": {},
 	}
-	if _, err := mirrorDeleteFromManifest(root, expectedNew, nil, true); err != nil {
+	if _, err := mirrorDeleteFromManifest(root, expectedNew, nil, nil, true); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(root, "sub")); !os.IsNotExist(err) {
 		t.Fatalf("expected sub/ removed (empty), stat err=%v", err)
+	}
+}
+
+func TestMirrorDeleteFromManifest_KeepsExpectedEmptyDirs(t *testing.T) {
+	root := t.TempDir()
+	mustWriteFile(t, filepath.Join(root, "sub", "old.txt"), "o")
+	if err := os.MkdirAll(filepath.Join(root, "keepempty"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	expectedOld := map[string]struct{}{
+		"sub/old.txt": {},
+	}
+	if err := writeMirrorManifest(root, expectedOld, nil, 0); err != nil {
+		t.Fatal(err)
+	}
+
+	expectedNew := map[string]struct{}{}
+	expectedDirs := map[string]struct{}{"keepempty": {}}
+	if _, err := mirrorDeleteFromManifest(root, expectedNew, expectedDirs, nil, true); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "keepempty")); err != nil {
+		t.Fatalf("expected keepempty/ preserved, stat err=%v", err)
 	}
 }
 

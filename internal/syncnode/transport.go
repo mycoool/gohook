@@ -503,7 +503,9 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 			}
 		} else {
 			if err := defaultTaskService.StreamIndexWithForcedPaths(ctx, *task, forcedIndexPaths, func(entry IndexFileEntry) error {
-				indexEntries[entry.Path] = entry
+				if strings.TrimSpace(entry.Kind) == "" || strings.TrimSpace(entry.Kind) == "file" {
+					indexEntries[entry.Path] = entry
+				}
 				touchConn(hello.NodeID)
 				return WriteStreamMessage(conn, indexFile{Type: "index_file", TaskID: task.ID, File: entry})
 			}); err != nil {
@@ -771,7 +773,9 @@ func serveIndexChunk(ctx context.Context, conn net.Conn, nodeID uint, task datab
 
 	entries := make(map[string]IndexFileEntry, len(files))
 	for i := range files {
-		entries[files[i].Path] = files[i]
+		if strings.TrimSpace(files[i].Kind) == "" || strings.TrimSpace(files[i].Kind) == "file" {
+			entries[files[i].Path] = files[i]
+		}
 	}
 
 	// Serve block requests for this chunk until agent acknowledges completion.

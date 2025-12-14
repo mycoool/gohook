@@ -168,6 +168,11 @@
 
 **目标：** 明确并逐步补齐与 rsync/Syncthing 接近的文件语义。
 
+已实现（最小闭环）：
+- 空目录：支持 mirror 可选同步空目录（主节点下发目录条目，Agent 创建），并在启用“清理空目录”时避免误删“预期空目录”。
+- symlink：新增 `symlink_policy`（ignore/preserve），可选择保留为符号链接（不跟随、不拷贝目标内容）。
+- 权限/时间：支持拆分 `preserve_mode` / `preserve_mtime`（默认 true），UI 新增“权限”Tab 进行配置（`ignore_permissions` 仍可一键全关）。
+
 建议优先顺序：
 1) 空目录（mirror 可选清理/创建）
 2) symlink（同步/忽略/转普通文件，三选一并文档化）

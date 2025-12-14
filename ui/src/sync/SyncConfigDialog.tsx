@@ -36,6 +36,9 @@ const SyncConfigDialog: React.FC<Props> = ({
     const [enabled, setEnabled] = useState(false);
     const [ignoreDefaults, setIgnoreDefaults] = useState(true);
     const [ignorePermissions, setIgnorePermissions] = useState(false);
+    const [preserveMode, setPreserveMode] = useState(true);
+    const [preserveMtime, setPreserveMtime] = useState(true);
+    const [symlinkPolicy, setSymlinkPolicy] = useState<'ignore' | 'preserve'>('ignore');
     const [ignorePatterns, setIgnorePatterns] = useState('');
     const [ignoreFile, setIgnoreFile] = useState('');
     const [deltaIndexOverlay, setDeltaIndexOverlay] = useState(true);
@@ -50,6 +53,9 @@ const SyncConfigDialog: React.FC<Props> = ({
         setEnabled(sync?.enabled ?? true);
         setIgnoreDefaults(sync?.ignoreDefaults ?? true);
         setIgnorePermissions(sync?.ignorePermissions ?? false);
+        setPreserveMode(sync?.preserveMode ?? true);
+        setPreserveMtime(sync?.preserveMtime ?? true);
+        setSymlinkPolicy((sync?.symlinkPolicy as any) === 'preserve' ? 'preserve' : 'ignore');
         setIgnorePatterns(joinLines(sync?.ignorePatterns));
         setIgnoreFile(sync?.ignoreFile || '');
         setDeltaIndexOverlay(sync?.deltaIndexOverlay ?? true);
@@ -66,6 +72,7 @@ const SyncConfigDialog: React.FC<Props> = ({
                 mirrorFastDelete: n.mirrorFastDelete ?? false,
                 mirrorFastFullscanEvery: n.mirrorFastFullscanEvery ?? '',
                 mirrorCleanEmptyDirs: n.mirrorCleanEmptyDirs ?? false,
+                mirrorSyncEmptyDirs: n.mirrorSyncEmptyDirs ?? false,
             }))
         );
     }, [open, initialSync]);
@@ -81,6 +88,9 @@ const SyncConfigDialog: React.FC<Props> = ({
             enabled,
             ignoreDefaults,
             ignorePermissions,
+            preserveMode,
+            preserveMtime,
+            symlinkPolicy,
             ignorePatterns: parseLines(ignorePatterns),
             ignoreFile: ignoreFile.trim() || undefined,
             deltaIndexOverlay,
@@ -101,6 +111,9 @@ const SyncConfigDialog: React.FC<Props> = ({
                     enabled={enabled}
                     ignoreDefaults={ignoreDefaults}
                     ignorePermissions={ignorePermissions}
+                    preserveMode={preserveMode}
+                    preserveMtime={preserveMtime}
+                    symlinkPolicy={symlinkPolicy}
                     ignorePatterns={ignorePatterns}
                     ignoreFile={ignoreFile}
                     deltaIndexOverlay={deltaIndexOverlay}
@@ -113,6 +126,9 @@ const SyncConfigDialog: React.FC<Props> = ({
                     onEnabledChange={setEnabled}
                     onIgnoreDefaultsChange={setIgnoreDefaults}
                     onIgnorePermissionsChange={setIgnorePermissions}
+                    onPreserveModeChange={setPreserveMode}
+                    onPreserveMtimeChange={setPreserveMtime}
+                    onSymlinkPolicyChange={setSymlinkPolicy}
                     onIgnorePatternsChange={setIgnorePatterns}
                     onIgnoreFileChange={setIgnoreFile}
                     onDeltaIndexOverlayChange={setDeltaIndexOverlay}

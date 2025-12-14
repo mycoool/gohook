@@ -50,18 +50,24 @@ type TaskPayload struct {
 	IgnoreFile              string   `json:"ignoreFile,omitempty"`
 	IgnoreFiles             []string `json:"ignoreFiles,omitempty"`
 	IgnorePermissions       bool     `json:"ignorePermissions"`
+	PreserveMode            bool     `json:"preserveMode,omitempty"`
+	PreserveMtime           bool     `json:"preserveMtime,omitempty"`
+	SymlinkPolicy           string   `json:"symlinkPolicy,omitempty"` // ignore | preserve
 	MirrorFastDelete        bool     `json:"mirrorFastDelete,omitempty"`
 	MirrorFastFullscanEvery int      `json:"mirrorFastFullscanEvery,omitempty"`
 	MirrorCleanEmptyDirs    bool     `json:"mirrorCleanEmptyDirs,omitempty"`
+	MirrorSyncEmptyDirs     bool     `json:"mirrorSyncEmptyDirs,omitempty"`
 }
 
 type IndexFileEntry struct {
-	Path      string   `json:"path"`
-	Size      int64    `json:"size"`
-	Mode      uint32   `json:"mode"`
-	MtimeUnix int64    `json:"mtime"`
-	BlockSize int64    `json:"blockSize"`
-	Blocks    []string `json:"blocks"`
+	Path       string   `json:"path"`
+	Kind       string   `json:"kind,omitempty"` // file | dir | symlink (default file)
+	LinkTarget string   `json:"linkTarget,omitempty"`
+	Size       int64    `json:"size,omitempty"`
+	Mode       uint32   `json:"mode,omitempty"`
+	MtimeUnix  int64    `json:"mtime,omitempty"`
+	BlockSize  int64    `json:"blockSize,omitempty"`
+	Blocks     []string `json:"blocks,omitempty"`
 }
 
 type TaskReport struct {
@@ -132,9 +138,13 @@ func (s *TaskService) CreateProjectTasks(ctx context.Context, projectName string
 			IgnorePatterns:          append(append([]string{}, project.Sync.IgnorePatterns...), nodeCfg.IgnorePatterns...),
 			IgnoreFiles:             []string{project.Sync.IgnoreFile, nodeCfg.IgnoreFile},
 			IgnorePermissions:       project.Sync.IgnorePermissions,
+			PreserveMode:            effectivePreserveMode(project.Sync),
+			PreserveMtime:           effectivePreserveMtime(project.Sync),
+			SymlinkPolicy:           strings.ToLower(strings.TrimSpace(project.Sync.SymlinkPolicy)),
 			MirrorFastDelete:        nodeCfg.MirrorFastDelete,
 			MirrorFastFullscanEvery: nodeCfg.MirrorFastFullscanEvery,
 			MirrorCleanEmptyDirs:    nodeCfg.MirrorCleanEmptyDirs,
+			MirrorSyncEmptyDirs:     nodeCfg.MirrorSyncEmptyDirs,
 		}
 		raw, _ := json.Marshal(payload)
 
@@ -166,6 +176,32 @@ func (s *TaskService) CreateProjectTasks(ctx context.Context, projectName string
 	}
 
 	return created, nil
+}
+
+func effectivePreserveMode(cfg *types.ProjectSyncConfig) bool {
+	if cfg == nil {
+		return true
+	}
+	if cfg.IgnorePermissions {
+		return false
+	}
+	if cfg.PreserveMode != nil {
+		return *cfg.PreserveMode
+	}
+	return true
+}
+
+func effectivePreserveMtime(cfg *types.ProjectSyncConfig) bool {
+	if cfg == nil {
+		return true
+	}
+	if cfg.IgnorePermissions {
+		return false
+	}
+	if cfg.PreserveMtime != nil {
+		return *cfg.PreserveMtime
+	}
+	return true
 }
 
 func defaultStrategy(v string) string {
@@ -497,19 +533,46 @@ func (s *TaskService) StreamIndex(ctx context.Context, task database.SyncTask, e
 			}
 			return nil
 		}
-		fi, err := d.Info()
-		if err != nil {
-			return err
-		}
-		if fi.IsDir() {
+		// Use Lstat so symlink handling is explicit and never follows outside of root.
+		lst, err := os.Lstat(path)
+		if err != nil || lst == nil {
 			return nil
 		}
-		if !fi.Mode().IsRegular() {
+		if lst.IsDir() {
+			if strings.EqualFold(strings.TrimSpace(payload.Strategy), "mirror") && payload.MirrorSyncEmptyDirs {
+				entry := IndexFileEntry{
+					Path:      rel,
+					Kind:      "dir",
+					Mode:      uint32(lst.Mode().Perm()),
+					MtimeUnix: lst.ModTime().Unix(),
+				}
+				return emit(entry)
+			}
+			return nil
+		}
+		if lst.Mode()&os.ModeSymlink != 0 {
+			if strings.EqualFold(strings.TrimSpace(payload.SymlinkPolicy), "preserve") {
+				target, rerr := os.Readlink(path)
+				if rerr != nil {
+					return nil
+				}
+				entry := IndexFileEntry{
+					Path:       rel,
+					Kind:       "symlink",
+					LinkTarget: target,
+					Mode:       uint32(lst.Mode().Perm()),
+					MtimeUnix:  lst.ModTime().Unix(),
+				}
+				return emit(entry)
+			}
+			return nil
+		}
+		if !lst.Mode().IsRegular() {
 			return nil
 		}
 
-		blockSize := adaptiveBlockSize(fi.Size())
-		key := hashCacheKey(path, fi.Size(), fi.ModTime(), blockSize)
+		blockSize := adaptiveBlockSize(lst.Size())
+		key := hashCacheKey(path, lst.Size(), lst.ModTime(), blockSize)
 		hashes, ok := globalHashCache.Get(key)
 		var hashErr error
 		if !ok {
@@ -522,9 +585,10 @@ func (s *TaskService) StreamIndex(ctx context.Context, task database.SyncTask, e
 
 		entry := IndexFileEntry{
 			Path:      rel,
-			Size:      fi.Size(),
-			Mode:      uint32(fi.Mode().Perm()),
-			MtimeUnix: fi.ModTime().Unix(),
+			Kind:      "file",
+			Size:      lst.Size(),
+			Mode:      uint32(lst.Mode().Perm()),
+			MtimeUnix: lst.ModTime().Unix(),
 			BlockSize: blockSize,
 			Blocks:    hashes,
 		}
@@ -657,11 +721,33 @@ func (s *TaskService) streamDeltaIndex(ctx context.Context, payload TaskPayload,
 			continue
 		}
 		full := filepath.Join(root, filepath.FromSlash(rel))
-		fi, err := os.Stat(full)
+		fi, err := os.Lstat(full)
 		if err != nil || fi == nil {
 			continue
 		}
-		if fi.IsDir() || !fi.Mode().IsRegular() {
+		if fi.IsDir() {
+			continue
+		}
+		if fi.Mode()&os.ModeSymlink != 0 {
+			if strings.EqualFold(strings.TrimSpace(payload.SymlinkPolicy), "preserve") {
+				target, rerr := os.Readlink(full)
+				if rerr != nil {
+					continue
+				}
+				entry := IndexFileEntry{
+					Path:       rel,
+					Kind:       "symlink",
+					LinkTarget: target,
+					Mode:       uint32(fi.Mode().Perm()),
+					MtimeUnix:  fi.ModTime().Unix(),
+				}
+				if err := emit(entry); err != nil {
+					return true, err
+				}
+			}
+			continue
+		}
+		if !fi.Mode().IsRegular() {
 			continue
 		}
 
@@ -679,6 +765,7 @@ func (s *TaskService) streamDeltaIndex(ctx context.Context, payload TaskPayload,
 
 		entry := IndexFileEntry{
 			Path:      rel,
+			Kind:      "file",
 			Size:      fi.Size(),
 			Mode:      uint32(fi.Mode().Perm()),
 			MtimeUnix: fi.ModTime().Unix(),
@@ -744,6 +831,9 @@ func (s *TaskService) ReadBlock(task database.SyncTask, entry IndexFileEntry, in
 	}
 	if index < 0 {
 		return nil, fmt.Errorf("invalid block index")
+	}
+	if strings.TrimSpace(entry.Kind) != "" && strings.TrimSpace(entry.Kind) != "file" {
+		return nil, fmt.Errorf("invalid block entry kind")
 	}
 	if entry.BlockSize <= 0 {
 		return nil, fmt.Errorf("invalid block size")
@@ -839,11 +929,31 @@ func (s *TaskService) BuildIndexEntry(ctx context.Context, task database.SyncTas
 	}
 
 	full := filepath.Join(root, filepath.FromSlash(rel))
-	fi, err := os.Stat(full)
+	fi, err := os.Lstat(full)
 	if err != nil || fi == nil {
 		return nil, nil
 	}
-	if fi.IsDir() || !fi.Mode().IsRegular() {
+	if fi.IsDir() {
+		return nil, nil
+	}
+	if fi.Mode()&os.ModeSymlink != 0 {
+		if strings.EqualFold(strings.TrimSpace(payload.SymlinkPolicy), "preserve") {
+			target, rerr := os.Readlink(full)
+			if rerr != nil {
+				return nil, nil
+			}
+			entry := &IndexFileEntry{
+				Path:       rel,
+				Kind:       "symlink",
+				LinkTarget: target,
+				Mode:       uint32(fi.Mode().Perm()),
+				MtimeUnix:  fi.ModTime().Unix(),
+			}
+			return entry, nil
+		}
+		return nil, nil
+	}
+	if !fi.Mode().IsRegular() {
 		return nil, nil
 	}
 
@@ -861,6 +971,7 @@ func (s *TaskService) BuildIndexEntry(ctx context.Context, task database.SyncTas
 
 	entry := &IndexFileEntry{
 		Path:      rel,
+		Kind:      "file",
 		Size:      fi.Size(),
 		Mode:      uint32(fi.Mode().Perm()),
 		MtimeUnix: fi.ModTime().Unix(),

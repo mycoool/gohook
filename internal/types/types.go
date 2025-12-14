@@ -81,6 +81,10 @@ type ProjectSyncConfig struct {
 	IgnorePatterns    []string `yaml:"ignore_patterns,omitempty" json:"ignorePatterns,omitempty"`       // extra ignore globs
 	IgnoreFile        string   `yaml:"ignore_file,omitempty" json:"ignoreFile,omitempty"`               // optional ignore file path
 	IgnorePermissions bool     `yaml:"ignore_permissions,omitempty" json:"ignorePermissions,omitempty"` // do not sync chmod/chown
+	// Semantics knobs (UI-managed, applied by agent).
+	PreserveMode  *bool  `yaml:"preserve_mode,omitempty" json:"preserveMode,omitempty"`   // keep file/dir permission bits (default true)
+	PreserveMtime *bool  `yaml:"preserve_mtime,omitempty" json:"preserveMtime,omitempty"` // keep mtime (default true)
+	SymlinkPolicy string `yaml:"symlink_policy,omitempty" json:"symlinkPolicy,omitempty"` // ignore | preserve
 	// Advanced performance/correctness knobs (UI-managed, env can still override if set).
 	DeltaIndexOverlay       *bool                   `yaml:"delta_index_overlay,omitempty" json:"deltaIndexOverlay,omitempty"`             // enable overlay delta index (needs baseline scan for drift healing)
 	DeltaMaxFiles           int                     `yaml:"delta_max_files,omitempty" json:"deltaMaxFiles,omitempty"`                     // max files per delta batch (fallback to full walk when exceeded)
@@ -103,6 +107,8 @@ type ProjectSyncNodeConfig struct {
 	MirrorFastDelete        bool `yaml:"mirror_fast_delete,omitempty" json:"mirrorFastDelete,omitempty"`
 	MirrorFastFullscanEvery int  `yaml:"mirror_fast_fullscan_every,omitempty" json:"mirrorFastFullscanEvery,omitempty"`
 	MirrorCleanEmptyDirs    bool `yaml:"mirror_clean_empty_dirs,omitempty" json:"mirrorCleanEmptyDirs,omitempty"`
+	// Mirror semantics knobs.
+	MirrorSyncEmptyDirs bool `yaml:"mirror_sync_empty_dirs,omitempty" json:"mirrorSyncEmptyDirs,omitempty"`
 }
 
 // VersionResponse version response structure

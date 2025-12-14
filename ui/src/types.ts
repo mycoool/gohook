@@ -99,6 +99,7 @@ export interface IProjectSyncNodeConfig {
     mirrorFastDelete?: boolean;
     mirrorFastFullscanEvery?: number;
     mirrorCleanEmptyDirs?: boolean;
+    mirrorSyncEmptyDirs?: boolean;
 }
 
 export interface IProjectSyncConfig {
@@ -109,6 +110,9 @@ export interface IProjectSyncConfig {
     ignorePatterns?: string[];
     ignoreFile?: string;
     ignorePermissions?: boolean;
+    preserveMode?: boolean;
+    preserveMtime?: boolean;
+    symlinkPolicy?: string;
     deltaIndexOverlay?: boolean;
     deltaMaxFiles?: number;
     overlayFullScanEvery?: number;

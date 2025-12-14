@@ -29,12 +29,16 @@ export type SyncNodeRow = {
     mirrorFastDelete: boolean;
     mirrorFastFullscanEvery: number | '';
     mirrorCleanEmptyDirs: boolean;
+    mirrorSyncEmptyDirs: boolean;
 };
 
 interface Props {
     enabled: boolean;
     ignoreDefaults: boolean;
     ignorePermissions: boolean;
+    preserveMode: boolean;
+    preserveMtime: boolean;
+    symlinkPolicy: 'ignore' | 'preserve';
     ignorePatterns: string;
     ignoreFile: string;
     deltaIndexOverlay: boolean;
@@ -47,6 +51,9 @@ interface Props {
     onEnabledChange: (value: boolean) => void;
     onIgnoreDefaultsChange: (value: boolean) => void;
     onIgnorePermissionsChange: (value: boolean) => void;
+    onPreserveModeChange: (value: boolean) => void;
+    onPreserveMtimeChange: (value: boolean) => void;
+    onSymlinkPolicyChange: (value: 'ignore' | 'preserve') => void;
     onIgnorePatternsChange: (value: string) => void;
     onIgnoreFileChange: (value: string) => void;
     onDeltaIndexOverlayChange: (value: boolean) => void;
@@ -72,6 +79,7 @@ const normalizeNodeRow = (row: SyncNodeRow): IProjectSyncNodeConfig => {
         mirrorFastFullscanEvery:
             row.mirrorFastFullscanEvery === '' ? undefined : Number(row.mirrorFastFullscanEvery),
         mirrorCleanEmptyDirs: row.mirrorCleanEmptyDirs || undefined,
+        mirrorSyncEmptyDirs: row.mirrorSyncEmptyDirs || undefined,
     };
 };
 
@@ -82,6 +90,9 @@ const SyncConfigEditor: React.FC<Props> = ({
     enabled,
     ignoreDefaults,
     ignorePermissions,
+    preserveMode,
+    preserveMtime,
+    symlinkPolicy,
     ignorePatterns,
     ignoreFile,
     deltaIndexOverlay,
@@ -94,6 +105,9 @@ const SyncConfigEditor: React.FC<Props> = ({
     onEnabledChange,
     onIgnoreDefaultsChange,
     onIgnorePermissionsChange,
+    onPreserveModeChange,
+    onPreserveMtimeChange,
+    onSymlinkPolicyChange,
     onIgnorePatternsChange,
     onIgnoreFileChange,
     onDeltaIndexOverlayChange,
@@ -128,6 +142,7 @@ const SyncConfigEditor: React.FC<Props> = ({
                 mirrorFastDelete: false,
                 mirrorFastFullscanEvery: '',
                 mirrorCleanEmptyDirs: false,
+                mirrorSyncEmptyDirs: false,
             },
         ]);
     };
@@ -153,6 +168,7 @@ const SyncConfigEditor: React.FC<Props> = ({
                 variant="scrollable"
                 scrollButtons="auto">
                 <Tab label="同步" />
+                <Tab label="权限" />
                 <Tab label="节点" />
                 <Tab label="高级" />
             </Tabs>
@@ -186,17 +202,6 @@ const SyncConfigEditor: React.FC<Props> = ({
                                     }
                                     label="启用默认忽略列表 (.git、runtime)"
                                 />
-                                <FormControlLabel
-                                    control={
-                                        <Switch
-                                            checked={ignorePermissions}
-                                            onChange={(_, checked) =>
-                                                onIgnorePermissionsChange(checked)
-                                            }
-                                        />
-                                    }
-                                    label="忽略权限变更 (chmod/chown)"
-                                />
                             </Box>
 
                             <TextField
@@ -229,7 +234,77 @@ const SyncConfigEditor: React.FC<Props> = ({
                 </Box>
             ) : null}
 
-            {tab === 2 ? (
+            {tab === 1 ? (
+                <Box mt={1}>
+                    <Typography variant="subtitle1">权限</Typography>
+                    {enabled ? (
+                        <Box mt={1}>
+                            <FormControlLabel
+                                control={
+                                    <Switch
+                                        checked={ignorePermissions}
+                                        onChange={(_, checked) =>
+                                            onIgnorePermissionsChange(checked)
+                                        }
+                                    />
+                                }
+                                label="忽略权限与时间（不做 chmod/chown/mtime）"
+                            />
+
+                            <Collapse in={!ignorePermissions}>
+                                <Box mt={1}>
+                                    <FormControlLabel
+                                        control={
+                                            <Switch
+                                                checked={preserveMode}
+                                                onChange={(_, checked) =>
+                                                    onPreserveModeChange(checked)
+                                                }
+                                            />
+                                        }
+                                        label="保留权限位（chmod）"
+                                    />
+                                    <FormControlLabel
+                                        control={
+                                            <Switch
+                                                checked={preserveMtime}
+                                                onChange={(_, checked) =>
+                                                    onPreserveMtimeChange(checked)
+                                                }
+                                            />
+                                        }
+                                        label="保留修改时间（mtime）"
+                                    />
+                                </Box>
+                            </Collapse>
+
+                            <TextField
+                                margin="dense"
+                                select
+                                label="符号链接策略"
+                                value={symlinkPolicy}
+                                onChange={(e) =>
+                                    onSymlinkPolicyChange(
+                                        e.target.value === 'preserve' ? 'preserve' : 'ignore'
+                                    )
+                                }
+                                fullWidth>
+                                <MenuItem value="ignore">忽略（默认）</MenuItem>
+                                <MenuItem value="preserve">保留为 symlink</MenuItem>
+                            </TextField>
+                            <Typography variant="caption" color="textSecondary">
+                                注意：Windows 下创建 symlink 可能需要管理员/开发者模式权限。
+                            </Typography>
+                        </Box>
+                    ) : (
+                        <Typography variant="body2" color="textSecondary" sx={{mt: 1}}>
+                            当前同步已关闭。开启后可配置权限与符号链接策略。
+                        </Typography>
+                    )}
+                </Box>
+            ) : null}
+
+            {tab === 3 ? (
                 <Box mt={1}>
                     <Typography variant="subtitle1">高级</Typography>
                     {enabled ? (
@@ -289,7 +364,7 @@ const SyncConfigEditor: React.FC<Props> = ({
                 </Box>
             ) : null}
 
-            {tab === 1 ? (
+            {tab === 2 ? (
                 <Box mt={2}>
                     <Stack direction="row" alignItems="center" justifyContent="space-between">
                         <Typography variant="subtitle2">同步节点</Typography>
@@ -411,6 +486,19 @@ const SyncConfigEditor: React.FC<Props> = ({
                                                 <Typography variant="subtitle2">
                                                     Mirror 优化（可选）
                                                 </Typography>
+                                                <FormControlLabel
+                                                    control={
+                                                        <Switch
+                                                            checked={row.mirrorSyncEmptyDirs}
+                                                            onChange={(_, checked) =>
+                                                                updateNodeRow(idx, {
+                                                                    mirrorSyncEmptyDirs: checked,
+                                                                })
+                                                            }
+                                                        />
+                                                    }
+                                                    label="同步空目录（创建源端目录结构）"
+                                                />
                                                 <FormControlLabel
                                                     control={
                                                         <Switch

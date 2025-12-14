@@ -127,6 +127,8 @@ func TestApplyFileBlocks_ResumesFromPartialWithMeta(t *testing.T) {
 	entry := syncnode.IndexFileEntry{
 		Path:      rel,
 		Size:      int64(len(b0) + len(b1)),
+		Mode:      0o644,
+		MtimeUnix: 1,
 		BlockSize: int64(len(b0)),
 		Blocks:    []string{hex.EncodeToString(h0[:]), hex.EncodeToString(h1[:])},
 	}
@@ -159,7 +161,7 @@ func TestApplyFileBlocks_ResumesFromPartialWithMeta(t *testing.T) {
 	}
 
 	a := &Agent{}
-	if _, _, err := a.applyFileBlocks(ctx, conn, 1, target, true, entry); err != nil {
+	if _, _, err := a.applyFileBlocks(ctx, conn, 1, target, true, true, entry); err != nil {
 		t.Fatalf("applyFileBlocks: %v", err)
 	}
 
