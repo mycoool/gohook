@@ -52,7 +52,7 @@ func TestMirrorDeleteFromManifest_RemovesStalePaths(t *testing.T) {
 	expectedNew := map[string]struct{}{
 		"keep.txt": {},
 	}
-	if _, err := mirrorDeleteFromManifest(root, expectedNew, nil); err != nil {
+	if _, err := mirrorDeleteFromManifest(root, expectedNew, nil, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(root, "old.txt")); !os.IsNotExist(err) {
@@ -81,7 +81,7 @@ func TestMirrorDeleteFromManifest_CleansEmptyDirs(t *testing.T) {
 	expectedNew := map[string]struct{}{
 		"keep.txt": {},
 	}
-	if _, err := mirrorDeleteFromManifest(root, expectedNew, nil); err != nil {
+	if _, err := mirrorDeleteFromManifest(root, expectedNew, nil, true); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(root, "sub")); !os.IsNotExist(err) {

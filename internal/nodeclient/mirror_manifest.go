@@ -111,8 +111,8 @@ func shouldCleanEmptyDirs() bool {
 	return strings.EqualFold(raw, "1") || strings.EqualFold(raw, "true")
 }
 
-func cleanupEmptyParents(targetRoot, rel string) {
-	if !shouldCleanEmptyDirs() {
+func cleanupEmptyParents(targetRoot, rel string, enabled bool) {
+	if !enabled {
 		return
 	}
 	cleanRoot := filepath.Clean(targetRoot)
@@ -136,7 +136,7 @@ func cleanupEmptyParents(targetRoot, rel string) {
 // mirrorDeleteFromManifest deletes paths that were previously synced but no longer expected.
 // This is an opt-in optimization and does not guarantee strict "delete all extras" semantics
 // if users create new files locally on the target.
-func mirrorDeleteFromManifest(targetRoot string, expectedPaths map[string]struct{}, ig *syncignore.Matcher) (int, error) {
+func mirrorDeleteFromManifest(targetRoot string, expectedPaths map[string]struct{}, ig *syncignore.Matcher, cleanEmptyDirs bool) (int, error) {
 	m, err := readMirrorManifest(targetRoot)
 	if err != nil {
 		return 0, err
@@ -162,7 +162,7 @@ func mirrorDeleteFromManifest(targetRoot string, expectedPaths map[string]struct
 			return deleted, err
 		}
 		deleted++
-		cleanupEmptyParents(clean, rel)
+		cleanupEmptyParents(clean, rel, cleanEmptyDirs)
 	}
 	return deleted, nil
 }

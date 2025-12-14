@@ -38,6 +38,10 @@ const SyncConfigDialog: React.FC<Props> = ({
     const [ignorePermissions, setIgnorePermissions] = useState(false);
     const [ignorePatterns, setIgnorePatterns] = useState('');
     const [ignoreFile, setIgnoreFile] = useState('');
+    const [deltaIndexOverlay, setDeltaIndexOverlay] = useState(true);
+    const [deltaMaxFiles, setDeltaMaxFiles] = useState<number | ''>(5000);
+    const [overlayFullScanEvery, setOverlayFullScanEvery] = useState<number | ''>('');
+    const [overlayFullScanInterval, setOverlayFullScanInterval] = useState('1h');
     const [syncNodes, setSyncNodes] = useState<SyncNodeRow[]>([]);
 
     useEffect(() => {
@@ -48,12 +52,20 @@ const SyncConfigDialog: React.FC<Props> = ({
         setIgnorePermissions(sync?.ignorePermissions ?? false);
         setIgnorePatterns(joinLines(sync?.ignorePatterns));
         setIgnoreFile(sync?.ignoreFile || '');
+        setDeltaIndexOverlay(sync?.deltaIndexOverlay ?? true);
+        setDeltaMaxFiles(sync?.deltaMaxFiles ?? 5000);
+        setOverlayFullScanEvery(sync?.overlayFullScanEvery ?? '');
+        setOverlayFullScanInterval(sync?.overlayFullScanInterval || '1h');
         setSyncNodes(
             (sync?.nodes || []).map((n) => ({
                 nodeId: n.nodeId,
                 targetPath: n.targetPath,
+                strategy: n.strategy || 'mirror',
                 ignorePatterns: joinLines(n.ignorePatterns),
                 ignoreFile: n.ignoreFile || '',
+                mirrorFastDelete: n.mirrorFastDelete ?? false,
+                mirrorFastFullscanEvery: n.mirrorFastFullscanEvery ?? '',
+                mirrorCleanEmptyDirs: n.mirrorCleanEmptyDirs ?? false,
             }))
         );
     }, [open, initialSync]);
@@ -71,6 +83,11 @@ const SyncConfigDialog: React.FC<Props> = ({
             ignorePermissions,
             ignorePatterns: parseLines(ignorePatterns),
             ignoreFile: ignoreFile.trim() || undefined,
+            deltaIndexOverlay,
+            deltaMaxFiles: deltaMaxFiles === '' ? undefined : Number(deltaMaxFiles),
+            overlayFullScanEvery:
+                overlayFullScanEvery === '' ? undefined : Number(overlayFullScanEvery),
+            overlayFullScanInterval: overlayFullScanInterval.trim() || undefined,
             nodes: normalizeNodes(syncNodes),
         };
         await onSave(sync);
@@ -86,6 +103,10 @@ const SyncConfigDialog: React.FC<Props> = ({
                     ignorePermissions={ignorePermissions}
                     ignorePatterns={ignorePatterns}
                     ignoreFile={ignoreFile}
+                    deltaIndexOverlay={deltaIndexOverlay}
+                    deltaMaxFiles={deltaMaxFiles}
+                    overlayFullScanEvery={overlayFullScanEvery}
+                    overlayFullScanInterval={overlayFullScanInterval}
                     syncNodes={syncNodes}
                     availableNodes={availableNodes}
                     projectPath={projectPath}
@@ -94,6 +115,10 @@ const SyncConfigDialog: React.FC<Props> = ({
                     onIgnorePermissionsChange={setIgnorePermissions}
                     onIgnorePatternsChange={setIgnorePatterns}
                     onIgnoreFileChange={setIgnoreFile}
+                    onDeltaIndexOverlayChange={setDeltaIndexOverlay}
+                    onDeltaMaxFilesChange={setDeltaMaxFiles}
+                    onOverlayFullScanEveryChange={setOverlayFullScanEvery}
+                    onOverlayFullScanIntervalChange={setOverlayFullScanInterval}
                     onSyncNodesChange={setSyncNodes}
                 />
             </DialogContent>

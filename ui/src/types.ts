@@ -96,6 +96,9 @@ export interface IProjectSyncNodeConfig {
     exclude?: string[];
     ignoreFile?: string;
     ignorePatterns?: string[];
+    mirrorFastDelete?: boolean;
+    mirrorFastFullscanEvery?: number;
+    mirrorCleanEmptyDirs?: boolean;
 }
 
 export interface IProjectSyncConfig {
@@ -106,6 +109,10 @@ export interface IProjectSyncConfig {
     ignorePatterns?: string[];
     ignoreFile?: string;
     ignorePermissions?: boolean;
+    deltaIndexOverlay?: boolean;
+    deltaMaxFiles?: number;
+    overlayFullScanEvery?: number;
+    overlayFullScanInterval?: string;
     nodes?: IProjectSyncNodeConfig[];
 }
 

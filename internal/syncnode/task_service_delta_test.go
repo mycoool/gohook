@@ -113,6 +113,58 @@ func TestStreamIndex_OverlayDelta_FallsBackOnRename(t *testing.T) {
 	}
 }
 
+func TestStreamIndex_OverlayDelta_ForcedFullScanEvery(t *testing.T) {
+	t.Setenv("SYNC_DELTA_INDEX_OVERLAY", "1")
+	t.Setenv("SYNC_OVERLAY_FULLSCAN_EVERY", "1")
+
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "a.txt"), "aaa")
+	writeFile(t, filepath.Join(root, "b.txt"), "bbb")
+
+	prev := types.GoHookVersionData
+	t.Cleanup(func() { types.GoHookVersionData = prev })
+	types.GoHookVersionData = &types.VersionConfig{
+		Projects: []types.ProjectConfig{
+			{Name: "p", Path: root, Enabled: true, Sync: &types.ProjectSyncConfig{Enabled: true}},
+		},
+	}
+
+	db := openTestDB(t)
+	if err := db.AutoMigrate(&database.SyncFileChange{}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := db.Create(&database.SyncFileChange{
+		Path:        "a.txt",
+		Type:        "modified",
+		ProjectName: "p",
+		Processed:   false,
+		ModTime:     time.Now(),
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	payload := TaskPayload{ProjectName: "p", Strategy: "overlay"}
+	raw, _ := json.Marshal(payload)
+	task := database.SyncTask{BaseModel: database.BaseModel{ID: 1}, ProjectName: "p", Payload: string(raw)}
+
+	svc := &TaskService{db: db}
+	seen := map[string]struct{}{}
+	if err := svc.StreamIndex(context.Background(), task, func(e IndexFileEntry) error {
+		seen[e.Path] = struct{}{}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, ok := seen["a.txt"]; !ok {
+		t.Fatalf("expected a.txt in forced full-scan fallback, got %v", seen)
+	}
+	if _, ok := seen["b.txt"]; !ok {
+		t.Fatalf("expected b.txt in forced full-scan fallback, got %v", seen)
+	}
+}
+
 func TestReportTask_OverlaySuccess_MarksChangesProcessed(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, "a.txt"), "aaa")

@@ -29,13 +29,16 @@ type taskResponse struct {
 }
 
 type taskPayload struct {
-	ProjectName       string   `json:"projectName"`
-	TargetPath        string   `json:"targetPath"`
-	Strategy          string   `json:"strategy"`
-	IgnoreDefaults    bool     `json:"ignoreDefaults"`
-	IgnorePatterns    []string `json:"ignorePatterns"`
-	IgnoreFile        string   `json:"ignoreFile"`
-	IgnorePermissions bool     `json:"ignorePermissions"`
+	ProjectName             string   `json:"projectName"`
+	TargetPath              string   `json:"targetPath"`
+	Strategy                string   `json:"strategy"`
+	IgnoreDefaults          bool     `json:"ignoreDefaults"`
+	IgnorePatterns          []string `json:"ignorePatterns"`
+	IgnoreFile              string   `json:"ignoreFile"`
+	IgnorePermissions       bool     `json:"ignorePermissions"`
+	MirrorFastDelete        bool     `json:"mirrorFastDelete,omitempty"`
+	MirrorFastFullscanEvery int      `json:"mirrorFastFullscanEvery,omitempty"`
+	MirrorCleanEmptyDirs    bool     `json:"mirrorCleanEmptyDirs,omitempty"`
 }
 
 type taskReport struct {

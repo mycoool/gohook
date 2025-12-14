@@ -74,14 +74,19 @@ type ProjectConfig struct {
 
 // ProjectSyncConfig describes sync strategy for a project
 type ProjectSyncConfig struct {
-	Enabled          bool                    `yaml:"enabled" json:"enabled"`
-	Driver           string                  `yaml:"driver,omitempty" json:"driver,omitempty"`                       // agent | rsync | inherit
-	MaxParallelNodes int                     `yaml:"max_parallel_nodes,omitempty" json:"maxParallelNodes,omitempty"` // concurrency guard
-	IgnoreDefaults   bool                    `yaml:"ignore_defaults,omitempty" json:"ignoreDefaults,omitempty"`      // include built-in ignore set (.git/, runtime/, tmp/)
-	IgnorePatterns   []string                `yaml:"ignore_patterns,omitempty" json:"ignorePatterns,omitempty"`      // extra ignore globs
-	IgnoreFile       string                  `yaml:"ignore_file,omitempty" json:"ignoreFile,omitempty"`              // optional ignore file path
-	IgnorePermissions bool                   `yaml:"ignore_permissions,omitempty" json:"ignorePermissions,omitempty"` // do not sync chmod/chown
-	Nodes            []ProjectSyncNodeConfig `yaml:"nodes,omitempty" json:"nodes,omitempty"`
+	Enabled           bool     `yaml:"enabled" json:"enabled"`
+	Driver            string   `yaml:"driver,omitempty" json:"driver,omitempty"`                        // agent | rsync | inherit
+	MaxParallelNodes  int      `yaml:"max_parallel_nodes,omitempty" json:"maxParallelNodes,omitempty"`  // concurrency guard
+	IgnoreDefaults    bool     `yaml:"ignore_defaults,omitempty" json:"ignoreDefaults,omitempty"`       // include built-in ignore set (.git/, runtime/, tmp/)
+	IgnorePatterns    []string `yaml:"ignore_patterns,omitempty" json:"ignorePatterns,omitempty"`       // extra ignore globs
+	IgnoreFile        string   `yaml:"ignore_file,omitempty" json:"ignoreFile,omitempty"`               // optional ignore file path
+	IgnorePermissions bool     `yaml:"ignore_permissions,omitempty" json:"ignorePermissions,omitempty"` // do not sync chmod/chown
+	// Advanced performance/correctness knobs (UI-managed, env can still override if set).
+	DeltaIndexOverlay       *bool                   `yaml:"delta_index_overlay,omitempty" json:"deltaIndexOverlay,omitempty"`             // enable overlay delta index (needs baseline scan for drift healing)
+	DeltaMaxFiles           int                     `yaml:"delta_max_files,omitempty" json:"deltaMaxFiles,omitempty"`                     // max files per delta batch (fallback to full walk when exceeded)
+	OverlayFullScanEvery    int                     `yaml:"overlay_fullscan_every,omitempty" json:"overlayFullScanEvery,omitempty"`       // force full index every N tasks (overlay)
+	OverlayFullScanInterval string                  `yaml:"overlay_fullscan_interval,omitempty" json:"overlayFullScanInterval,omitempty"` // force full index at least every duration (e.g. 30m)
+	Nodes                   []ProjectSyncNodeConfig `yaml:"nodes,omitempty" json:"nodes,omitempty"`
 }
 
 // ProjectSyncNodeConfig describes one target node for the project
@@ -94,6 +99,10 @@ type ProjectSyncNodeConfig struct {
 	Exclude        []string `yaml:"exclude,omitempty" json:"exclude,omitempty"`                // blacklist globs
 	IgnoreFile     string   `yaml:"ignore_file,omitempty" json:"ignoreFile,omitempty"`         // per-node ignore file path
 	IgnorePatterns []string `yaml:"ignore_patterns,omitempty" json:"ignorePatterns,omitempty"` // per-node ignore
+	// Mirror optimization knobs (agent-side behavior, delivered via task payload).
+	MirrorFastDelete        bool `yaml:"mirror_fast_delete,omitempty" json:"mirrorFastDelete,omitempty"`
+	MirrorFastFullscanEvery int  `yaml:"mirror_fast_fullscan_every,omitempty" json:"mirrorFastFullscanEvery,omitempty"`
+	MirrorCleanEmptyDirs    bool `yaml:"mirror_clean_empty_dirs,omitempty" json:"mirrorCleanEmptyDirs,omitempty"`
 }
 
 // VersionResponse version response structure

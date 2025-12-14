@@ -371,20 +371,33 @@ GoHook 与 Agent 之间新增 TCP/TLS 长连接，用于任务即时推送与后
 - 块传输支持批量请求（`block_batch_request`），减少消息往返与 CPU 解析开销；Agent 会校验 `sha256` 哈希后再写入目标文件。
 - 任务会记录传输统计：`files/blocks/bytes/durationMs`，可在“任务详情”中查看。
 
-### 高性能开关（可选）
+### 高性能/一致性配置（推荐使用 UI）
 
-以下为“默认关闭/不改变语义”的可选加速点；建议按需灰度开启：
+这些选项建议通过 UI 的“同步配置 → 高级”以及“节点同步设置”进行配置（会写入 `version.yaml`，类似 Syncthing 的 GUI 配置方式），避免依赖环境变量。
 
+**项目级（ProjectSyncConfig）**
+
+- `deltaIndexOverlay`：Overlay 启用增量索引（从 `sync_file_changes` 拉取未处理变更，仅下发变更文件索引）。默认开启。
+- `deltaMaxFiles`：增量索引最大文件数（超过自动回退全量 Walk，保证正确性）。
+- `overlayFullScanEvery`：Overlay 增量索引的“基线全量校验”频率（每 N 次任务强制全量索引，纠偏子节点漂移/漏事件）。
+- `overlayFullScanInterval`：Overlay 增量索引的“基线全量校验”间隔（duration，如 `30m`）。默认 `1h`。
+
+**节点级（ProjectSyncNodeConfig，主要影响 Mirror 删除行为）**
+
+- `strategy`：`mirror` / `overlay`
+- `mirrorFastDelete`：开启 manifest 快速删除（性能更好，但不保证删除目标端“新创建且未在 manifest 中”的额外文件）。
+- `mirrorFastFullscanEvery`：每 N 次强制执行一次严格全量扫描删除（用于周期性恢复完整 mirror 语义）。
+- `mirrorCleanEmptyDirs`：删除文件后尝试清理空父目录（不会越过 `targetRoot`）。
+
+**环境变量（运维覆盖，可选）**
+
+以下环境变量仍然保留，用于全局覆盖/应急（优先级高于/补充 UI 配置）：
 - `SYNC_TASK_MAX_ATTEMPTS`：可重试错误（如 `TIMEOUT/PROTO/DISCONNECTED`）的最大尝试次数（默认 3）。
-- `SYNC_HASHCACHE_ENTRIES`：主节点块哈希缓存条数上限（默认 2048），减少重复 hash（大项目多节点更明显）。
-- `SYNC_DELTA_INDEX_OVERLAY=1`：Overlay 策略启用增量索引（从 `sync_file_changes` 拉取未处理变更，仅下发变更文件的索引）。
-  - `SYNC_DELTA_MAX_FILES`：单次增量索引最大文件数（默认 5000；超过则自动回退全量 Walk 以保证正确性）。
-- `SYNC_MIRROR_FAST_DELETE=1`：Mirror 删除启用 manifest 快速路径（不全量 Walk）。
-  - 注意：该模式不会删除“目标端用户新创建、且不在 manifest 中”的额外文件；如需周期性恢复完整 mirror 语义，设置：
-  - `SYNC_MIRROR_FAST_FULLSCAN_EVERY=N`：每 N 次强制执行一次严格全量扫描删除。
-  - `SYNC_MIRROR_CLEAN_EMPTY_DIRS=1`：删除文件后尝试清理空父目录（不会越过 `targetRoot`）。
-- `SYNC_INDEX_CHUNKED=1`（Agent 侧）：启用 Chunked Index 协议（Agent 会在 hello 中声明 `index_chunk_v1`）。
-  - `SYNC_INDEX_CHUNK_SIZE`（主节点侧）：Chunk 大小（默认 128）；服务端会在帧过大时自动拆分。
+- `SYNC_HASHCACHE_ENTRIES`：主节点块哈希缓存条数上限（默认 2048）。
+- `SYNC_DELTA_INDEX_OVERLAY` / `SYNC_DELTA_MAX_FILES`
+- `SYNC_OVERLAY_FULLSCAN_EVERY` / `SYNC_OVERLAY_FULLSCAN_INTERVAL`
+- `SYNC_MIRROR_FAST_DELETE` / `SYNC_MIRROR_FAST_FULLSCAN_EVERY` / `SYNC_MIRROR_CLEAN_EMPTY_DIRS`
+- `SYNC_INDEX_CHUNKED`（Agent 侧）与 `SYNC_INDEX_CHUNK_SIZE`（主节点侧）
 
 ## 块级同步（自适应固定块，已接入长连接）
 

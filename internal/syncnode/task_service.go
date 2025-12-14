@@ -42,14 +42,17 @@ func NewTaskService() *TaskService {
 }
 
 type TaskPayload struct {
-	ProjectName       string   `json:"projectName"`
-	TargetPath        string   `json:"targetPath"`
-	Strategy          string   `json:"strategy"` // mirror | overlay
-	IgnoreDefaults    bool     `json:"ignoreDefaults"`
-	IgnorePatterns    []string `json:"ignorePatterns,omitempty"`
-	IgnoreFile        string   `json:"ignoreFile,omitempty"`
-	IgnoreFiles       []string `json:"ignoreFiles,omitempty"`
-	IgnorePermissions bool     `json:"ignorePermissions"`
+	ProjectName             string   `json:"projectName"`
+	TargetPath              string   `json:"targetPath"`
+	Strategy                string   `json:"strategy"` // mirror | overlay
+	IgnoreDefaults          bool     `json:"ignoreDefaults"`
+	IgnorePatterns          []string `json:"ignorePatterns,omitempty"`
+	IgnoreFile              string   `json:"ignoreFile,omitempty"`
+	IgnoreFiles             []string `json:"ignoreFiles,omitempty"`
+	IgnorePermissions       bool     `json:"ignorePermissions"`
+	MirrorFastDelete        bool     `json:"mirrorFastDelete,omitempty"`
+	MirrorFastFullscanEvery int      `json:"mirrorFastFullscanEvery,omitempty"`
+	MirrorCleanEmptyDirs    bool     `json:"mirrorCleanEmptyDirs,omitempty"`
 }
 
 type IndexFileEntry struct {
@@ -122,13 +125,16 @@ func (s *TaskService) CreateProjectTasks(ctx context.Context, projectName string
 		}
 
 		payload := TaskPayload{
-			ProjectName:       projectName,
-			TargetPath:        nodeCfg.TargetPath,
-			Strategy:          defaultStrategy(nodeCfg.Strategy),
-			IgnoreDefaults:    project.Sync.IgnoreDefaults,
-			IgnorePatterns:    append(append([]string{}, project.Sync.IgnorePatterns...), nodeCfg.IgnorePatterns...),
-			IgnoreFiles:       []string{project.Sync.IgnoreFile, nodeCfg.IgnoreFile},
-			IgnorePermissions: project.Sync.IgnorePermissions,
+			ProjectName:             projectName,
+			TargetPath:              nodeCfg.TargetPath,
+			Strategy:                defaultStrategy(nodeCfg.Strategy),
+			IgnoreDefaults:          project.Sync.IgnoreDefaults,
+			IgnorePatterns:          append(append([]string{}, project.Sync.IgnorePatterns...), nodeCfg.IgnorePatterns...),
+			IgnoreFiles:             []string{project.Sync.IgnoreFile, nodeCfg.IgnoreFile},
+			IgnorePermissions:       project.Sync.IgnorePermissions,
+			MirrorFastDelete:        nodeCfg.MirrorFastDelete,
+			MirrorFastFullscanEvery: nodeCfg.MirrorFastFullscanEvery,
+			MirrorCleanEmptyDirs:    nodeCfg.MirrorCleanEmptyDirs,
 		}
 		raw, _ := json.Marshal(payload)
 
@@ -461,12 +467,16 @@ func (s *TaskService) StreamIndex(ctx context.Context, task database.SyncTask, e
 
 	ig := newIgnoreMatcher(payload, root)
 
-	if shouldUseDeltaIndex(payload) {
+	if shouldUseDeltaIndex(payload, project.Sync) && !shouldForceOverlayFullScanWithConfig(payload.ProjectName, task.ID, project.Sync) {
 		if ok, derr := s.streamDeltaIndex(ctx, payload, root, ig, emit); derr != nil {
 			return derr
 		} else if ok {
 			return nil
 		}
+	}
+
+	if strings.EqualFold(strings.TrimSpace(payload.Strategy), "overlay") {
+		markOverlayFullScan(payload.ProjectName)
 	}
 
 	return filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
@@ -522,12 +532,70 @@ func (s *TaskService) StreamIndex(ctx context.Context, task database.SyncTask, e
 	})
 }
 
-func shouldUseDeltaIndex(payload TaskPayload) bool {
+func shouldUseDeltaIndex(payload TaskPayload, cfg *types.ProjectSyncConfig) bool {
 	if strings.ToLower(strings.TrimSpace(payload.Strategy)) != "overlay" {
 		return false
 	}
-	return strings.EqualFold(strings.TrimSpace(os.Getenv("SYNC_DELTA_INDEX_OVERLAY")), "1") ||
-		strings.EqualFold(strings.TrimSpace(os.Getenv("SYNC_DELTA_INDEX_OVERLAY")), "true")
+	// Env can force-enable/force-disable.
+	if v, ok := parseBoolEnv("SYNC_DELTA_INDEX_OVERLAY"); ok {
+		return v
+	}
+	// UI-managed config: nil means "use default" (default enabled).
+	if cfg != nil && cfg.DeltaIndexOverlay != nil {
+		return *cfg.DeltaIndexOverlay
+	}
+	return true
+}
+
+func overlayFullScanEvery(cfg *types.ProjectSyncConfig) int {
+	if cfg != nil && cfg.OverlayFullScanEvery > 0 {
+		return cfg.OverlayFullScanEvery
+	}
+	raw := strings.TrimSpace(os.Getenv("SYNC_OVERLAY_FULLSCAN_EVERY"))
+	if raw == "" {
+		return 0
+	}
+	v, err := strconv.Atoi(raw)
+	if err != nil || v <= 0 {
+		return 0
+	}
+	return v
+}
+
+func overlayFullScanInterval(cfg *types.ProjectSyncConfig) time.Duration {
+	if cfg != nil && strings.TrimSpace(cfg.OverlayFullScanInterval) != "" {
+		if d, err := time.ParseDuration(strings.TrimSpace(cfg.OverlayFullScanInterval)); err == nil && d > 0 {
+			return d
+		}
+	}
+	raw := strings.TrimSpace(os.Getenv("SYNC_OVERLAY_FULLSCAN_INTERVAL"))
+	if raw == "" {
+		// Default baseline interval when overlay delta index is enabled.
+		if cfg == nil || cfg.DeltaIndexOverlay == nil || (cfg.DeltaIndexOverlay != nil && *cfg.DeltaIndexOverlay) {
+			return 1 * time.Hour
+		}
+		return 0
+	}
+	d, err := time.ParseDuration(raw)
+	if err != nil || d <= 0 {
+		return 0
+	}
+	return d
+}
+
+func parseBoolEnv(key string) (bool, bool) {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return false, false
+	}
+	switch strings.ToLower(raw) {
+	case "1", "true", "yes", "y", "on":
+		return true, true
+	case "0", "false", "no", "n", "off":
+		return false, true
+	default:
+		return false, false
+	}
 }
 
 // streamDeltaIndex returns (usedDelta, err).
@@ -539,7 +607,9 @@ func (s *TaskService) streamDeltaIndex(ctx context.Context, payload TaskPayload,
 	}
 
 	maxFiles := 5000
-	if raw := strings.TrimSpace(os.Getenv("SYNC_DELTA_MAX_FILES")); raw != "" {
+	if proj := findProject(payload.ProjectName); proj != nil && proj.Sync != nil && proj.Sync.DeltaMaxFiles > 0 {
+		maxFiles = proj.Sync.DeltaMaxFiles
+	} else if raw := strings.TrimSpace(os.Getenv("SYNC_DELTA_MAX_FILES")); raw != "" {
 		if v, err := strconv.Atoi(raw); err == nil && v > 0 {
 			maxFiles = v
 		}

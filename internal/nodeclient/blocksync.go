@@ -198,10 +198,16 @@ indexDone:
 			_ = os.MkdirAll(filepath.Join(payload.TargetPath, "runtime"), 0o755)
 		}
 
+		fastDelete := payload.MirrorFastDelete || shouldUseFastMirrorDelete()
+		cleanEmpty := payload.MirrorCleanEmptyDirs || shouldCleanEmptyDirs()
+		fullEvery := payload.MirrorFastFullscanEvery
+		if fullEvery <= 0 {
+			fullEvery = mirrorFastFullScanEvery()
+		}
+
 		runCount := 0
-		if shouldUseFastMirrorDelete() {
+		if fastDelete {
 			manifest, mErr := readMirrorManifest(payload.TargetPath)
-			fullEvery := mirrorFastFullScanEvery()
 			needFull := false
 			if mErr != nil || manifest == nil {
 				needFull = true
@@ -219,7 +225,7 @@ indexDone:
 					return
 				}
 			} else {
-				if _, err := mirrorDeleteFromManifest(payload.TargetPath, expectedPaths, ig); err != nil {
+				if _, err := mirrorDeleteFromManifest(payload.TargetPath, expectedPaths, ig, cleanEmpty); err != nil {
 					// Fallback to strict cleanup when manifest is missing/corrupt.
 					if err := mirrorDeleteExtras(payload.TargetPath, expectedPaths, ig); err != nil {
 						ce := classifyError(err)
