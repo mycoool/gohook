@@ -28,6 +28,8 @@ yarn-error.log*
 # Binary
 gohook
 gohook.db
+gohook.db-wal
+gohook.db-shm
 
 # Folders
 sync_tls/

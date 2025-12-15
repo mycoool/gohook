@@ -122,6 +122,23 @@ func InitDatabase(config *DatabaseConfig) error {
 		return fmt.Errorf("failed to connect to database: %v", err)
 	}
 
+	// SQLite tuning:
+	// - WAL reduces reader/writer blocking.
+	// - busy_timeout makes transient lock contention wait instead of failing fast.
+	// - single open connection avoids multi-conn write contention in a single-process server.
+	if config.Type == "sqlite" {
+		if sqlDB, err := db.DB(); err == nil && sqlDB != nil {
+			sqlDB.SetMaxOpenConns(1)
+			sqlDB.SetMaxIdleConns(1)
+			sqlDB.SetConnMaxLifetime(1 * time.Hour)
+		}
+		// Best-effort pragmas; ignore errors to stay compatible across sqlite drivers.
+		_ = db.Exec("PRAGMA journal_mode=WAL").Error
+		_ = db.Exec("PRAGMA synchronous=NORMAL").Error
+		_ = db.Exec("PRAGMA foreign_keys=ON").Error
+		_ = db.Exec("PRAGMA busy_timeout=5000").Error
+	}
+
 	DB = db
 	log.Printf("Database connected successfully (type: %s)", config.Type)
 
