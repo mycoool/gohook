@@ -8,6 +8,7 @@ import {
     Chip,
     Typography,
     Box,
+    Alert,
     MenuItem,
     Select,
     FormControl,
@@ -17,128 +18,70 @@ import {
 } from '@mui/material';
 import {inject, Stores} from '../inject';
 import {observer} from 'mobx-react';
-import Editor from 'react-simple-code-editor';
-import Prism from 'prismjs';
-import 'prismjs/components/prism-toml';
-import 'prismjs/components/prism-bash';
-import 'prismjs/themes/prism.css';
+import {Controlled as CodeMirror} from 'react-codemirror2';
+import 'codemirror/lib/codemirror.css';
+import 'codemirror/theme/material.css';
+import 'codemirror/mode/properties/properties';
+import 'codemirror/mode/shell/shell';
+import 'codemirror/mode/toml/toml';
 import './EnvFileDialog.css';
 import useTranslation from '../i18n/useTranslation';
 
-// ENV高亮：自定义实现，精确控制token类型
-const highlightEnv = (code: string, isDark: boolean = false) => {
-    try {
-        // 使用自定义语法解析ENV格式
-        return code
-            .split('\n')
-            .map((line) => {
-                const trimmed = line.trim();
+const ZERO_WIDTH_CHARS_REGEX = /(?:\u200B|\u200C|\u200D|\u2060|\uFEFF)/g;
+type EnvConfigFormat = 'env' | 'ini' | 'toml';
+type EnvConfigFormatMode = 'auto' | EnvConfigFormat;
 
-                // 注释行
-                if (trimmed.startsWith('#')) {
-                    return `<span class="token comment">${escapeHtml(line)}</span>`;
-                }
-
-                // 空行
-                if (trimmed === '') {
-                    return line;
-                }
-
-                // ENV键值对 KEY = VALUE (支持等号前后空格，支持点号和中划线)
-                const envMatch = line.match(/^(\s*)([A-Za-z_][A-Za-z0-9_.-]*)(\s*=\s*)(.*)$/);
-                if (envMatch) {
-                    const [, indent, key, equalsWithSpaces, value] = envMatch;
-                    const highlightedValue = highlightEnvValue(value);
-                    // 分别处理等号前后的空格
-                    const equalsMatch = equalsWithSpaces.match(/^(\s*)(=)(\s*)$/);
-                    if (equalsMatch) {
-                        const [, spaceBefore, equals, spaceAfter] = equalsMatch;
-                        return `${escapeHtml(indent)}<span class="token variable">${escapeHtml(
-                            key
-                        )}</span>${escapeHtml(
-                            spaceBefore
-                        )}<span class="token operator">${escapeHtml(equals)}</span>${escapeHtml(
-                            spaceAfter
-                        )}${highlightedValue}`;
-                    } else {
-                        // 降级处理
-                        return `${escapeHtml(indent)}<span class="token variable">${escapeHtml(
-                            key
-                        )}</span><span class="token operator">${escapeHtml(
-                            equalsWithSpaces
-                        )}</span>${highlightedValue}`;
-                    }
-                }
-
-                return escapeHtml(line);
-            })
-            .join('\n');
-    } catch (e) {
-        return code;
-    }
-};
-
-// ENV值高亮处理
-const highlightEnvValue = (value: string) => {
-    // 检查前导空格
-    const leadingSpaceMatch = value.match(/^(\s*)(.*?)(\s*)$/);
-    if (!leadingSpaceMatch) {
-        return `<span class="token builtin">${escapeHtml(value)}</span>`;
-    }
-
-    const [, leadingSpace, content, trailingSpace] = leadingSpaceMatch;
-    const trimmedValue = content.trim();
-
-    // 如果没有内容，返回原始值
+function getZeroWidthInfo(content: string): {count: number; lines: number[]} {
     if (!content) {
-        return escapeHtml(value);
+        return {count: 0, lines: []};
     }
 
-    let highlightedContent = '';
+    const linesWithZeroWidth: number[] = [];
+    let totalCount = 0;
 
-    // 带引号的字符串
-    if (
-        (trimmedValue.startsWith('"') && trimmedValue.endsWith('"')) ||
-        (trimmedValue.startsWith("'") && trimmedValue.endsWith("'"))
-    ) {
-        highlightedContent = `<span class="token string">${escapeHtml(content)}</span>`;
-    }
-    // 布尔值
-    else if (trimmedValue === 'true' || trimmedValue === 'false') {
-        highlightedContent = `<span class="token boolean">${escapeHtml(content)}</span>`;
-    }
-    // 数字(包括小数和负数)
-    else if (/^-?\d+(\.\d+)?$/.test(trimmedValue)) {
-        highlightedContent = `<span class="token number">${escapeHtml(content)}</span>`;
-    }
-    // 空值或特殊值
-    else if (trimmedValue === '' || trimmedValue === 'null' || trimmedValue === 'undefined') {
-        highlightedContent = `<span class="token builtin">${escapeHtml(content)}</span>`;
-    }
-    // 无引号值
-    else {
-        highlightedContent = `<span class="token builtin">${escapeHtml(content)}</span>`;
+    const lines = content.split('\n');
+    for (let index = 0; index < lines.length; index++) {
+        const line = lines[index];
+        const matches = line.match(ZERO_WIDTH_CHARS_REGEX);
+        if (matches && matches.length > 0) {
+            totalCount += matches.length;
+            linesWithZeroWidth.push(index + 1);
+        }
     }
 
-    // 组合前导空格、高亮内容和尾随空格
-    return `${escapeHtml(leadingSpace)}${highlightedContent}${escapeHtml(trailingSpace)}`;
-};
+    return {count: totalCount, lines: linesWithZeroWidth};
+}
 
-// HTML转义函数
-const escapeHtml = (text: string): string => {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-};
-
-// TOML高亮，支持自定义样式
-const highlightToml = (code: string, isDark: boolean = false) => {
-    try {
-        return Prism.highlight(code, Prism.languages.toml, 'toml');
-    } catch (e) {
-        return code;
+function removeZeroWidthChars(content: string): string {
+    if (!content) {
+        return content;
     }
-};
+    return content.replace(ZERO_WIDTH_CHARS_REGEX, '');
+}
+
+function formatEnvFileContent(content: string): string {
+    const normalized = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    const lines = normalized.split('\n').map((line) => line.replace(/[ \t]+$/g, ''));
+
+    const formatted = lines
+        .map((line) => {
+            const trimmed = line.trim();
+            if (trimmed === '' || trimmed.startsWith('#')) {
+                return line;
+            }
+
+            const envMatch = line.match(/^(\s*)([A-Za-z_][A-Za-z0-9_.-]*)(\s*=\s*)(.*)$/);
+            if (!envMatch) {
+                return line;
+            }
+
+            const [, indent, key, , value] = envMatch;
+            return `${indent}${key}=${value}`;
+        })
+        .join('\n');
+
+    return formatted.endsWith('\n') ? formatted : `${formatted}\n`;
+}
 
 interface IProps {
     open: boolean;
@@ -161,7 +104,7 @@ interface IState {
     originalEnvFileContent: string;
     hasEnvFile: boolean;
     errors: string[];
-    isTomlContent: boolean;
+    formatMode: EnvConfigFormatMode;
     selectedTemplate: string;
     isEditMode: boolean;
 }
@@ -301,6 +244,67 @@ function detectTomlFormat(content: string): boolean {
     return false;
 }
 
+function detectIniFormat(content: string): boolean {
+    const lines = content.split('\n');
+
+    for (const line of lines) {
+        const trimmedLine = line.trim();
+
+        if (trimmedLine === '') {
+            continue;
+        }
+
+        // INI commonly uses ';' for comments
+        if (trimmedLine.startsWith(';')) {
+            return true;
+        }
+
+        // INI allows section headers as well, but TOML detection should run first.
+        if (trimmedLine.startsWith('[') && trimmedLine.endsWith(']')) {
+            continue;
+        }
+
+        // key: value or key = value, with broader key charset (spaces are common)
+        if (/^[^=:#[];][^=:#]*\s*[:=]\s*.*$/.test(trimmedLine)) {
+            const key = trimmedLine.split(/[:=]/, 1)[0];
+            // if key contains spaces, treat as ini (env keys do not)
+            if (/\s/.test(key)) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+function detectEnvConfigFormat(content: string): EnvConfigFormat {
+    if (detectTomlFormat(content)) {
+        return 'toml';
+    }
+    if (detectIniFormat(content)) {
+        return 'ini';
+    }
+    return 'env';
+}
+
+function getFormatIndicator(format: EnvConfigFormat): string {
+    if (format === 'toml') return 'TOML';
+    if (format === 'ini') return 'INI';
+    return 'ENV';
+}
+
+function getFormatColor(format: EnvConfigFormat): string {
+    if (format === 'toml') return '#4CAF50';
+    if (format === 'ini') return '#9C27B0';
+    return '#2196F3';
+}
+
+function getCodeMirrorMode(format: EnvConfigFormat): string {
+    if (format === 'toml') return 'toml';
+    // Use properties mode for both INI and ENV-like key/value configs.
+    return 'properties';
+}
+
 @observer
 class EnvFileDialogModal extends Component<IPropsWithTranslation, IState> {
     state: IState = {
@@ -308,7 +312,7 @@ class EnvFileDialogModal extends Component<IPropsWithTranslation, IState> {
         originalEnvFileContent: '',
         hasEnvFile: false,
         errors: [],
-        isTomlContent: false,
+        formatMode: 'auto',
         selectedTemplate: 'empty',
         isEditMode: false,
     };
@@ -323,12 +327,11 @@ class EnvFileDialogModal extends Component<IPropsWithTranslation, IState> {
         try {
             const result = await this.props.onGetEnvFile(this.props.projectName);
             if (result.exists) {
-                const isToml = detectTomlFormat(result.content);
                 this.setState({
                     envFileContent: result.content,
                     originalEnvFileContent: result.content,
                     hasEnvFile: true,
-                    isTomlContent: isToml,
+                    formatMode: 'auto',
                     selectedTemplate: 'empty',
                     isEditMode: true, // 存在文件时进入编辑模式
                 });
@@ -337,7 +340,7 @@ class EnvFileDialogModal extends Component<IPropsWithTranslation, IState> {
                     envFileContent: '',
                     originalEnvFileContent: '',
                     hasEnvFile: false,
-                    isTomlContent: false,
+                    formatMode: 'auto',
                     selectedTemplate: 'empty',
                     isEditMode: false, // 不存在文件时进入创建模式
                 });
@@ -358,10 +361,8 @@ class EnvFileDialogModal extends Component<IPropsWithTranslation, IState> {
     };
 
     handleContentChange = (code: string) => {
-        const isToml = detectTomlFormat(code);
         this.setState({
             envFileContent: code,
-            isTomlContent: isToml,
             selectedTemplate: 'empty',
         });
     };
@@ -371,18 +372,34 @@ class EnvFileDialogModal extends Component<IPropsWithTranslation, IState> {
         this.setState({
             selectedTemplate: templateKey,
             envFileContent: templates[templateKey as keyof typeof templates],
-            isTomlContent: detectTomlFormat(templates[templateKey as keyof typeof templates]),
+            formatMode: 'auto',
         });
     };
 
     handleSave = async () => {
         try {
-            await this.props.onSaveEnvFile(this.props.projectName, this.state.envFileContent);
+            const zeroWidthInfo = getZeroWidthInfo(this.state.envFileContent);
+            const shouldRemove =
+                zeroWidthInfo.count > 0
+                    ? window.confirm(
+                          this.props.t('version.env.zeroWidthConfirmRemoveBeforeSave', {
+                              count: zeroWidthInfo.count,
+                          })
+                      )
+                    : false;
+
+            const contentToSave = shouldRemove
+                ? removeZeroWidthChars(this.state.envFileContent)
+                : this.state.envFileContent;
+
+            await this.props.onSaveEnvFile(this.props.projectName, contentToSave);
             this.props.snackManager.snack(this.props.t('version.env.saveSuccess'));
             this.setState({
-                originalEnvFileContent: this.state.envFileContent,
+                envFileContent: contentToSave,
+                originalEnvFileContent: contentToSave,
                 hasEnvFile: true,
                 errors: [],
+                formatMode: this.state.formatMode,
             });
             this.props.onClose();
         } catch (error: any) {
@@ -392,6 +409,31 @@ class EnvFileDialogModal extends Component<IPropsWithTranslation, IState> {
                 this.props.snackManager.snack(this.props.t('version.env.saveError'));
             }
         }
+    };
+
+    handleFormat = () => {
+        const format =
+            this.state.formatMode === 'auto'
+                ? detectEnvConfigFormat(this.state.envFileContent)
+                : this.state.formatMode;
+
+        const formatted =
+            format === 'env'
+                ? formatEnvFileContent(this.state.envFileContent)
+                : // For non-env formats, keep content intact except trimming line endings and trailing whitespace.
+                  this.state.envFileContent
+                      .replace(/\r\n/g, '\n')
+                      .replace(/\r/g, '\n')
+                      .split('\n')
+                      .map((line) => line.replace(/[ \t]+$/g, ''))
+                      .join('\n')
+                      .replace(/(?:\n)?$/, '\n');
+
+        this.setState({
+            envFileContent: formatted,
+            selectedTemplate: 'empty',
+        });
+        this.props.snackManager.snack(this.props.t('version.env.formatSuccess'));
     };
 
     handleDelete = async () => {
@@ -404,7 +446,7 @@ class EnvFileDialogModal extends Component<IPropsWithTranslation, IState> {
                     originalEnvFileContent: '',
                     hasEnvFile: false,
                     errors: [],
-                    isTomlContent: false,
+                    formatMode: 'auto',
                     selectedTemplate: 'empty',
                     isEditMode: false,
                 });
@@ -417,33 +459,23 @@ class EnvFileDialogModal extends Component<IPropsWithTranslation, IState> {
 
     render() {
         const {open, projectName, theme, t} = this.props;
-        const {envFileContent, hasEnvFile, errors, isTomlContent, selectedTemplate, isEditMode} =
+        const {envFileContent, hasEnvFile, errors, formatMode, selectedTemplate, isEditMode} =
             this.state;
 
-        const formatIndicator = isTomlContent ? 'TOML' : 'ENV';
-        const formatColor = isTomlContent ? '#4CAF50' : '#2196F3';
+        const zeroWidthInfo = getZeroWidthInfo(envFileContent);
+
+        const effectiveFormat =
+            formatMode === 'auto' ? detectEnvConfigFormat(envFileContent) : formatMode;
+        const formatIndicator = getFormatIndicator(effectiveFormat);
+        const formatColor = getFormatColor(effectiveFormat);
 
         // 检测是否为深色主题 - 从localStorage获取
         const isDarkTheme = localStorage.getItem('gohook-theme') === 'dark';
 
-        // 根据主题选择编辑器样式
-        const editorStyles = {
-            fontFamily: 'Consolas, Monaco, "Courier New", monospace',
-            fontSize: 13,
-            minHeight: 400, // 使用minHeight而不是固定height
-            maxHeight: 400, // 限制最大高度
-            outline: 0,
-            background: 'transparent',
-            whiteSpace: 'pre' as const,
-            color: isDarkTheme ? '#ffffff' : '#000000',
-        };
-
         const editorContainerStyle = {
             border: `1px solid ${isDarkTheme ? '#444' : '#e0e0e0'}`,
             borderRadius: 4,
-            background: isDarkTheme ? '#2d2d2d' : isEditMode ? '#f8f8f8' : '#fafafa',
-            maxHeight: 400, // 限制容器最大高度
-            overflow: 'auto', // 容器处理滚动
+            overflow: 'hidden',
         };
 
         return (
@@ -512,33 +544,95 @@ class EnvFileDialogModal extends Component<IPropsWithTranslation, IState> {
                         </Box>
                     )}
 
+                    <Box mb={2} display="flex" gap={2} alignItems="center">
+                        <FormControl variant="outlined" size="small" style={{minWidth: 160}}>
+                            <InputLabel>{t('version.env.contentFormat')}</InputLabel>
+                            <Select
+                                value={formatMode}
+                                onChange={(event) => {
+                                    const value = event.target.value as EnvConfigFormatMode;
+                                    this.setState({formatMode: value});
+                                }}
+                                label={t('version.env.contentFormat')}>
+                                <MenuItem value="auto">{t('version.env.formatAuto')}</MenuItem>
+                                <MenuItem value="env">{t('version.env.formatEnv')}</MenuItem>
+                                <MenuItem value="ini">{t('version.env.formatIni')}</MenuItem>
+                                <MenuItem value="toml">{t('version.env.formatToml')}</MenuItem>
+                            </Select>
+                        </FormControl>
+                        <Typography variant="caption" color="textSecondary">
+                            {t('version.env.formatHint')}
+                        </Typography>
+                    </Box>
+
                     {/* 语法高亮编辑器 */}
                     <Box
                         mb={2}
                         style={editorContainerStyle}
-                        className={isDarkTheme ? 'prism-dark' : 'prism-light'}>
-                        <Editor
+                        className={`env-codemirror ${
+                            isDarkTheme ? 'env-codemirror--dark' : 'env-codemirror--light'
+                        }`}>
+                        <CodeMirror
                             value={envFileContent}
-                            onValueChange={this.handleContentChange}
-                            highlight={(code) =>
-                                isTomlContent
-                                    ? highlightToml(code, isDarkTheme)
-                                    : highlightEnv(code, isDarkTheme)
-                            }
-                            padding={16}
-                            style={editorStyles}
-                            textareaId="envfile-editor"
-                            placeholder={
-                                !isEditMode
-                                    ? isTomlContent
-                                        ? t('version.env.editorPlaceholderToml')
-                                        : t('version.env.editorPlaceholderEnv')
-                                    : isTomlContent
-                                    ? t('version.env.editorPlaceholderExistingToml')
-                                    : t('version.env.editorPlaceholderExistingEnv')
-                            }
+                            options={{
+                                mode: getCodeMirrorMode(effectiveFormat),
+                                theme: isDarkTheme ? 'material' : 'default',
+                                lineNumbers: true,
+                                lineWrapping: true,
+                                tabSize: 2,
+                                indentWithTabs: false,
+                            }}
+                            onBeforeChange={(_, __, value) => {
+                                this.handleContentChange(value);
+                            }}
                         />
                     </Box>
+
+                    {zeroWidthInfo.count > 0 && (
+                        <Box mb={2}>
+                            <Alert
+                                severity="warning"
+                                action={
+                                    <Button
+                                        color="inherit"
+                                        size="small"
+                                        onClick={() => {
+                                            const sanitized = removeZeroWidthChars(envFileContent);
+                                            this.setState({
+                                                envFileContent: sanitized,
+                                            });
+                                            this.props.snackManager.snack(
+                                                t('version.env.zeroWidthRemoved', {
+                                                    count: zeroWidthInfo.count,
+                                                })
+                                            );
+                                        }}>
+                                        {t('version.env.zeroWidthRemove')}
+                                    </Button>
+                                }>
+                                <Typography variant="body2">
+                                    {t('version.env.zeroWidthDetected', {
+                                        count: zeroWidthInfo.count,
+                                    })}
+                                </Typography>
+                                {zeroWidthInfo.lines.length > 0 && (
+                                    <Typography
+                                        variant="caption"
+                                        color="textSecondary"
+                                        style={{display: 'block', marginTop: '4px'}}>
+                                        {t('version.env.zeroWidthLines', {
+                                            lines:
+                                                zeroWidthInfo.lines.length > 12
+                                                    ? `${zeroWidthInfo.lines
+                                                          .slice(0, 12)
+                                                          .join(', ')}...`
+                                                    : zeroWidthInfo.lines.join(', '),
+                                        })}
+                                    </Typography>
+                                )}
+                            </Alert>
+                        </Box>
+                    )}
 
                     {/* 错误显示 */}
                     {errors.length > 0 && (
@@ -580,6 +674,12 @@ class EnvFileDialogModal extends Component<IPropsWithTranslation, IState> {
                         </Button>
                     )}
                     <Box flexGrow={1} />
+                    <Button
+                        onClick={this.handleFormat}
+                        variant="contained"
+                        disabled={!envFileContent}>
+                        {t('version.env.format')}
+                    </Button>
                     <Button onClick={this.handleClose} variant="contained" color="secondary">
                         {t('common.cancel')}
                     </Button>

@@ -370,7 +370,7 @@ const Row: React.FC<IRowProps> = observer(
             if (project.mode === 'none') {
                 // 非Git项目
                 return (
-                    <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
+                    <div style={{display: 'inline-flex', alignItems: 'center', gap: '4px'}}>
                         <IconButton
                             size="small"
                             onClick={() => onManageSync(project)}
@@ -409,7 +409,7 @@ const Row: React.FC<IRowProps> = observer(
             } else {
                 // Git项目
                 return (
-                    <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
+                    <div style={{display: 'inline-flex', alignItems: 'center', gap: '4px'}}>
                         <IconButton
                             size="small"
                             onClick={() => onViewBranches(project.name)}
@@ -534,7 +534,9 @@ const Row: React.FC<IRowProps> = observer(
                         </div>
                     )}
                 </TableCell>
-                <TableCell>{renderActions()}</TableCell>
+                <TableCell align="left" style={{whiteSpace: 'nowrap', width: 1}}>
+                    {renderActions()}
+                </TableCell>
             </TableRow>
         );
     }
@@ -633,13 +635,13 @@ const VersionsContainer: React.FC<{
                             <TableRow>
                                 <TableCell>{t('version.projectName')}</TableCell>
                                 <TableCell>{t('version.projectDescription')}</TableCell>
-                                <TableCell>
-                                    {t('version.currentBranch')}/{t('version.currentTag')}
-                                </TableCell>
+                                <TableCell>{t('version.current')}</TableCell>
                                 <TableCell>{t('version.gitStatus')}</TableCell>
                                 <TableCell>{t('version.hookStatus')}</TableCell>
                                 <TableCell>{t('version.lastCommit')}</TableCell>
-                                <TableCell>{t('common.actions')}</TableCell>
+                                <TableCell align="left" style={{whiteSpace: 'nowrap', width: 1}}>
+                                    {t('common.actions')}
+                                </TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>

@@ -333,7 +333,9 @@ const HooksContainer: React.FC<{
                                 <TableCell>{t('hook.parameters')}</TableCell>
                                 <TableCell>触发规则</TableCell>
                                 <TableCell>{t('hook.status')}</TableCell>
-                                <TableCell align="center">{t('common.actions')}</TableCell>
+                                <TableCell align="left" style={{whiteSpace: 'nowrap', width: 1}}>
+                                    {t('common.actions')}
+                                </TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
@@ -511,56 +513,58 @@ const Row: React.FC<IRowProps> = observer(
                         }}
                     />
                 </TableCell>
-                <TableCell align="center" padding="none">
-                    <IconButton
-                        onClick={fTrigger}
-                        className="trigger"
-                        title={t('hook.triggerHook')}
-                        size="small">
-                        <PlayArrow />
-                    </IconButton>
-                    <IconButton
-                        onClick={fEditScript}
-                        className="edit-script"
-                        title="编辑脚本"
-                        size="small">
-                        <Code />
-                    </IconButton>
-                    <IconButton
-                        onClick={fEditBasic}
-                        className="edit-basic"
-                        title="编辑基本信息"
-                        size="small">
-                        <Settings />
-                    </IconButton>
-                    <IconButton
-                        onClick={fEditParameters}
-                        className="edit-parameters"
-                        title="编辑参数配置"
-                        size="small">
-                        <Tune />
-                    </IconButton>
-                    <IconButton
-                        onClick={fEditTriggers}
-                        className="edit-triggers"
-                        title="编辑触发规则"
-                        size="small">
-                        <FilterAlt />
-                    </IconButton>
-                    <IconButton
-                        onClick={fEditResponse}
-                        className="edit-response"
-                        title="编辑响应配置"
-                        size="small">
-                        <Http />
-                    </IconButton>
-                    <IconButton
-                        onClick={fDelete}
-                        className="delete"
-                        title={t('hook.deleteHook')}
-                        size="small">
-                        <Delete />
-                    </IconButton>
+                <TableCell align="left" padding="none" style={{whiteSpace: 'nowrap', width: 1}}>
+                    <div style={{display: 'inline-flex', alignItems: 'center'}}>
+                        <IconButton
+                            onClick={fTrigger}
+                            className="trigger"
+                            title={t('hook.triggerHook')}
+                            size="small">
+                            <PlayArrow />
+                        </IconButton>
+                        <IconButton
+                            onClick={fEditScript}
+                            className="edit-script"
+                            title="编辑脚本"
+                            size="small">
+                            <Code />
+                        </IconButton>
+                        <IconButton
+                            onClick={fEditBasic}
+                            className="edit-basic"
+                            title="编辑基本信息"
+                            size="small">
+                            <Settings />
+                        </IconButton>
+                        <IconButton
+                            onClick={fEditParameters}
+                            className="edit-parameters"
+                            title="编辑参数配置"
+                            size="small">
+                            <Tune />
+                        </IconButton>
+                        <IconButton
+                            onClick={fEditTriggers}
+                            className="edit-triggers"
+                            title="编辑触发规则"
+                            size="small">
+                            <FilterAlt />
+                        </IconButton>
+                        <IconButton
+                            onClick={fEditResponse}
+                            className="edit-response"
+                            title="编辑响应配置"
+                            size="small">
+                            <Http />
+                        </IconButton>
+                        <IconButton
+                            onClick={fDelete}
+                            className="delete"
+                            title={t('hook.deleteHook')}
+                            size="small">
+                            <Delete />
+                        </IconButton>
+                    </div>
                 </TableCell>
             </TableRow>
         );

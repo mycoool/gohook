@@ -161,7 +161,11 @@ const SyncNodesPage: React.FC<Props> = ({syncNodeStore, currentUser}) => {
                                     <TableCell>连接状态</TableCell>
                                     <TableCell>同步状态</TableCell>
                                     <TableCell>标签</TableCell>
-                                    <TableCell align="right">操作</TableCell>
+                                    <TableCell
+                                        align="left"
+                                        style={{whiteSpace: 'nowrap', width: 1}}>
+                                        操作
+                                    </TableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
@@ -268,47 +272,59 @@ const SyncNodesPage: React.FC<Props> = ({syncNodeStore, currentUser}) => {
                                                       ))
                                                     : '--'}
                                             </TableCell>
-                                            <TableCell align="right">
-                                                <Tooltip title="查看任务/错误详情">
-                                                    <span>
+                                            <TableCell
+                                                align="left"
+                                                style={{whiteSpace: 'nowrap', width: 1}}>
+                                                <div
+                                                    style={{
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                    }}>
+                                                    <Tooltip title="查看任务/错误详情">
+                                                        <span>
+                                                            <IconButton
+                                                                size="small"
+                                                                onClick={() =>
+                                                                    setTaskDialogNode(node)
+                                                                }
+                                                                disabled={syncNodeStore.saving}>
+                                                                <ListAltIcon fontSize="small" />
+                                                            </IconButton>
+                                                        </span>
+                                                    </Tooltip>
+                                                    <Tooltip title="重置配对（清空 mTLS 指纹，等待 Agent 重新连接）">
+                                                        <span>
+                                                            <IconButton
+                                                                size="small"
+                                                                onClick={() =>
+                                                                    syncNodeStore.resetPairing(
+                                                                        node.id
+                                                                    )
+                                                                }
+                                                                disabled={
+                                                                    syncNodeStore.saving ||
+                                                                    node.type !== 'agent'
+                                                                }>
+                                                                <LinkOffIcon fontSize="small" />
+                                                            </IconButton>
+                                                        </span>
+                                                    </Tooltip>
+                                                    <Tooltip title="编辑节点">
                                                         <IconButton
                                                             size="small"
-                                                            onClick={() => setTaskDialogNode(node)}
-                                                            disabled={syncNodeStore.saving}>
-                                                            <ListAltIcon fontSize="small" />
+                                                            onClick={() => openEditDialog(node)}>
+                                                            <EditIcon fontSize="small" />
                                                         </IconButton>
-                                                    </span>
-                                                </Tooltip>
-                                                <Tooltip title="重置配对（清空 mTLS 指纹，等待 Agent 重新连接）">
-                                                    <span>
+                                                    </Tooltip>
+                                                    <Tooltip title="删除节点">
                                                         <IconButton
                                                             size="small"
-                                                            onClick={() =>
-                                                                syncNodeStore.resetPairing(node.id)
-                                                            }
-                                                            disabled={
-                                                                syncNodeStore.saving ||
-                                                                node.type !== 'agent'
-                                                            }>
-                                                            <LinkOffIcon fontSize="small" />
+                                                            color="error"
+                                                            onClick={() => setDeleteTarget(node)}>
+                                                            <DeleteIcon fontSize="small" />
                                                         </IconButton>
-                                                    </span>
-                                                </Tooltip>
-                                                <Tooltip title="编辑节点">
-                                                    <IconButton
-                                                        size="small"
-                                                        onClick={() => openEditDialog(node)}>
-                                                        <EditIcon fontSize="small" />
-                                                    </IconButton>
-                                                </Tooltip>
-                                                <Tooltip title="删除节点">
-                                                    <IconButton
-                                                        size="small"
-                                                        color="error"
-                                                        onClick={() => setDeleteTarget(node)}>
-                                                        <DeleteIcon fontSize="small" />
-                                                    </IconButton>
-                                                </Tooltip>
+                                                    </Tooltip>
+                                                </div>
                                             </TableCell>
                                         </TableRow>
                                     ))

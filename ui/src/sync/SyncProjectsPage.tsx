@@ -179,7 +179,11 @@ const SyncProjectsPage: React.FC<Props> = ({syncProjectStore, syncNodeStore, cur
                                     <TableCell>全局状态</TableCell>
                                     <TableCell>最后同步</TableCell>
                                     <TableCell>节点状态</TableCell>
-                                    <TableCell align="right">操作</TableCell>
+                                    <TableCell
+                                        align="left"
+                                        style={{whiteSpace: 'nowrap', width: 1}}>
+                                        操作
+                                    </TableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
@@ -421,34 +425,44 @@ const SyncProjectsPage: React.FC<Props> = ({syncProjectStore, syncNodeStore, cur
                                                     })}
                                                 </Stack>
                                             </TableCell>
-                                            <TableCell align="right">
-                                                <Tooltip title="查看任务/错误详情">
-                                                    <span>
+                                            <TableCell
+                                                align="left"
+                                                style={{whiteSpace: 'nowrap', width: 1}}>
+                                                <div
+                                                    style={{
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                    }}>
+                                                    <Tooltip title="查看任务/错误详情">
+                                                        <span>
+                                                            <IconButton
+                                                                size="small"
+                                                                onClick={() =>
+                                                                    setTaskDialogProject(p)
+                                                                }
+                                                                disabled={syncProjectStore.saving}>
+                                                                <ListAltIcon fontSize="small" />
+                                                            </IconButton>
+                                                        </span>
+                                                    </Tooltip>
+                                                    <Tooltip title="管理同步配置">
                                                         <IconButton
                                                             size="small"
-                                                            onClick={() => setTaskDialogProject(p)}
-                                                            disabled={syncProjectStore.saving}>
-                                                            <ListAltIcon fontSize="small" />
+                                                            onClick={() => setSelected(p)}>
+                                                            <SettingsIcon fontSize="small" />
                                                         </IconButton>
-                                                    </span>
-                                                </Tooltip>
-                                                <Tooltip title="管理同步配置">
-                                                    <IconButton
-                                                        size="small"
-                                                        onClick={() => setSelected(p)}>
-                                                        <SettingsIcon fontSize="small" />
-                                                    </IconButton>
-                                                </Tooltip>
-                                                <Tooltip title="立即同步（手动触发）">
-                                                    <span>
-                                                        <IconButton
-                                                            size="small"
-                                                            onClick={() => triggerSync(p)}
-                                                            disabled={syncProjectStore.saving}>
-                                                            <SyncIcon fontSize="small" />
-                                                        </IconButton>
-                                                    </span>
-                                                </Tooltip>
+                                                    </Tooltip>
+                                                    <Tooltip title="立即同步（手动触发）">
+                                                        <span>
+                                                            <IconButton
+                                                                size="small"
+                                                                onClick={() => triggerSync(p)}
+                                                                disabled={syncProjectStore.saving}>
+                                                                <SyncIcon fontSize="small" />
+                                                            </IconButton>
+                                                        </span>
+                                                    </Tooltip>
+                                                </div>
                                             </TableCell>
                                         </TableRow>
                                     ))

@@ -1,4 +1,11 @@
 /* 浅色主题样式 */
+.prism-light .token,
+.prism-dark .token {
+    /* Keep token metrics identical to the textarea layer to avoid caret/click drift */
+    font-weight: inherit !important;
+    font-style: normal !important;
+}
+
 .prism-light .token {
     background: none !important; /* 全局移除token背景色 */
 }
@@ -8,7 +15,6 @@
 .prism-light .token.doctype,
 .prism-light .token.cdata {
     color: #6a9955;
-    font-style: italic;
 }
 
 /* ENV/Bash 等号样式 */
@@ -25,7 +31,6 @@
 .prism-light .token.symbol,
 .prism-light .token.variable {
     color: #001080; /* VS Code深蓝色变量名 */
-    font-weight: 500;
 }
 
 /* 数字和布尔值 */
@@ -66,7 +71,6 @@
 /* 关键字 */
 .prism-light .token.keyword {
     color: #0000ff; /* VS Code蓝色关键字 */
-    font-weight: bold;
 }
 
 /* URL和实体 */
@@ -93,7 +97,6 @@
 .prism-dark .token.doctype,
 .prism-dark .token.cdata {
     color: #6a9955 !important;
-    font-style: italic;
 }
 
 /* ENV/Bash 等号样式 */
@@ -110,7 +113,6 @@
 .prism-dark .token.symbol,
 .prism-dark .token.variable {
     color: #9cdcfe !important; /* VS Code深色主题浅蓝色变量 */
-    font-weight: 500;
 }
 
 /* 数字和布尔值 */
@@ -151,7 +153,6 @@
 /* 关键字 */
 .prism-dark .token.keyword {
     color: #569cd6 !important; /* VS Code深色主题蓝色关键字 */
-    font-weight: bold;
 }
 
 /* URL和实体 */
@@ -168,24 +169,20 @@
 .prism-light .token.title,
 .prism-light .language-toml .token.title {
     color: #0451a5; /* VS Code蓝色 TOML节标题 */
-    font-weight: bold;
 }
 
 .prism-dark .token.title,
 .prism-dark .language-toml .token.title {
     color: #569cd6 !important; /* VS Code深色主题蓝色 TOML节标题 */
-    font-weight: bold;
 }
 
 /* TOML键值对样式 */
 .prism-light .language-toml .token.property {
     color: #001080; /* TOML键名 */
-    font-weight: 500;
 }
 
 .prism-dark .language-toml .token.property {
     color: #9cdcfe !important; /* TOML键名深色主题 */
-    font-weight: 500;
 }
 
 /* TOML数组和表格样式 */
@@ -202,12 +199,10 @@
 /* ENV/Bash变量样式 */
 .prism-light .language-bash .token.assign-left {
     color: #001080; /* ENV变量名 */
-    font-weight: 500;
 }
 
 .prism-dark .language-bash .token.assign-left {
     color: #9cdcfe !important; /* ENV变量名深色主题 */
-    font-weight: 500;
 }
 
 /* ENV等号右侧值的特殊处理 */
@@ -326,3 +321,148 @@
     scrollbar-color: #555 #2e2e2e;
     scrollbar-width: thin;
 } 
+
+/* CodeMirror editor used by the env modal (stable caret/click positioning) */
+.env-codemirror .CodeMirror {
+    height: 400px;
+    font-family: 'Consolas, Monaco, "Courier New", monospace';
+    font-size: 13px;
+}
+
+.env-codemirror .CodeMirror-scroll {
+    max-height: 400px;
+}
+
+.env-codemirror--dark .CodeMirror {
+    background: #2d2d2d;
+    color: #d4d4d4;
+}
+
+.env-codemirror--dark .CodeMirror-gutters {
+    background: #2d2d2d;
+    border-right: 1px solid #444;
+}
+
+.env-codemirror--light .CodeMirror {
+    background: #fafafa;
+    color: #000000;
+}
+
+.env-codemirror--light .CodeMirror-gutters {
+    background: #fafafa;
+    border-right: 1px solid #e0e0e0;
+}
+
+/* Token colors for env/ini/toml (ensure visible highlighting regardless of theme) */
+.env-codemirror--light .CodeMirror .cm-comment {
+    color: #6a9955 !important;
+    font-style: italic;
+}
+
+.env-codemirror--light .CodeMirror .cm-def,
+.env-codemirror--light .CodeMirror .cm-property {
+    color: #001080 !important;
+    font-weight: 600;
+}
+
+.env-codemirror--light .CodeMirror .cm-quote,
+.env-codemirror--light .CodeMirror .cm-string,
+.env-codemirror--light .CodeMirror .cm-string-2 {
+    color: #a31515 !important;
+}
+
+.env-codemirror--light .CodeMirror .cm-number,
+.env-codemirror--light .CodeMirror .cm-atom {
+    color: #09885a !important;
+}
+
+.env-codemirror--light .CodeMirror .cm-header {
+    color: #0451a5 !important;
+    font-weight: 700;
+}
+
+.env-codemirror--dark .CodeMirror .cm-comment {
+    color: #6a9955 !important;
+    font-style: italic;
+}
+
+.env-codemirror--dark .CodeMirror .cm-def,
+.env-codemirror--dark .CodeMirror .cm-property {
+    color: #9cdcfe !important;
+    font-weight: 600;
+}
+
+.env-codemirror--dark .CodeMirror .cm-quote,
+.env-codemirror--dark .CodeMirror .cm-string,
+.env-codemirror--dark .CodeMirror .cm-string-2 {
+    color: #ce9178 !important;
+}
+
+.env-codemirror--dark .CodeMirror .cm-number,
+.env-codemirror--dark .CodeMirror .cm-atom {
+    color: #b5cea8 !important;
+}
+
+.env-codemirror--dark .CodeMirror .cm-header {
+    color: #569cd6 !important;
+    font-weight: 700;
+}
+
+/* Scrollbar styling (match previous prism editor look) */
+.env-codemirror--light .CodeMirror-vscrollbar::-webkit-scrollbar,
+.env-codemirror--light .CodeMirror-hscrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.env-codemirror--light .CodeMirror-vscrollbar::-webkit-scrollbar-track,
+.env-codemirror--light .CodeMirror-hscrollbar::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.env-codemirror--light .CodeMirror-vscrollbar::-webkit-scrollbar-thumb,
+.env-codemirror--light .CodeMirror-hscrollbar::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+.env-codemirror--light .CodeMirror-vscrollbar::-webkit-scrollbar-thumb:hover,
+.env-codemirror--light .CodeMirror-hscrollbar::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+.env-codemirror--dark .CodeMirror-vscrollbar::-webkit-scrollbar,
+.env-codemirror--dark .CodeMirror-hscrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.env-codemirror--dark .CodeMirror-vscrollbar::-webkit-scrollbar-track,
+.env-codemirror--dark .CodeMirror-hscrollbar::-webkit-scrollbar-track {
+    background: #2e2e2e;
+    border-radius: 4px;
+}
+
+.env-codemirror--dark .CodeMirror-vscrollbar::-webkit-scrollbar-thumb,
+.env-codemirror--dark .CodeMirror-hscrollbar::-webkit-scrollbar-thumb {
+    background: #555;
+    border-radius: 4px;
+}
+
+.env-codemirror--dark .CodeMirror-vscrollbar::-webkit-scrollbar-thumb:hover,
+.env-codemirror--dark .CodeMirror-hscrollbar::-webkit-scrollbar-thumb:hover {
+    background: #777;
+}
+
+.env-codemirror--light .CodeMirror-vscrollbar,
+.env-codemirror--light .CodeMirror-hscrollbar {
+    scrollbar-color: #c1c1c1 #f1f1f1;
+    scrollbar-width: thin;
+}
+
+.env-codemirror--dark .CodeMirror-vscrollbar,
+.env-codemirror--dark .CodeMirror-hscrollbar {
+    scrollbar-color: #555 #2e2e2e;
+    scrollbar-width: thin;
+}
