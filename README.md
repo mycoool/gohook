@@ -24,6 +24,23 @@
 
 ### 安装
 
+#### 一键安装（Linux）
+脚本会自动从 GitHub Releases 下载最新版本二进制、创建配置目录并（在 root 模式下）安装为 systemd 服务。
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/mycoool/gohook/master/scripts/install.sh | bash
+```
+
+常用可选环境变量：
+
+```bash
+GOHOOK_PORT=9000 \
+GOHOOK_PANEL_ALIAS=GoHook \
+GOHOOK_ADMIN_USER=admin \
+GOHOOK_ADMIN_PASSWORD='change-me' \
+curl -fsSL https://raw.githubusercontent.com/mycoool/gohook/master/scripts/install.sh | bash
+```
+
 #### 从源码构建
 确保您已正确设置Go 1.21或更新版本的环境，然后运行：
 ```bash

@@ -100,7 +100,8 @@ func VerifyPassword(password, hashedPassword string) bool {
 	}
 
 	// if bcrypt failed, try SHA256 (backward compatible)
-	return HashPassword(password) == hashedPassword
+	hash := sha256.Sum256([]byte(password))
+	return hex.EncodeToString(hash[:]) == hashedPassword
 }
 
 // generate JWT token
