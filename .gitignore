@@ -42,3 +42,4 @@ server.log
 
 *.backup
 *.tmp
+/third_party
