@@ -99,8 +99,6 @@ $ ./gohook -hooks hooks.json -verbose
 
 ## 亮点截图
 
-将截图放在 `docs/screenshots/` 目录，以下为占位示例与说明（请替换为实际截图）。
-
 ![Hook 列表与执行概览](docs/screenshots/01-hooks-overview.png)
 统一入口查看 Hook 列表、执行状态与快速触发，便于定位失败任务。
 
