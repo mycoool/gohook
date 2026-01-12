@@ -59,7 +59,103 @@
         "copyFailed": "Copy failed",
         "showToken": "Show token",
         "hideToken": "Hide token",
-        "refreshToken": "Refresh token"
+        "refreshToken": "Refresh token",
+        "pageTitle": "Node Management",
+        "addNode": "Add Node",
+        "loading": "Loading nodes...",
+        "empty": "No nodes yet. Click \"Add Node\" to create one.",
+        "notAvailable": "N/A",
+        "none": "--",
+        "table": {
+            "name": "Name",
+            "address": "Address",
+            "remark": "Remark",
+            "connection": "Connection",
+            "sync": "Sync",
+            "tags": "Tags"
+        },
+        "connection": {
+            "connected": "Connected",
+            "disconnected": "Disconnected",
+            "unpaired": "Unpaired",
+            "unknown": "Unknown"
+        },
+        "syncStatus": {
+            "success": "SUCCESS",
+            "failed": "FAILED",
+            "running": "RUNNING",
+            "retrying": "RETRYING",
+            "pending": "PENDING",
+            "idle": "IDLE"
+        },
+        "tooltips": {
+            "taskDetails": "View task/error details",
+            "resetPairing": "Reset pairing (clear mTLS fingerprint, wait for agent reconnect)",
+            "edit": "Edit node",
+            "delete": "Delete node"
+        },
+        "deleteTitle": "Delete node",
+        "deleteConfirm": "Delete node {{name}}?",
+        "mtlsFingerprint": "mTLS fingerprint: {{fingerprint}}",
+        "mtlsUnpaired": "mTLS fingerprint: unpaired (waiting for first agent connection)",
+        "snack": {
+            "loadFailed": "Failed to load nodes",
+            "createSuccess": "Node created",
+            "createFailed": "Failed to create node",
+            "updateSuccess": "Node updated",
+            "updateFailed": "Failed to update node",
+            "deleteSuccess": "Node deleted",
+            "deleteFailed": "Failed to delete node",
+            "rotateSuccess": "Token refreshed",
+            "rotateFailed": "Failed to refresh token",
+            "resetSuccess": "Pairing reset; waiting for agent reconnect",
+            "resetFailed": "Failed to reset pairing",
+            "installStarted": "Install task started",
+            "installFailed": "Failed to start install"
+        }
+    },
+    "syncTasks": {
+        "title": "Task Details - {{name}}",
+        "recentHint": "Showing the latest {{count}} tasks; use paging for older records.",
+        "includeLogs": "Include logs",
+        "excludeLogs": "Exclude logs",
+        "clearRecords": "Clear records",
+        "pageLabel": "Page {{page}}",
+        "pageLabelWithBefore": "Page {{page}} (beforeId={{beforeId}})",
+        "latest": "Latest",
+        "newer": "Newer",
+        "older": "Older",
+        "table": {
+            "id": "ID",
+            "project": "Project",
+            "node": "Node",
+            "status": "Status",
+            "time": "Time",
+            "transfer": "Transfer",
+            "error": "Error",
+            "logs": "Logs"
+        },
+        "empty": "No tasks",
+        "blocks": "{{count}} blocks",
+        "logsToggle": "Toggle logs",
+        "logsLazyLoad": "Expand to load logs",
+        "logPageHint": "Showing latest {{count}} lines · Page {{page}}/{{total}}",
+        "copyError": "Copy error",
+        "emptyValue": "--",
+        "scope": {
+            "project": "Project {{name}}",
+            "node": "Node #{{id}}",
+            "all": "All"
+        },
+        "clearConfirm": "Clear task records for {{scope}}? (Defaults to clearing success/failed)",
+        "clearFailed": "Clear failed (admin permission or server error)",
+        "hints": {
+            "eacces": "Possible cause: target path is not writable or filesystem is read-only (chown/chmod or change targetPath).",
+            "enoent": "Possible cause: target path does not exist (check targetPath or parent permissions).",
+            "enospc": "Possible cause: disk is full (free up space).",
+            "invalidTarget": "Possible cause: invalid targetPath (empty or '/').",
+            "proto": "Possible cause: connection/protocol error (check primary node and agent versions)."
+        }
     },
     "auth": {
         "login": "Login",

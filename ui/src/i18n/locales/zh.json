@@ -59,7 +59,103 @@
         "copyFailed": "复制失败",
         "showToken": "显示 Token",
         "hideToken": "隐藏 Token",
-        "refreshToken": "刷新 Token"
+        "refreshToken": "刷新 Token",
+        "pageTitle": "节点管理",
+        "addNode": "新增节点",
+        "loading": "加载节点中...",
+        "empty": "暂无节点，请点击“新增节点”",
+        "notAvailable": "N/A",
+        "none": "--",
+        "table": {
+            "name": "名称",
+            "address": "地址",
+            "remark": "备注",
+            "connection": "连接状态",
+            "sync": "同步状态",
+            "tags": "标签"
+        },
+        "connection": {
+            "connected": "已连接",
+            "disconnected": "已断开",
+            "unpaired": "未配对",
+            "unknown": "未知"
+        },
+        "syncStatus": {
+            "success": "成功",
+            "failed": "失败",
+            "running": "运行中",
+            "retrying": "重试中",
+            "pending": "等待中",
+            "idle": "空闲"
+        },
+        "tooltips": {
+            "taskDetails": "查看任务/错误详情",
+            "resetPairing": "重置配对（清空 mTLS 指纹，等待 Agent 重新连接）",
+            "edit": "编辑节点",
+            "delete": "删除节点"
+        },
+        "deleteTitle": "删除节点",
+        "deleteConfirm": "确认删除节点 {{name}} 吗？",
+        "mtlsFingerprint": "mTLS 指纹：{{fingerprint}}",
+        "mtlsUnpaired": "mTLS 指纹：未配对（等待 Agent 首次连接）",
+        "snack": {
+            "loadFailed": "加载节点列表失败",
+            "createSuccess": "节点创建成功",
+            "createFailed": "节点创建失败",
+            "updateSuccess": "节点更新成功",
+            "updateFailed": "节点更新失败",
+            "deleteSuccess": "节点已删除",
+            "deleteFailed": "删除节点失败",
+            "rotateSuccess": "Token 已刷新",
+            "rotateFailed": "刷新 Token 失败",
+            "resetSuccess": "已重置配对，等待 Agent 重新连接",
+            "resetFailed": "重置配对失败",
+            "installStarted": "已启动安装任务",
+            "installFailed": "启动安装失败"
+        }
+    },
+    "syncTasks": {
+        "title": "任务详情 - {{name}}",
+        "recentHint": "默认展示最近 {{count}} 条任务；翻页可查看更早记录。",
+        "includeLogs": "包含日志",
+        "excludeLogs": "不含日志",
+        "clearRecords": "清空记录",
+        "pageLabel": "第 {{page}} 页",
+        "pageLabelWithBefore": "第 {{page}} 页（beforeId={{beforeId}}）",
+        "latest": "最新",
+        "newer": "下一页",
+        "older": "上一页",
+        "table": {
+            "id": "ID",
+            "project": "项目",
+            "node": "节点",
+            "status": "状态",
+            "time": "时间",
+            "transfer": "传输",
+            "error": "错误",
+            "logs": "日志"
+        },
+        "empty": "暂无任务",
+        "blocks": "{{count}} 块",
+        "logsToggle": "展开/收起日志",
+        "logsLazyLoad": "展开后按需加载日志",
+        "logPageHint": "默认显示最新 {{count}} 行 · 第 {{page}}/{{total}} 页",
+        "copyError": "复制错误",
+        "emptyValue": "--",
+        "scope": {
+            "project": "项目 {{name}}",
+            "node": "节点 #{{id}}",
+            "all": "全部"
+        },
+        "clearConfirm": "确认清空 {{scope}} 的任务记录（默认仅清空 success/failed）？",
+        "clearFailed": "清空失败（需要管理员权限或服务端异常）",
+        "hints": {
+            "eacces": "可能原因：目标目录无写入权限/只读文件系统（chown/chmod 或更换 targetPath）",
+            "enoent": "可能原因：目标目录不存在（检查 targetPath 或上级目录权限）",
+            "enospc": "可能原因：磁盘空间不足（清理空间）",
+            "invalidTarget": "可能原因：targetPath 配置不合法（不能为空或 /）",
+            "proto": "可能原因：连接/协议异常（检查主节点与 Agent 版本）"
+        }
     },
     "auth": {
         "login": "登录",

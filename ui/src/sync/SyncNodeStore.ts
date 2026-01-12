@@ -3,6 +3,7 @@ import {action, computed, observable, runInAction} from 'mobx';
 import * as config from '../config';
 import {SnackReporter} from '../snack/SnackManager';
 import {ISyncNode, ISyncNodeRuntime} from '../types';
+import translate from '../i18n/translator';
 
 export interface SyncNodePayload {
     name: string;
@@ -101,7 +102,7 @@ export class SyncNodeStore {
                     this.nodes = nodesResponse.value.data || [];
                 });
             } else {
-                this.handleError(nodesResponse.reason, '加载节点列表失败');
+                this.handleError(nodesResponse.reason, translate('syncNodes.snack.loadFailed'));
                 throw nodesResponse.reason;
             }
             if (localResponse.status === 'fulfilled') {
@@ -131,11 +132,11 @@ export class SyncNodeStore {
                     headers: this.headers,
                 }
             );
-            this.snack('节点创建成功');
+            this.snack(translate('syncNodes.snack.createSuccess'));
             await this.refreshNodes();
             return response.data;
         } catch (error: unknown) {
-            this.handleError(error, '节点创建失败');
+            this.handleError(error, translate('syncNodes.snack.createFailed'));
             throw error;
         } finally {
             runInAction(() => {
@@ -151,10 +152,10 @@ export class SyncNodeStore {
             await axios.put(`${config.get('url')}api/sync/nodes/${id}`, payload, {
                 headers: this.headers,
             });
-            this.snack('节点更新成功');
+            this.snack(translate('syncNodes.snack.updateSuccess'));
             await this.refreshNodes();
         } catch (error: unknown) {
-            this.handleError(error, '节点更新失败');
+            this.handleError(error, translate('syncNodes.snack.updateFailed'));
             throw error;
         } finally {
             runInAction(() => {
@@ -170,10 +171,10 @@ export class SyncNodeStore {
             await axios.delete(`${config.get('url')}api/sync/nodes/${id}`, {
                 headers: this.headers,
             });
-            this.snack('节点已删除');
+            this.snack(translate('syncNodes.snack.deleteSuccess'));
             await this.refreshNodes();
         } catch (error: unknown) {
-            this.handleError(error, '删除节点失败');
+            this.handleError(error, translate('syncNodes.snack.deleteFailed'));
             throw error;
         } finally {
             runInAction(() => {
@@ -191,11 +192,11 @@ export class SyncNodeStore {
                 {},
                 {headers: this.headers}
             );
-            this.snack('Token 已刷新');
+            this.snack(translate('syncNodes.snack.rotateSuccess'));
             await this.refreshNodes();
             return response.data;
         } catch (error: unknown) {
-            this.handleError(error, '刷新 Token 失败');
+            this.handleError(error, translate('syncNodes.snack.rotateFailed'));
             throw error;
         } finally {
             runInAction(() => {
@@ -213,11 +214,11 @@ export class SyncNodeStore {
                 {},
                 {headers: this.headers}
             );
-            this.snack('已重置配对，等待 Agent 重新连接');
+            this.snack(translate('syncNodes.snack.resetSuccess'));
             await this.refreshNodes();
             return response.data;
         } catch (error: unknown) {
-            this.handleError(error, '重置配对失败');
+            this.handleError(error, translate('syncNodes.snack.resetFailed'));
             throw error;
         } finally {
             runInAction(() => {
@@ -233,10 +234,10 @@ export class SyncNodeStore {
             await axios.post(`${config.get('url')}api/sync/nodes/${id}/install`, payload ?? {}, {
                 headers: this.headers,
             });
-            this.snack('已启动安装任务');
+            this.snack(translate('syncNodes.snack.installStarted'));
             await this.refreshNodes();
         } catch (error: unknown) {
-            this.handleError(error, '启动安装失败');
+            this.handleError(error, translate('syncNodes.snack.installFailed'));
             throw error;
         } finally {
             runInAction(() => {

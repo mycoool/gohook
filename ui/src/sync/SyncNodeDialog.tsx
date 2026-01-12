@@ -305,11 +305,13 @@ const SyncNodeDialog: React.FC<SyncNodeDialogProps> = ({
                         ) : null}
                         {currentNode?.agentCertFingerprint ? (
                             <Typography variant="caption" color="textSecondary" display="block">
-                                mTLS 指纹：{currentNode.agentCertFingerprint}
+                                {t('syncNodes.mtlsFingerprint', {
+                                    fingerprint: currentNode.agentCertFingerprint,
+                                })}
                             </Typography>
                         ) : (
                             <Typography variant="caption" color="textSecondary" display="block">
-                                mTLS 指纹：未配对（等待 Agent 首次连接）
+                                {t('syncNodes.mtlsUnpaired')}
                             </Typography>
                         )}
                     </Box>

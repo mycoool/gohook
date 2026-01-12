@@ -26,6 +26,7 @@ import {inject, Stores} from '../inject';
 import {observer} from 'mobx-react';
 import {TaskQuery} from './SyncTaskStore';
 import {ISyncTask, IWebSocketMessage} from '../types';
+import useTranslation from '../i18n/useTranslation';
 
 type Props = Stores<'syncTaskStore' | 'wsStore'> & {
     open: boolean;
@@ -81,26 +82,27 @@ const statusColor = (status: string) => {
     }
 };
 
-const hintForCode = (code?: string) => {
+const hintForCode = (code: string | undefined, translate: (key: string) => string) => {
     switch ((code || '').toUpperCase()) {
         case 'EACCES':
         case 'EPERM':
         case 'EROFS':
-            return '可能原因：目标目录无写入权限/只读文件系统（chown/chmod 或更换 targetPath）';
+            return translate('syncTasks.hints.eacces');
         case 'ENOENT':
-            return '可能原因：目标目录不存在（检查 targetPath 或上级目录权限）';
+            return translate('syncTasks.hints.enoent');
         case 'ENOSPC':
-            return '可能原因：磁盘空间不足（清理空间）';
+            return translate('syncTasks.hints.enospc');
         case 'INVALID_TARGET':
-            return '可能原因：targetPath 配置不合法（不能为空或 /）';
+            return translate('syncTasks.hints.invalidTarget');
         case 'PROTO':
-            return '可能原因：连接/协议异常（检查主节点与 Agent 版本）';
+            return translate('syncTasks.hints.proto');
         default:
             return '';
     }
 };
 
 const SyncTaskDialog: React.FC<Props> = ({open, title, query, onClose, syncTaskStore, wsStore}) => {
+    const {t: translate} = useTranslation();
     const [includeLogs, setIncludeLogs] = useState(false);
     const [expanded, setExpanded] = useState<Record<number, boolean>>({});
     const [logPages, setLogPages] = useState<Record<number, number>>({});
@@ -108,6 +110,7 @@ const SyncTaskDialog: React.FC<Props> = ({open, title, query, onClose, syncTaskS
     const [pageCursors, setPageCursors] = useState<number[]>([0]);
     const logPageSize = 5;
     const taskPageSize = 5;
+    const emptyValue = translate('syncTasks.emptyValue');
 
     const queryKey = useMemo(
         () =>
@@ -168,14 +171,14 @@ const SyncTaskDialog: React.FC<Props> = ({open, title, query, onClose, syncTaskS
     const tasks = useMemo(() => syncTaskStore.tasks || [], [syncTaskStore.tasks]);
     const showProjectColumn = !query.projectName;
 
-    const toggleExpanded = (t: ISyncTask) => {
-        const id = Number(t.id);
+    const toggleExpanded = (task: ISyncTask) => {
+        const id = Number(task.id);
         if (!Number.isFinite(id) || id <= 0) return;
         const next = !expanded[id];
         setExpanded((prev) => ({...prev, [id]: next}));
         if (next) {
             setLogPages((pages) => ({...pages, [id]: 0}));
-            if (!includeLogs && !t.logs && !logLoading[id]) {
+            if (!includeLogs && !task.logs && !logLoading[id]) {
                 setLogLoading((m) => ({...m, [id]: true}));
                 syncTaskStore
                     .loadTask(id, {includeLogs: true})
@@ -193,10 +196,10 @@ const SyncTaskDialog: React.FC<Props> = ({open, title, query, onClose, syncTaskS
         }
     };
 
-    const renderError = (t: ISyncTask) => {
-        if (!t.lastError) return '--';
-        const hint = hintForCode(t.errorCode);
-        const content = hint ? `${t.lastError}\n${hint}` : t.lastError;
+    const renderError = (task: ISyncTask) => {
+        if (!task.lastError) return emptyValue;
+        const hint = hintForCode(task.errorCode, translate);
+        const content = hint ? `${task.lastError}\n${hint}` : task.lastError;
         return (
             <Stack direction="row" spacing={1} alignItems="center">
                 <Tooltip
@@ -234,10 +237,10 @@ const SyncTaskDialog: React.FC<Props> = ({open, title, query, onClose, syncTaskS
                             textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap',
                         }}>
-                        {t.lastError}
+                        {task.lastError}
                     </Typography>
                 </Tooltip>
-                <Tooltip title="复制错误">
+                <Tooltip title={translate('syncTasks.copyError')}>
                     <IconButton size="small" onClick={() => copyText(content)}>
                         <ContentCopyIcon fontSize="inherit" />
                     </IconButton>
@@ -248,7 +251,7 @@ const SyncTaskDialog: React.FC<Props> = ({open, title, query, onClose, syncTaskS
 
     const goOlder = () => {
         if (!tasks.length) return;
-        const minID = Math.min(...tasks.map((t) => Number(t.id)).filter((v) => Number.isFinite(v)));
+        const minID = Math.min(...tasks.map((task) => Number(task.id)).filter((v) => Number.isFinite(v)));
         if (!Number.isFinite(minID) || minID <= 0) return;
         setPageCursors((prev) => [...prev, minID]);
     };
@@ -263,11 +266,11 @@ const SyncTaskDialog: React.FC<Props> = ({open, title, query, onClose, syncTaskS
 
     const clearRecords = async () => {
         const scope = query.projectName
-            ? `项目 ${query.projectName}`
+            ? translate('syncTasks.scope.project', {name: query.projectName})
             : query.nodeId
-            ? `节点 #${query.nodeId}`
-            : '全部';
-        if (!window.confirm(`确认清空 ${scope} 的任务记录（默认仅清空 success/failed）？`)) {
+            ? translate('syncTasks.scope.node', {id: query.nodeId})
+            : translate('syncTasks.scope.all');
+        if (!window.confirm(translate('syncTasks.clearConfirm', {scope}))) {
             return;
         }
         try {
@@ -277,7 +280,7 @@ const SyncTaskDialog: React.FC<Props> = ({open, title, query, onClose, syncTaskS
             setLogLoading({});
             resetToLatest();
         } catch {
-            window.alert('清空失败（需要管理员权限或服务端异常）');
+            window.alert(translate('syncTasks.clearFailed'));
         } finally {
             syncTaskStore
                 .loadTasks({
@@ -297,7 +300,7 @@ const SyncTaskDialog: React.FC<Props> = ({open, title, query, onClose, syncTaskS
             <DialogContent>
                 <Box sx={{display: 'flex', justifyContent: 'space-between', mb: 1}}>
                     <Typography variant="caption" color="textSecondary">
-                        默认展示最近 {taskPageSize} 条任务；翻页可查看更早记录。
+                        {translate('syncTasks.recentHint', {count: taskPageSize})}
                     </Typography>
                     <Stack direction="row" spacing={1} alignItems="center">
                         {syncTaskStore.refreshing ? <CircularProgress size={14} /> : null}
@@ -306,7 +309,7 @@ const SyncTaskDialog: React.FC<Props> = ({open, title, query, onClose, syncTaskS
                             variant={includeLogs ? 'contained' : 'outlined'}
                             onClick={() => setIncludeLogs((v) => !v)}
                             disabled={syncTaskStore.loading}>
-                            {includeLogs ? '包含日志' : '不含日志'}
+                            {includeLogs ? translate('syncTasks.includeLogs') : translate('syncTasks.excludeLogs')}
                         </Button>
                         <Button
                             size="small"
@@ -314,15 +317,19 @@ const SyncTaskDialog: React.FC<Props> = ({open, title, query, onClose, syncTaskS
                             color="error"
                             onClick={clearRecords}
                             disabled={syncTaskStore.loading}>
-                            清空记录
+                            {translate('syncTasks.clearRecords')}
                         </Button>
                     </Stack>
                 </Box>
 
                 <Box sx={{display: 'flex', justifyContent: 'space-between', mb: 1}}>
                     <Typography variant="caption" color="textSecondary">
-                        第 {pageCursors.length} 页
-                        {pageCursors.length > 1 ? `（beforeId=${beforeId}）` : ''}
+                        {pageCursors.length > 1
+                            ? translate('syncTasks.pageLabelWithBefore', {
+                                  page: pageCursors.length,
+                                  beforeId,
+                              })
+                            : translate('syncTasks.pageLabel', {page: pageCursors.length})}
                     </Typography>
                     <Stack direction="row" spacing={1}>
                         <Button
@@ -330,21 +337,21 @@ const SyncTaskDialog: React.FC<Props> = ({open, title, query, onClose, syncTaskS
                             variant="outlined"
                             onClick={resetToLatest}
                             disabled={syncTaskStore.loading || pageCursors.length <= 1}>
-                            最新
+                            {translate('syncTasks.latest')}
                         </Button>
                         <Button
                             size="small"
                             variant="outlined"
                             onClick={goNewer}
                             disabled={syncTaskStore.loading || pageCursors.length <= 1}>
-                            下一页
+                            {translate('syncTasks.newer')}
                         </Button>
                         <Button
                             size="small"
                             variant="outlined"
                             onClick={goOlder}
                             disabled={syncTaskStore.loading || tasks.length < taskPageSize}>
-                            上一页
+                            {translate('syncTasks.older')}
                         </Button>
                     </Stack>
                 </Box>
@@ -356,35 +363,38 @@ const SyncTaskDialog: React.FC<Props> = ({open, title, query, onClose, syncTaskS
                 ) : (
                     <Table size="small">
                         <TableHead>
-                            <TableRow>
-                                <TableCell>ID</TableCell>
-                                {showProjectColumn ? <TableCell>项目</TableCell> : null}
-                                <TableCell>节点</TableCell>
-                                <TableCell>状态</TableCell>
-                                <TableCell>时间</TableCell>
-                                <TableCell>传输</TableCell>
-                                <TableCell>错误</TableCell>
-                                <TableCell>日志</TableCell>
-                            </TableRow>
+                                <TableRow>
+                                    <TableCell>{translate('syncTasks.table.id')}</TableCell>
+                                    {showProjectColumn ? (
+                                        <TableCell>{translate('syncTasks.table.project')}</TableCell>
+                                    ) : null}
+                                    <TableCell>{translate('syncTasks.table.node')}</TableCell>
+                                    <TableCell>{translate('syncTasks.table.status')}</TableCell>
+                                    <TableCell>{translate('syncTasks.table.time')}</TableCell>
+                                    <TableCell>{translate('syncTasks.table.transfer')}</TableCell>
+                                    <TableCell>{translate('syncTasks.table.error')}</TableCell>
+                                    <TableCell>{translate('syncTasks.table.logs')}</TableCell>
+                                </TableRow>
+
                         </TableHead>
                         <TableBody>
                             {tasks.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={showProjectColumn ? 8 : 7} align="center">
-                                        暂无任务
+                                        {translate('syncTasks.empty')}
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                tasks.map((t) => (
-                                    <React.Fragment key={t.id}>
+                                tasks.map((task) => (
+                                    <React.Fragment key={task.id}>
                                         <TableRow hover>
-                                            <TableCell>{t.id}</TableCell>
+                                            <TableCell>{task.id}</TableCell>
                                             {showProjectColumn ? (
-                                                <TableCell>{t.projectName}</TableCell>
+                                                <TableCell>{task.projectName}</TableCell>
                                             ) : null}
                                             <TableCell>
                                                 <Typography variant="body2">
-                                                    {t.nodeName} (#{t.nodeId})
+                                                    {task.nodeName} (#{task.nodeId})
                                                 </Typography>
                                             </TableCell>
                                             <TableCell>
@@ -394,43 +404,47 @@ const SyncTaskDialog: React.FC<Props> = ({open, title, query, onClose, syncTaskS
                                                     alignItems="center">
                                                     <Chip
                                                         size="small"
-                                                        label={String(t.status).toUpperCase()}
-                                                        color={statusColor(t.status)}
+                                                        label={String(task.status).toUpperCase()}
+                                                        color={statusColor(task.status)}
                                                     />
-                                                    {t.errorCode ? (
+                                                    {task.errorCode ? (
                                                         <Chip
                                                             size="small"
                                                             variant="outlined"
-                                                            label={t.errorCode}
+                                                            label={task.errorCode}
                                                         />
                                                     ) : null}
                                                 </Stack>
                                             </TableCell>
                                             <TableCell>
                                                 <Typography variant="body2">
-                                                    {formatTime(t.updatedAt)}
+                                                    {formatTime(task.updatedAt)}
                                                 </Typography>
                                             </TableCell>
                                             <TableCell>
                                                 <Typography variant="body2">
-                                                    {t.blocks ? `${t.blocks} blocks` : '--'}
+                                                    {task.blocks
+                                                        ? translate('syncTasks.blocks', {
+                                                              count: task.blocks,
+                                                          })
+                                                        : emptyValue}
                                                 </Typography>
                                                 <Typography variant="caption" color="textSecondary">
-                                                    {formatBytes(t.bytes)} ·{' '}
-                                                    {formatDuration(t.durationMs)}
+                                                    {formatBytes(task.bytes)} ·{' '}
+                                                    {formatDuration(task.durationMs)}
                                                 </Typography>
                                             </TableCell>
-                                            <TableCell>{renderError(t)}</TableCell>
+                                            <TableCell>{renderError(task)}</TableCell>
                                             <TableCell>
                                                 <IconButton
                                                     size="small"
-                                                    onClick={() => toggleExpanded(t)}
+                                                    onClick={() => toggleExpanded(task)}
                                                     title={
                                                         includeLogs
-                                                            ? '展开/收起日志'
-                                                            : '展开后按需加载日志'
+                                                            ? translate('syncTasks.logsToggle')
+                                                            : translate('syncTasks.logsLazyLoad')
                                                     }>
-                                                    {expanded[t.id] ? (
+                                                    {expanded[task.id] ? (
                                                         <ExpandLessIcon fontSize="small" />
                                                     ) : (
                                                         <ExpandMoreIcon fontSize="small" />
@@ -438,18 +452,18 @@ const SyncTaskDialog: React.FC<Props> = ({open, title, query, onClose, syncTaskS
                                                 </IconButton>
                                             </TableCell>
                                         </TableRow>
-                                        {expanded[t.id] || t.logs ? (
+                                        {expanded[task.id] || task.logs ? (
                                             <TableRow>
                                                 <TableCell
                                                     colSpan={showProjectColumn ? 8 : 7}
                                                     sx={{py: 0}}>
                                                     <Collapse
-                                                        in={!!expanded[t.id]}
+                                                        in={!!expanded[task.id]}
                                                         timeout="auto"
                                                         unmountOnExit>
                                                         <Box sx={{p: 1}}>
                                                             {(() => {
-                                                                if (logLoading[t.id]) {
+                                                                if (logLoading[task.id]) {
                                                                     return (
                                                                         <Box
                                                                             sx={{
@@ -465,7 +479,7 @@ const SyncTaskDialog: React.FC<Props> = ({open, title, query, onClose, syncTaskS
                                                                     );
                                                                 }
                                                                 const raw = String(
-                                                                    t.logs || ''
+                                                                    task.logs || ''
                                                                 ).replace(/\n$/, '');
                                                                 const lines =
                                                                     raw === ''
@@ -479,7 +493,7 @@ const SyncTaskDialog: React.FC<Props> = ({open, title, query, onClose, syncTaskS
                                                                 );
                                                                 const pageIndex = Math.min(
                                                                     Math.max(
-                                                                        logPages[t.id] ?? 0,
+                                                                        logPages[task.id] ?? 0,
                                                                         0
                                                                     ),
                                                                     totalPages - 1
@@ -508,15 +522,15 @@ const SyncTaskDialog: React.FC<Props> = ({open, title, query, onClose, syncTaskS
                                                                             <Typography
                                                                                 variant="caption"
                                                                                 color="textSecondary">
-                                                                                默认显示最新{' '}
-                                                                                {logPageSize} 行 ·
-                                                                                第{' '}
-                                                                                {Math.max(
-                                                                                    1,
-                                                                                    totalPages -
-                                                                                        pageIndex
-                                                                                )}
-                                                                                /{totalPages} 页
+                                                                                {translate('syncTasks.logPageHint', {
+                                                                                    count: logPageSize,
+                                                                                    page: Math.max(
+                                                                                        1,
+                                                                                        totalPages -
+                                                                                            pageIndex
+                                                                                    ),
+                                                                                    total: totalPages,
+                                                                                })}
                                                                             </Typography>
                                                                             <Stack
                                                                                 direction="row"
@@ -536,9 +550,9 @@ const SyncTaskDialog: React.FC<Props> = ({open, title, query, onClose, syncTaskS
                                                                                                 pages
                                                                                             ) => ({
                                                                                                 ...pages,
-                                                                                                [t.id]:
+                                                                                                [task.id]:
                                                                                                     (pages[
-                                                                                                        t
+                                                                                                        task
                                                                                                             .id
                                                                                                     ] ??
                                                                                                         0) +
@@ -546,7 +560,7 @@ const SyncTaskDialog: React.FC<Props> = ({open, title, query, onClose, syncTaskS
                                                                                             })
                                                                                         )
                                                                                     }>
-                                                                                    上一页
+                                                                                    {translate('syncTasks.older')}
                                                                                 </Button>
                                                                                 <Button
                                                                                     size="small"
@@ -561,10 +575,10 @@ const SyncTaskDialog: React.FC<Props> = ({open, title, query, onClose, syncTaskS
                                                                                                 pages
                                                                                             ) => ({
                                                                                                 ...pages,
-                                                                                                [t.id]:
+                                                                                                [task.id]:
                                                                                                     Math.max(
                                                                                                         (pages[
-                                                                                                            t
+                                                                                                            task
                                                                                                                 .id
                                                                                                         ] ??
                                                                                                             0) -
@@ -574,7 +588,7 @@ const SyncTaskDialog: React.FC<Props> = ({open, title, query, onClose, syncTaskS
                                                                                             })
                                                                                         )
                                                                                     }>
-                                                                                    下一页
+                                                                                    {translate('syncTasks.newer')}
                                                                                 </Button>
                                                                             </Stack>
                                                                         </Stack>
@@ -586,7 +600,7 @@ const SyncTaskDialog: React.FC<Props> = ({open, title, query, onClose, syncTaskS
                                                                                 whiteSpace:
                                                                                     'pre-wrap',
                                                                             }}>
-                                                                            {view || '--'}
+                                                                            {view || emptyValue}
                                                                         </pre>
                                                                     </>
                                                                 );
@@ -605,7 +619,7 @@ const SyncTaskDialog: React.FC<Props> = ({open, title, query, onClose, syncTaskS
             </DialogContent>
             <DialogActions>
                 <Button onClick={onClose} variant="contained" color="secondary">
-                    关闭
+                    {translate('common.close')}
                 </Button>
             </DialogActions>
         </Dialog>

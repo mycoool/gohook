@@ -33,6 +33,7 @@ import SyncNodeDialog from './SyncNodeDialog';
 import {SyncNodePayload} from './SyncNodeStore';
 import {useLocation} from 'react-router-dom';
 import SyncTaskDialog from './SyncTaskDialog';
+import useTranslation from '../i18n/useTranslation';
 
 type Props = Stores<'syncNodeStore' | 'currentUser'>;
 
@@ -49,7 +50,19 @@ const connectionColor = (status?: string) => {
     }
 };
 
-const connectionLabel = (node: ISyncNode) => node.connectionStatus || 'UNKNOWN';
+const connectionLabel = (node: ISyncNode, t: (key: string) => string) => {
+    const status = String(node.connectionStatus || 'UNKNOWN').toUpperCase();
+    switch (status) {
+        case 'CONNECTED':
+            return t('syncNodes.connection.connected');
+        case 'DISCONNECTED':
+            return t('syncNodes.connection.disconnected');
+        case 'UNPAIRED':
+            return t('syncNodes.connection.unpaired');
+        default:
+            return t('syncNodes.connection.unknown');
+    }
+};
 
 const syncColor = (status?: string) => {
     switch ((status || '').toUpperCase()) {
@@ -69,11 +82,29 @@ const syncColor = (status?: string) => {
     }
 };
 
-const syncLabel = (node: ISyncNode) => (node.syncStatus || 'IDLE').toUpperCase();
+const syncLabel = (node: ISyncNode, t: (key: string) => string) => {
+    const status = String(node.syncStatus || 'IDLE').toUpperCase();
+    switch (status) {
+        case 'SUCCESS':
+            return t('syncNodes.syncStatus.success');
+        case 'FAILED':
+            return t('syncNodes.syncStatus.failed');
+        case 'RUNNING':
+            return t('syncNodes.syncStatus.running');
+        case 'RETRYING':
+            return t('syncNodes.syncStatus.retrying');
+        case 'PENDING':
+            return t('syncNodes.syncStatus.pending');
+        case 'IDLE':
+            return t('syncNodes.syncStatus.idle');
+        default:
+            return status;
+    }
+};
 
-const formatTime = (value?: string) => {
+const formatTime = (value: string | undefined, t: (key: string) => string) => {
     if (!value) {
-        return 'N/A';
+        return t('syncNodes.notAvailable');
     }
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) {
@@ -83,6 +114,7 @@ const formatTime = (value?: string) => {
 };
 
 const SyncNodesPage: React.FC<Props> = ({syncNodeStore, currentUser}) => {
+    const {t} = useTranslation();
     const [dialogOpen, setDialogOpen] = useState(false);
     const [dialogMode, setDialogMode] = useState<'create' | 'edit'>('create');
     const [selectedNode, setSelectedNode] = useState<ISyncNode | null>(null);
@@ -134,7 +166,7 @@ const SyncNodesPage: React.FC<Props> = ({syncNodeStore, currentUser}) => {
 
     return (
         <DefaultPage
-            title="节点管理"
+            title={t('syncNodes.pageTitle')}
             maxWidth={1200}
             rightControl={
                 <ButtonGroup variant="contained">
@@ -142,10 +174,10 @@ const SyncNodesPage: React.FC<Props> = ({syncNodeStore, currentUser}) => {
                         startIcon={<RefreshIcon />}
                         onClick={() => syncNodeStore.refreshNodes()}
                         disabled={syncNodeStore.loading}>
-                        刷新
+                        {t('common.refresh')}
                     </Button>
                     <Button startIcon={<AddIcon />} onClick={openCreateDialog}>
-                        新增节点
+                        {t('syncNodes.addNode')}
                     </Button>
                 </ButtonGroup>
             }>
@@ -155,16 +187,16 @@ const SyncNodesPage: React.FC<Props> = ({syncNodeStore, currentUser}) => {
                         <Table size="small" sx={{minWidth: 960}}>
                             <TableHead>
                                 <TableRow>
-                                    <TableCell>名称</TableCell>
-                                    <TableCell>地址</TableCell>
-                                    <TableCell>备注</TableCell>
-                                    <TableCell>连接状态</TableCell>
-                                    <TableCell>同步状态</TableCell>
-                                    <TableCell>标签</TableCell>
+                                    <TableCell>{t('syncNodes.table.name')}</TableCell>
+                                    <TableCell>{t('syncNodes.table.address')}</TableCell>
+                                    <TableCell>{t('syncNodes.table.remark')}</TableCell>
+                                    <TableCell>{t('syncNodes.table.connection')}</TableCell>
+                                    <TableCell>{t('syncNodes.table.sync')}</TableCell>
+                                    <TableCell>{t('syncNodes.table.tags')}</TableCell>
                                     <TableCell
                                         align="left"
                                         style={{whiteSpace: 'nowrap', width: 1}}>
-                                        操作
+                                        {t('common.actions')}
                                     </TableCell>
                                 </TableRow>
                             </TableHead>
@@ -174,8 +206,8 @@ const SyncNodesPage: React.FC<Props> = ({syncNodeStore, currentUser}) => {
                                         <TableCell colSpan={7}>
                                             <Typography align="center" color="textSecondary">
                                                 {syncNodeStore.loading
-                                                    ? '加载节点中...'
-                                                    : '暂无节点，请点击“新增节点”'}
+                                                    ? t('syncNodes.loading')
+                                                    : t('syncNodes.empty')}
                                             </Typography>
                                         </TableCell>
                                     </TableRow>
@@ -194,16 +226,18 @@ const SyncNodesPage: React.FC<Props> = ({syncNodeStore, currentUser}) => {
                                                         variant="caption"
                                                         color="textSecondary">
                                                         {node.type === 'agent'
-                                                            ? 'Sync Agent'
-                                                            : 'SSH + rsync（暂不支持）'}
+                                                            ? t('syncNodes.typeAgent')
+                                                            : t('syncNodes.typeSSH')}
                                                     </Typography>
                                                 </Stack>
                                             </TableCell>
-                                            <TableCell>{node.address || '--'}</TableCell>
-                                            <TableCell>{node.remark || '--'}</TableCell>
+                                            <TableCell>
+                                                {node.address || t('syncNodes.notAvailable')}
+                                            </TableCell>
+                                            <TableCell>{node.remark || t('syncNodes.notAvailable')}</TableCell>
                                             <TableCell>
                                                 <Chip
-                                                    label={connectionLabel(node)}
+                                                    label={connectionLabel(node, t)}
                                                     variant="outlined"
                                                     size="small"
                                                     color={connectionColor(node.connectionStatus)}
@@ -241,7 +275,7 @@ const SyncNodesPage: React.FC<Props> = ({syncNodeStore, currentUser}) => {
                                                                 }>
                                                                 <span>
                                                                     <Chip
-                                                                        label={syncLabel(node)}
+                                                                        label={syncLabel(node, t)}
                                                                         size="small"
                                                                         color={syncColor(
                                                                             node.syncStatus
@@ -255,7 +289,7 @@ const SyncNodesPage: React.FC<Props> = ({syncNodeStore, currentUser}) => {
                                                         <Typography
                                                             variant="caption"
                                                             color="textSecondary">
-                                                            {formatTime(node.lastSyncAt)}
+                                                            {formatTime(node.lastSyncAt, t)}
                                                         </Typography>
                                                     ) : null}
                                                 </Stack>
@@ -270,7 +304,7 @@ const SyncNodesPage: React.FC<Props> = ({syncNodeStore, currentUser}) => {
                                                               sx={{mr: 0.5, mb: 0.5}}
                                                           />
                                                       ))
-                                                    : '--'}
+                                                    : t('syncNodes.none')}
                                             </TableCell>
                                             <TableCell
                                                 align="left"
@@ -280,7 +314,7 @@ const SyncNodesPage: React.FC<Props> = ({syncNodeStore, currentUser}) => {
                                                         display: 'inline-flex',
                                                         alignItems: 'center',
                                                     }}>
-                                                    <Tooltip title="查看任务/错误详情">
+                                                    <Tooltip title={t('syncNodes.tooltips.taskDetails')}>
                                                         <span>
                                                             <IconButton
                                                                 size="small"
@@ -292,7 +326,7 @@ const SyncNodesPage: React.FC<Props> = ({syncNodeStore, currentUser}) => {
                                                             </IconButton>
                                                         </span>
                                                     </Tooltip>
-                                                    <Tooltip title="重置配对（清空 mTLS 指纹，等待 Agent 重新连接）">
+                                                    <Tooltip title={t('syncNodes.tooltips.resetPairing')}>
                                                         <span>
                                                             <IconButton
                                                                 size="small"
@@ -309,14 +343,14 @@ const SyncNodesPage: React.FC<Props> = ({syncNodeStore, currentUser}) => {
                                                             </IconButton>
                                                         </span>
                                                     </Tooltip>
-                                                    <Tooltip title="编辑节点">
+                                                    <Tooltip title={t('syncNodes.tooltips.edit')}>
                                                         <IconButton
                                                             size="small"
                                                             onClick={() => openEditDialog(node)}>
                                                             <EditIcon fontSize="small" />
                                                         </IconButton>
                                                     </Tooltip>
-                                                    <Tooltip title="删除节点">
+                                                    <Tooltip title={t('syncNodes.tooltips.delete')}>
                                                         <IconButton
                                                             size="small"
                                                             color="error"
@@ -348,7 +382,7 @@ const SyncNodesPage: React.FC<Props> = ({syncNodeStore, currentUser}) => {
             {taskDialogNode ? (
                 <SyncTaskDialog
                     open={!!taskDialogNode}
-                    title={`任务详情 - ${taskDialogNode.name}`}
+                    title={t('syncTasks.title', {name: taskDialogNode.name})}
                     query={{nodeId: taskDialogNode.id}}
                     onClose={() => setTaskDialogNode(null)}
                 />
@@ -356,8 +390,8 @@ const SyncNodesPage: React.FC<Props> = ({syncNodeStore, currentUser}) => {
 
             {deleteTarget ? (
                 <ConfirmDialog
-                    title="删除节点"
-                    text={`确认删除节点 ${deleteTarget.name} 吗？`}
+                    title={t('syncNodes.deleteTitle')}
+                    text={t('syncNodes.deleteConfirm', {name: deleteTarget.name})}
                     fClose={() => setDeleteTarget(null)}
                     fOnSubmit={handleDelete}
                 />
