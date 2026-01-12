@@ -24,6 +24,9 @@ export class SyncNodeStore {
     private nodes: ISyncNode[] = [];
 
     @observable
+    private localRuntime: ISyncNodeRuntime | null = null;
+
+    @observable
     public loading = false;
 
     @observable
@@ -43,9 +46,15 @@ export class SyncNodeStore {
         return this.nodes;
     }
 
+    @computed
+    public get local(): ISyncNodeRuntime | null {
+        return this.localRuntime;
+    }
+
     @action
     public clear() {
         this.nodes = [];
+        this.localRuntime = null;
         this.loading = false;
         this.saving = false;
     }
@@ -71,15 +80,31 @@ export class SyncNodeStore {
     public refreshNodes = async () => {
         this.loading = true;
         try {
-            const response = await axios.get<ISyncNode[]>(`${config.get('url')}api/sync/nodes`, {
-                headers: this.headers,
-            });
-            runInAction(() => {
-                this.nodes = response.data || [];
-            });
-        } catch (error: unknown) {
-            this.handleError(error, '加载节点列表失败');
-            throw error;
+            const [nodesResponse, localResponse] = await Promise.allSettled([
+                axios.get<ISyncNode[]>(`${config.get('url')}api/sync/nodes`, {
+                    headers: this.headers,
+                }),
+                axios.get<ISyncNodeRuntime>(`${config.get('url')}api/sync/local-runtime`, {
+                    headers: this.headers,
+                }),
+            ]);
+            if (nodesResponse.status === 'fulfilled') {
+                runInAction(() => {
+                    this.nodes = nodesResponse.value.data || [];
+                });
+            } else {
+                this.handleError(nodesResponse.reason, '加载节点列表失败');
+                throw nodesResponse.reason;
+            }
+            if (localResponse.status === 'fulfilled') {
+                runInAction(() => {
+                    this.localRuntime = localResponse.value.data || null;
+                });
+            } else {
+                runInAction(() => {
+                    this.localRuntime = null;
+                });
+            }
         } finally {
             runInAction(() => {
                 this.loading = false;

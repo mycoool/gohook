@@ -67,6 +67,11 @@ func HandleListNodes(c *gin.Context) {
 	c.JSON(http.StatusOK, mapNodes(nodes, taskSummary))
 }
 
+func HandleLocalRuntime(c *gin.Context) {
+	runtime := collectLocalRuntime(c.Request.Context())
+	c.JSON(http.StatusOK, runtime)
+}
+
 func HandleGetNode(c *gin.Context) {
 	id, err := parseIDParam(c.Param("id"))
 	if err != nil {

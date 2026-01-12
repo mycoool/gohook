@@ -102,6 +102,7 @@ class Navigation extends Component<IProps, {showRequestNotification: boolean}> {
         const {syncNodeStore, setNavOpen} = this.props;
         const nodes = syncNodeStore.all;
         const loading = syncNodeStore.loading;
+        const localRuntime = syncNodeStore.local;
 
         return (
             <Box mt={2}>
@@ -134,6 +135,44 @@ class Navigation extends Component<IProps, {showRequestNotification: boolean}> {
                 </Box>
                 <Divider sx={{my: 1}} />
                 <List dense>
+                    <ListItemButton sx={{alignItems: 'flex-start'}}>
+                        <ListItemText
+                            primaryTypographyProps={{noWrap: true}}
+                            primary="MAIN-NODE"
+                            secondaryTypographyProps={{
+                                noWrap: true,
+                            }}
+                            secondary={
+                                localRuntime
+                                    ? localRuntime.hostname || 'gohook'
+                                    : loading
+                                    ? '加载中...'
+                                    : '暂无服务器信息'
+                            }
+                            sx={{minWidth: 0, mr: 1}}
+                        />
+                        <Tooltip
+                            title={this.runtimeTooltip(
+                                localRuntime,
+                                localRuntime ? 'CONNECTED' : 'DISCONNECTED'
+                            )}
+                            placement="right">
+                            <Box
+                                sx={{
+                                    ml: 1,
+                                    width: 76,
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: 0.25,
+                                    flexShrink: 0,
+                                }}>
+                                {this.renderRuntimeMiniChart(
+                                    localRuntime,
+                                    localRuntime ? 'CONNECTED' : 'DISCONNECTED'
+                                )}
+                            </Box>
+                        </Tooltip>
+                    </ListItemButton>
                     {nodes.length === 0 ? (
                         <Box px={3} py={1}>
                             <Typography variant="body2" color="textSecondary">

@@ -263,6 +263,8 @@ func InitRouter() *gin.Engine {
 	syncAPI := g.Group("/api/sync")
 	syncAPI.Use(middleware.AuthMiddleware(), middleware.DisableLogMiddleware())
 	{
+		syncAPI.GET("/local-runtime", syncnode.HandleLocalRuntime)
+
 		// sync projects (folders) management
 		syncAPI.GET("/projects", syncnode.HandleListSyncProjects)
 		syncAPI.PUT("/projects/:name/config", syncnode.HandleUpdateProjectSyncConfig)
