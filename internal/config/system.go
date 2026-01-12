@@ -13,6 +13,7 @@ type SystemConfig struct {
 	JWTExpiryDuration int    `yaml:"jwt_expiry_duration" json:"jwt_expiry_duration"`
 	Mode              string `yaml:"mode" json:"mode"`
 	PanelAlias        string `yaml:"panel_alias" json:"panel_alias"` // 面板别名，用于浏览器标题
+	Language          string `yaml:"language" json:"language"`       // 界面语言: zh | en
 }
 
 const configFilePath = "app.yaml"
@@ -26,6 +27,7 @@ func LoadSystemConfig() (*SystemConfig, error) {
 			JWTExpiryDuration: 1440, // 1440 minutes = 24 hours
 			Mode:              "dev",
 			PanelAlias:        "GoHook", // 默认面板别名
+			Language:          "zh",     // 默认中文
 		}, nil
 	}
 
@@ -53,6 +55,9 @@ func LoadSystemConfig() (*SystemConfig, error) {
 	if config.PanelAlias == "" {
 		config.PanelAlias = "GoHook" // 默认面板别名
 	}
+	if config.Language == "" {
+		config.Language = "zh" // 默认中文
+	}
 
 	return &config, nil
 }
@@ -72,6 +77,10 @@ func SaveSystemConfig(config *SystemConfig) error {
 	// validate panel_alias: allow empty (will use default), but limit length if provided
 	if len(config.PanelAlias) > 100 {
 		return fmt.Errorf("panel alias must not exceed 100 characters")
+	}
+	// validate language
+	if config.Language != "zh" && config.Language != "en" {
+		return fmt.Errorf("language must be either 'zh' or 'en'")
 	}
 
 	// read existing complete config file
@@ -95,6 +104,7 @@ func SaveSystemConfig(config *SystemConfig) error {
 	existingConfig["jwt_expiry_duration"] = config.JWTExpiryDuration
 	existingConfig["mode"] = config.Mode
 	existingConfig["panel_alias"] = config.PanelAlias
+	existingConfig["language"] = config.Language
 
 	// ensure port field exists and is valid
 	if _, exists := existingConfig["port"]; !exists {

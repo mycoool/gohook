@@ -373,10 +373,10 @@ class Logs extends Component<LogsProps, LogsState> {
                 </DialogTitle>
                 <DialogContent>
                     <Stack spacing={2}>
-                        {/* 基本信息 */}
+                        {/* Basic Information */}
                         <Box>
                             <Typography variant="subtitle2" gutterBottom>
-                                基本信息
+                                {this.props.t('logs.basicInfo')}
                             </Typography>
                             <Paper sx={{p: 2, bgcolor: 'background.default'}}>
                                 <Box display="grid" gridTemplateColumns="repeat(2, 1fr)" gap={2}>
@@ -468,7 +468,7 @@ class Logs extends Component<LogsProps, LogsState> {
                         {selectedLog.type === 'hook' && (
                             <Box>
                                 <Typography variant="subtitle2" gutterBottom>
-                                    Hook信息
+                                    {this.props.t('logs.hookInfo')}
                                 </Typography>
                                 <Paper sx={{p: 2, bgcolor: 'background.default'}}>
                                     <Box
@@ -478,7 +478,7 @@ class Logs extends Component<LogsProps, LogsState> {
                                         {selectedLog.hookName && (
                                             <Box>
                                                 <Typography variant="caption" color="textSecondary">
-                                                    Hook名称
+                                                    {this.props.t('logs.hookName')}
                                                 </Typography>
                                                 <Typography variant="body2">
                                                     {selectedLog.hookName}
@@ -488,7 +488,7 @@ class Logs extends Component<LogsProps, LogsState> {
                                         {selectedLog.method && (
                                             <Box>
                                                 <Typography variant="caption" color="textSecondary">
-                                                    请求方法
+                                                    {this.props.t('logs.requestMethod')}
                                                 </Typography>
                                                 <Typography variant="body2">
                                                     {selectedLog.method}
@@ -498,7 +498,7 @@ class Logs extends Component<LogsProps, LogsState> {
                                         {selectedLog.remoteAddr && (
                                             <Box>
                                                 <Typography variant="caption" color="textSecondary">
-                                                    远程地址
+                                                    {this.props.t('logs.remoteAddress')}
                                                 </Typography>
                                                 <Typography variant="body2">
                                                     {selectedLog.remoteAddr}
@@ -508,7 +508,7 @@ class Logs extends Component<LogsProps, LogsState> {
                                         {selectedLog.duration !== undefined && (
                                             <Box>
                                                 <Typography variant="caption" color="textSecondary">
-                                                    执行时长
+                                                    {this.props.t('logs.executionDuration')}
                                                 </Typography>
                                                 <Typography variant="body2">
                                                     {selectedLog.duration}ms

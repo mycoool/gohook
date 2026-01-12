@@ -26,6 +26,7 @@ interface SystemConfig {
     jwt_expiry_duration: number;
     mode: string;
     panel_alias: string;
+    language: string;
 }
 
 interface SystemSettingsDialogProps {
@@ -57,12 +58,14 @@ class SystemSettingsDialog extends Component<SystemSettingsDialogProps, SystemSe
                 jwt_expiry_duration: 24,
                 mode: 'dev',
                 panel_alias: 'GoHook',
+                language: 'zh',
             },
             originalConfig: {
                 jwt_secret: '',
                 jwt_expiry_duration: 24,
                 mode: 'dev',
                 panel_alias: 'GoHook',
+                language: 'zh',
             },
         };
     }
@@ -93,6 +96,7 @@ class SystemSettingsDialog extends Component<SystemSettingsDialogProps, SystemSe
                 jwt_expiry_duration: configData.jwt_expiry_duration || 24,
                 mode: configData.mode || 'dev',
                 panel_alias: configData.panel_alias || 'GoHook',
+                language: configData.language || 'zh',
             };
 
             this.setState({
@@ -182,7 +186,8 @@ class SystemSettingsDialog extends Component<SystemSettingsDialogProps, SystemSe
         return (
             config.jwt_expiry_duration !== originalConfig.jwt_expiry_duration ||
             config.mode !== originalConfig.mode ||
-            config.panel_alias !== originalConfig.panel_alias
+            config.panel_alias !== originalConfig.panel_alias ||
+            config.language !== originalConfig.language
         );
     };
 
@@ -267,6 +272,19 @@ class SystemSettingsDialog extends Component<SystemSettingsDialogProps, SystemSe
                                     <MenuItem value="dev">{t('settings.modeDev')}</MenuItem>
                                     <MenuItem value="test">{t('settings.modeTest')}</MenuItem>
                                     <MenuItem value="prod">{t('settings.modeProd')}</MenuItem>
+                                </Select>
+                            </FormControl>
+
+                            <FormControl fullWidth margin="normal">
+                                <InputLabel>{t('settings.language')}</InputLabel>
+                                <Select
+                                    value={config.language}
+                                    onChange={(e) =>
+                                        this.handleConfigChange('language', e.target.value)
+                                    }
+                                    label={t('settings.language')}>
+                                    <MenuItem value="zh">{t('settings.languageChinese')}</MenuItem>
+                                    <MenuItem value="en">{t('settings.languageEnglish')}</MenuItem>
                                 </Select>
                             </FormControl>
                         </Box>

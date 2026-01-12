@@ -27,6 +27,7 @@ type AppConfig struct {
 	Mode              string         `yaml:"mode"` // "dev" | "prod" | "test"
 	Database          DatabaseConfig `yaml:"database"`
 	PanelAlias        string         `yaml:"panel_alias"` // 面板别名，用于浏览器标题
+	Language          string         `yaml:"language"`    // 语言设置: "en" | "zh"
 }
 
 // DatabaseConfig database config

@@ -17,6 +17,7 @@ import (
 
 	"github.com/mycoool/gohook/internal/config"
 	"github.com/mycoool/gohook/internal/database"
+	"github.com/mycoool/gohook/internal/i18n"
 	"github.com/mycoool/gohook/internal/middleware"
 	"github.com/mycoool/gohook/internal/pidfile"
 	"github.com/mycoool/gohook/internal/syncnode"
@@ -147,6 +148,14 @@ func main() {
 
 	// Save the final configuration back to the global instance
 	types.GoHookAppConfig = appCfg
+
+	// Initialize i18n with the configured language
+	locale := i18n.Locale(appCfg.Language)
+	if locale == "" {
+		locale = i18n.LocaleChinese // Default to Chinese
+	}
+	i18n.Init(locale)
+	log.Printf("i18n initialized with locale: %s", locale)
 
 	// Init router with the final config
 	webhook.LoadedHooksFromFiles = &loadedHooksFromFiles

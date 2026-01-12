@@ -175,7 +175,7 @@ class LogStore {
             runInAction(() => {
                 this.loading = false;
             });
-            console.error('加载日志失败:', error);
+            console.error('Failed to load logs:', error);
             throw error;
         }
     }

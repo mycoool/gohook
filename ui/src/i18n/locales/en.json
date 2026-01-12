@@ -1025,7 +1025,6 @@
         "timestamp": "Timestamp",
         "user": "User",
         "project": "Project",
-        "hookName": "Hook Name",
         "hookType": "Hook Type",
         "method": "Method",
         "remoteAddr": "Remote Address",
@@ -1132,7 +1131,13 @@
             "webhook": "WebHook",
             "version": "Version Control",
             "settings": "System Settings"
-        }
+        },
+        "basicInfo": "Basic Information",
+        "hookInfo": "Hook Information",
+        "hookName": "Hook Name",
+        "requestMethod": "Request Method",
+        "remoteAddress": "Remote Address",
+        "executionDuration": "Execution Duration"
     },
     "settings": {
         "systemSettings": "Settings",
@@ -1148,6 +1153,10 @@
         "panelAlias": "Panel Alias",
         "panelAliasHelp": "Customize browser title to identify multiple GoHook panels",
         "panelAliasPlaceholder": "e.g.: Production, Testing, etc.",
+        "language": "Language",
+        "languageHelp": "Select the interface language for GoHook",
+        "languageChinese": "中文",
+        "languageEnglish": "English",
         "configSaved": "Configuration saved successfully",
         "configSaveFailed": "Failed to save configuration"
     }

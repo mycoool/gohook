@@ -1024,7 +1024,6 @@
         "timestamp": "时间",
         "user": "用户",
         "project": "项目",
-        "hookName": "Hook名称",
         "hookType": "Hook类型",
         "method": "请求方法",
         "remoteAddr": "远程地址",
@@ -1131,7 +1130,13 @@
             "webhook": "WebHook",
             "version": "版本控制",
             "settings": "系统设置"
-        }
+        },
+        "basicInfo": "基本信息",
+        "hookInfo": "Hook信息",
+        "hookName": "Hook名称",
+        "requestMethod": "请求方法",
+        "remoteAddress": "远程地址",
+        "executionDuration": "执行时长"
     },
     "settings": {
         "systemSettings": "设置",
@@ -1147,7 +1152,11 @@
         "panelAlias": "面板别名",
         "panelAliasHelp": "自定义浏览器标题，方便识别多个GoHook面板",
         "panelAliasPlaceholder": "例如：生产环境、测试环境等",
+        "language": "界面语言",
+        "languageHelp": "选择GoHook界面的显示语言",
+        "languageChinese": "中文",
+        "languageEnglish": "English",
         "configSaved": "配置保存成功",
-        "configSaveFailed": "配置保存失败"
+        "configSaveFailed": "保存配置失败"
     }
 }

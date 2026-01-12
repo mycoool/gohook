@@ -22,6 +22,7 @@ func LoadAppConfig() error {
 			JWTExpiryDuration: 1440, // default 24 hours, unit: minutes
 			Mode:              "test",
 			PanelAlias:        "GoHook", // 默认面板别名
+			Language:          "zh",     // 默认中文
 			Database: types.DatabaseConfig{
 				Type:             "sqlite",
 				Database:         "gohook.db",
@@ -145,5 +146,6 @@ func HandleGetAppConfig(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"mode":        types.GoHookAppConfig.Mode,
 		"panel_alias": types.GoHookAppConfig.PanelAlias,
+		"language":    types.GoHookAppConfig.Language,
 	})
 }
