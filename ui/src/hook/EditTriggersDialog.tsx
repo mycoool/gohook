@@ -49,6 +49,7 @@ import {
 import Grid from '@mui/material/Grid';
 import {IHook, ITriggerRule, IMatchRule, IParameter} from '../types';
 import {useTheme} from '@mui/material/styles';
+import useTranslation from '../i18n/useTranslation';
 
 // 扩展主题类型定义
 declare module '@mui/material/styles' {
@@ -143,28 +144,80 @@ interface EditTriggersDialogProps {
 }
 
 // 匹配类型定义
-const MATCH_TYPES = [
-    {value: 'value', label: '完全匹配', description: '参数值必须完全等于指定值'},
-    {value: 'regex', label: '正则表达式', description: '参数值匹配正则表达式'},
-    {value: 'payload-hmac-sha1', label: 'SHA1签名验证', description: '验证SHA1 HMAC签名'},
-    {value: 'payload-hmac-sha256', label: 'SHA256签名验证', description: '验证SHA256 HMAC签名'},
-    {value: 'payload-hmac-sha512', label: 'SHA512签名验证', description: '验证SHA512 HMAC签名'},
-    {value: 'ip-whitelist', label: 'IP白名单', description: '检查请求IP是否在允许范围内'},
-    {value: 'scalr-signature', label: 'Scalr签名', description: '验证Scalr平台签名'},
+const buildMatchTypes = (t: (key: string) => string) => [
+    {
+        value: 'value',
+        label: t('hook.triggers.matchTypes.value.label'),
+        description: t('hook.triggers.matchTypes.value.description'),
+    },
+    {
+        value: 'regex',
+        label: t('hook.triggers.matchTypes.regex.label'),
+        description: t('hook.triggers.matchTypes.regex.description'),
+    },
+    {
+        value: 'payload-hmac-sha1',
+        label: t('hook.triggers.matchTypes.hmacSha1.label'),
+        description: t('hook.triggers.matchTypes.hmacSha1.description'),
+    },
+    {
+        value: 'payload-hmac-sha256',
+        label: t('hook.triggers.matchTypes.hmacSha256.label'),
+        description: t('hook.triggers.matchTypes.hmacSha256.description'),
+    },
+    {
+        value: 'payload-hmac-sha512',
+        label: t('hook.triggers.matchTypes.hmacSha512.label'),
+        description: t('hook.triggers.matchTypes.hmacSha512.description'),
+    },
+    {
+        value: 'ip-whitelist',
+        label: t('hook.triggers.matchTypes.ipWhitelist.label'),
+        description: t('hook.triggers.matchTypes.ipWhitelist.description'),
+    },
+    {
+        value: 'scalr-signature',
+        label: t('hook.triggers.matchTypes.scalrSignature.label'),
+        description: t('hook.triggers.matchTypes.scalrSignature.description'),
+    },
 ];
 
 // 参数来源定义
-const PARAMETER_SOURCES = [
-    {value: 'payload', label: 'Payload数据', description: '从请求体中获取参数'},
-    {value: 'header', label: 'HTTP头部', description: '从HTTP请求头中获取参数'},
-    {value: 'query', label: '查询参数', description: '从URL查询字符串中获取参数'},
+const buildParameterSources = (t: (key: string) => string) => [
+    {
+        value: 'payload',
+        label: t('hook.triggers.parameterSources.payload.label'),
+        description: t('hook.triggers.parameterSources.payload.description'),
+    },
+    {
+        value: 'header',
+        label: t('hook.triggers.parameterSources.header.label'),
+        description: t('hook.triggers.parameterSources.header.description'),
+    },
+    {
+        value: 'query',
+        label: t('hook.triggers.parameterSources.query.label'),
+        description: t('hook.triggers.parameterSources.query.description'),
+    },
 ];
 
 // 逻辑操作符定义
-const LOGIC_OPERATORS = [
-    {value: 'and', label: 'AND (且)', description: '所有子规则都必须满足'},
-    {value: 'or', label: 'OR (或)', description: '任意一个子规则满足即可'},
-    {value: 'not', label: 'NOT (非)', description: '子规则不满足时匹配'},
+const buildLogicOperators = (t: (key: string) => string) => [
+    {
+        value: 'and',
+        label: t('hook.triggers.logicOperators.and.label'),
+        description: t('hook.triggers.logicOperators.and.description'),
+    },
+    {
+        value: 'or',
+        label: t('hook.triggers.logicOperators.or.label'),
+        description: t('hook.triggers.logicOperators.or.description'),
+    },
+    {
+        value: 'not',
+        label: t('hook.triggers.logicOperators.not.label'),
+        description: t('hook.triggers.logicOperators.not.description'),
+    },
 ];
 
 interface SimpleRule {
@@ -191,6 +244,10 @@ export default function EditTriggersDialog({
     onGetHookDetails,
 }: EditTriggersDialogProps) {
     const theme = useTheme();
+    const {t} = useTranslation();
+    const matchTypes = buildMatchTypes(t);
+    const parameterSources = buildParameterSources(t);
+    const logicOperators = buildLogicOperators(t);
     const [formData, setFormData] = useState({
         'trigger-rule': null as any,
         'trigger-rule-mismatch-http-response-code': 400,
@@ -607,7 +664,7 @@ export default function EditTriggersDialog({
                                         color: theme.custom.colors.text.onDark,
                                     },
                                 }}>
-                                {MATCH_TYPES.map((type) => (
+                                {matchTypes.map((type) => (
                                     <MenuItem key={type.value} value={type.value}>
                                         <Box>
                                             <Typography variant="body2">{type.label}</Typography>
@@ -650,7 +707,7 @@ export default function EditTriggersDialog({
                                                 color: theme.custom.colors.text.onDark,
                                             },
                                         }}>
-                                        {PARAMETER_SOURCES.map((source) => (
+                                        {parameterSources.map((source) => (
                                             <MenuItem key={source.value} value={source.value}>
                                                 {source.label}
                                             </MenuItem>
@@ -663,7 +720,7 @@ export default function EditTriggersDialog({
                                 <TextField
                                     fullWidth
                                     size="small"
-                                    placeholder="参数名"
+                                    placeholder={t('hook.triggers.placeholders.parameterName')}
                                     value={rule.parameter.name}
                                     onChange={(e) =>
                                         updateRule(rule.id, {
@@ -693,7 +750,7 @@ export default function EditTriggersDialog({
                             <TextField
                                 fullWidth
                                 size="small"
-                                placeholder="匹配值"
+                                placeholder={t('hook.triggers.placeholders.matchValue')}
                                 value={rule.value || ''}
                                 onChange={(e) => updateRule(rule.id, {value: e.target.value})}
                                 sx={{
@@ -715,7 +772,7 @@ export default function EditTriggersDialog({
                             <TextField
                                 fullWidth
                                 size="small"
-                                placeholder="正则表达式"
+                                placeholder={t('hook.triggers.placeholders.regex')}
                                 value={rule.regex || ''}
                                 onChange={(e) => updateRule(rule.id, {regex: e.target.value})}
                                 sx={{
@@ -738,7 +795,7 @@ export default function EditTriggersDialog({
                                 fullWidth
                                 size="small"
                                 type="password"
-                                placeholder="密钥"
+                                placeholder={t('hook.triggers.placeholders.secret')}
                                 value={rule.secret || ''}
                                 onChange={(e) => updateRule(rule.id, {secret: e.target.value})}
                                 sx={{
@@ -760,7 +817,7 @@ export default function EditTriggersDialog({
                             <TextField
                                 fullWidth
                                 size="small"
-                                placeholder="IP范围 (CIDR)"
+                                placeholder={t('hook.triggers.placeholders.ipRange')}
                                 value={rule['ip-range'] || ''}
                                 onChange={(e) => updateRule(rule.id, {'ip-range': e.target.value})}
                                 sx={{
@@ -826,7 +883,7 @@ export default function EditTriggersDialog({
                                     color: theme.custom.colors.text.onDark,
                                 },
                             }}>
-                            {LOGIC_OPERATORS.map((op) => (
+                            {logicOperators.map((op) => (
                                 <MenuItem key={op.value} value={op.value}>
                                     <Box>
                                         <Typography variant="body2" fontWeight="bold">
@@ -842,7 +899,7 @@ export default function EditTriggersDialog({
                     </FormControl>
 
                     <Chip
-                        label={`${group.rules.length} 个规则`}
+                        label={t('hook.triggers.ruleCount', {count: group.rules.length})}
                         size="small"
                         color={group.rules.length > 0 ? 'primary' : 'default'}
                     />
@@ -865,13 +922,13 @@ export default function EditTriggersDialog({
                         size="small"
                         startIcon={<AddIcon />}
                         onClick={() => addSimpleRule(group.id)}>
-                        添加规则
+                        {t('hook.triggers.addRule')}
                     </Button>
                     <Button
                         size="small"
                         startIcon={<TreeIcon />}
                         onClick={() => addRuleGroup(group.id)}>
-                        添加规则组
+                        {t('hook.triggers.addRuleGroup')}
                     </Button>
                 </Box>
             </CardContent>
@@ -894,9 +951,9 @@ export default function EditTriggersDialog({
             <DialogTitle>
                 <Box sx={{display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
                     <Typography variant="h6" sx={{color: theme.custom.colors.text.onDark}}>
-                        编辑触发规则 - {hookId}
+                        {t('hook.editTriggersTitle', {id: hookId || ''})}
                     </Typography>
-                    <Tooltip title="查看触发规则文档">
+                    <Tooltip title={t('hook.triggers.viewDocs')}>
                         <IconButton
                             size="small"
                             onClick={() => window.open('/docs/Hook-Rules.md', '_blank')}
@@ -942,7 +999,7 @@ export default function EditTriggersDialog({
                         <Typography
                             variant="body2"
                             sx={{color: theme.custom.colors.status.info.text}}>
-                            正在加载Hook配置数据...
+                            {t('hook.loadingConfig')}
                         </Typography>
                     </Alert>
                 )}
@@ -954,8 +1011,7 @@ export default function EditTriggersDialog({
                         <Typography
                             variant="body2"
                             sx={{color: theme.custom.colors.status.info.text}}>
-                            使用图形界面构建触发规则。支持多种匹配类型和逻辑组合（AND/OR/NOT）。
-                            如果不添加任何规则，则所有请求都会执行命令。
+                            {t('hook.triggers.builderDescription')}
                         </Typography>
                     </Alert>
 
@@ -972,25 +1028,25 @@ export default function EditTriggersDialog({
                                     variant="h6"
                                     sx={{color: theme.custom.colors.text.secondary}}
                                     gutterBottom>
-                                    还没有添加任何规则
+                                    {t('hook.triggers.emptyTitle')}
                                 </Typography>
                                 <Typography
                                     variant="body2"
                                     sx={{color: theme.custom.colors.text.secondary, mb: 3}}>
-                                    点击下面的按钮开始添加触发规则
+                                    {t('hook.triggers.emptyDescription')}
                                 </Typography>
                                 <Box sx={{display: 'flex', gap: 2, justifyContent: 'center'}}>
                                     <Button
                                         variant="contained"
                                         startIcon={<AddIcon />}
                                         onClick={() => addSimpleRule()}>
-                                        添加匹配规则
+                                        {t('hook.triggers.addMatchRule')}
                                     </Button>
                                     <Button
                                         variant="outlined"
                                         startIcon={<TreeIcon />}
                                         onClick={() => addRuleGroup()}>
-                                        添加规则组
+                                        {t('hook.triggers.addRuleGroup')}
                                     </Button>
                                 </Box>
                             </Card>
@@ -1004,7 +1060,7 @@ export default function EditTriggersDialog({
                             <TextField
                                 fullWidth
                                 type="number"
-                                label="触发规则不匹配时的HTTP响应码"
+                                label={t('hook.triggers.mismatchStatusCode')}
                                 value={formData['trigger-rule-mismatch-http-response-code']}
                                 onChange={(e) =>
                                     setFormData((prev) => ({
@@ -1014,7 +1070,7 @@ export default function EditTriggersDialog({
                                         ),
                                     }))
                                 }
-                                helperText="当请求不满足触发规则时返回的HTTP状态码（建议使用400-499范围）"
+                                helperText={t('hook.triggers.mismatchStatusCodeHelp')}
                                 inputProps={{min: 200, max: 599}}
                                 size="small"
                                 sx={{
@@ -1041,10 +1097,10 @@ export default function EditTriggersDialog({
             <DialogActions
                 sx={{px: 3, py: 2, backgroundColor: theme.custom.colors.primary.darkGray}}>
                 <Button onClick={onClose} sx={{color: theme.custom.colors.text.onDark}}>
-                    取消
+                    {t('common.cancel')}
                 </Button>
                 <Button onClick={handleSave} variant="contained" color="primary">
-                    保存触发规则
+                    {t('hook.triggers.save')}
                 </Button>
             </DialogActions>
         </Dialog>

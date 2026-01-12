@@ -308,7 +308,7 @@ const HooksContainer: React.FC<{
             rightControl={
                 <ButtonGroup variant="contained" color="primary">
                     <Button id="add-hook" startIcon={<Add />} onClick={onAddHook}>
-                        添加Hook
+                        {t('hook.addHook')}
                     </Button>
                     <Button id="refresh-hooks" startIcon={<Refresh />} onClick={onRefresh}>
                         {t('common.refresh')}
@@ -330,8 +330,8 @@ const HooksContainer: React.FC<{
                                 <TableCell>{t('hook.name')}</TableCell>
                                 <TableCell>{t('hook.command')}</TableCell>
                                 <TableCell>{t('hook.httpMethods')}</TableCell>
-                                <TableCell>{t('hook.parameters')}</TableCell>
-                                <TableCell>触发规则</TableCell>
+                                <TableCell>{t('hook.parametersLabel')}</TableCell>
+                                <TableCell>{t('hook.triggerRule')}</TableCell>
                                 <TableCell>{t('hook.status')}</TableCell>
                                 <TableCell align="left" style={{whiteSpace: 'nowrap', width: 1}}>
                                     {t('common.actions')}
@@ -405,10 +405,14 @@ const formatExecuteCommand = (executeCommand: string): string => {
 };
 
 // 获取执行命令的完整工具提示
-const getExecuteCommandTooltip = (executeCommand: string, workingDirectory: string): string => {
-    let tooltip = `完整命令: ${executeCommand}`;
+const getExecuteCommandTooltip = (
+    executeCommand: string,
+    workingDirectory: string,
+    t: (key: string, options?: Record<string, string | number>) => string
+): string => {
+    let tooltip = `${t('hook.fullCommand')}: ${executeCommand}`;
     if (workingDirectory) {
-        tooltip += `\n工作目录: ${workingDirectory}`;
+        tooltip += `\n${t('hook.workingDir')}: ${workingDirectory}`;
     }
     return tooltip;
 };
@@ -432,14 +436,17 @@ const Row: React.FC<IRowProps> = observer(
                 <TableCell>
                     <strong>{hook.name}</strong>
                     <br />
-                    <small style={{color: '#666'}}>ID: {hook.id}</small>
+                    <small style={{color: '#666'}}>
+                        {t('hook.idLabel')}: {hook.id}
+                    </small>
                 </TableCell>
                 <TableCell>
                     <code
                         className={classes.codeBlock}
                         title={getExecuteCommandTooltip(
                             hook.executeCommand || '',
-                            hook.workingDirectory || ''
+                            hook.workingDirectory || '',
+                            t
                         )}>
                         {formatExecuteCommand(hook.executeCommand || '')}
                     </code>
@@ -467,7 +474,7 @@ const Row: React.FC<IRowProps> = observer(
                 </TableCell>
                 <TableCell>
                     <Chip
-                        label={`参数: ${hook.argumentsCount || 0}`}
+                        label={t('hook.argumentsCount', {count: hook.argumentsCount || 0})}
                         size="small"
                         style={{
                             marginRight: '4px',
@@ -478,7 +485,7 @@ const Row: React.FC<IRowProps> = observer(
                         }}
                     />
                     <Chip
-                        label={`环境变量: ${hook.environmentCount || 0}`}
+                        label={t('hook.environmentCount', {count: hook.environmentCount || 0})}
                         size="small"
                         style={{
                             marginRight: '4px',
@@ -491,7 +498,9 @@ const Row: React.FC<IRowProps> = observer(
                 </TableCell>
                 <TableCell>
                     <Chip
-                        label={`规则: ${countTriggerRules(hook['trigger-rule'])}`}
+                        label={t('hook.ruleCount', {
+                            count: countTriggerRules(hook['trigger-rule']),
+                        })}
                         size="small"
                         style={{
                             backgroundColor:
@@ -525,35 +534,35 @@ const Row: React.FC<IRowProps> = observer(
                         <IconButton
                             onClick={fEditScript}
                             className="edit-script"
-                            title="编辑脚本"
+                            title={t('hook.editScript')}
                             size="small">
                             <Code />
                         </IconButton>
                         <IconButton
                             onClick={fEditBasic}
                             className="edit-basic"
-                            title="编辑基本信息"
+                            title={t('hook.editBasic')}
                             size="small">
                             <Settings />
                         </IconButton>
                         <IconButton
                             onClick={fEditParameters}
                             className="edit-parameters"
-                            title="编辑参数配置"
+                            title={t('hook.editParameters')}
                             size="small">
                             <Tune />
                         </IconButton>
                         <IconButton
                             onClick={fEditTriggers}
                             className="edit-triggers"
-                            title="编辑触发规则"
+                            title={t('hook.editTriggers')}
                             size="small">
                             <FilterAlt />
                         </IconButton>
                         <IconButton
                             onClick={fEditResponse}
                             className="edit-response"
-                            title="编辑响应配置"
+                            title={t('hook.editResponse')}
                             size="small">
                             <Http />
                         </IconButton>

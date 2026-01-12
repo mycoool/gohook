@@ -26,6 +26,7 @@ import {
 } from '@mui/material';
 import {Add as AddIcon, Delete as DeleteIcon, Help as HelpIcon} from '@mui/icons-material';
 import {IHook, IParameter, IEnvironmentVariable} from '../types';
+import useTranslation from '../i18n/useTranslation';
 
 interface EditParametersDialogProps {
     open: boolean;
@@ -43,11 +44,29 @@ interface EditParametersDialogProps {
 }
 
 // 参数来源选项
-const PARAMETER_SOURCES = [
-    {value: 'payload', label: 'Payload', description: '从请求体JSON中获取'},
-    {value: 'header', label: 'Header', description: '从HTTP请求头中获取'},
-    {value: 'query', label: 'Query', description: '从URL查询参数中获取'},
-    {value: 'string', label: 'String', description: '固定字符串值'},
+const buildParameterSources = (
+    t: (key: string, options?: Record<string, string | number>) => string
+) => [
+    {
+        value: 'payload',
+        label: t('hook.parameters.source.payload.label'),
+        description: t('hook.parameters.source.payload.description'),
+    },
+    {
+        value: 'header',
+        label: t('hook.parameters.source.header.label'),
+        description: t('hook.parameters.source.header.description'),
+    },
+    {
+        value: 'query',
+        label: t('hook.parameters.source.query.label'),
+        description: t('hook.parameters.source.query.description'),
+    },
+    {
+        value: 'string',
+        label: t('hook.parameters.source.string.label'),
+        description: t('hook.parameters.source.string.description'),
+    },
 ];
 
 export default function EditParametersDialog({
@@ -57,6 +76,8 @@ export default function EditParametersDialog({
     onSave,
     onGetHookDetails,
 }: EditParametersDialogProps) {
+    const {t} = useTranslation();
+    const parameterSources = buildParameterSources(t);
     const [formData, setFormData] = useState({
         'pass-arguments-to-command': [] as IParameter[],
         'pass-environment-to-command': [] as IEnvironmentVariable[],
@@ -163,14 +184,12 @@ export default function EditParametersDialog({
 
     return (
         <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
-            <DialogTitle>编辑参数传递 - {hookId}</DialogTitle>
+            <DialogTitle>{t('hook.editParametersTitle', {id: hookId || ''})}</DialogTitle>
 
             <DialogContent>
                 <Box sx={{pt: 2}}>
                     <Alert severity="info" sx={{mb: 3}}>
-                        <Typography variant="body2">
-                            配置如何将webhook请求中的数据传递给执行命令。参数会按顺序传递给命令，环境变量会设置到命令的执行环境中。
-                        </Typography>
+                        <Typography variant="body2">{t('hook.parameters.description')}</Typography>
                     </Alert>
 
                     {/* 命令参数配置 */}
@@ -178,9 +197,9 @@ export default function EditParametersDialog({
                         <CardContent>
                             <Box sx={{display: 'flex', alignItems: 'center', mb: 2}}>
                                 <Typography variant="h6" sx={{flexGrow: 1}}>
-                                    命令参数
+                                    {t('hook.parameters.commandArguments')}
                                 </Typography>
-                                <Tooltip title="参数会按顺序传递给执行命令">
+                                <Tooltip title={t('hook.parameters.commandArgumentsHelp')}>
                                     <IconButton size="small">
                                         <HelpIcon />
                                     </IconButton>
@@ -190,22 +209,28 @@ export default function EditParametersDialog({
                                     onClick={addParameter}
                                     variant="outlined"
                                     size="small">
-                                    添加参数
+                                    {t('hook.parameters.addArgument')}
                                 </Button>
                             </Box>
 
                             {formData['pass-arguments-to-command'].length === 0 ? (
                                 <Typography color="textSecondary" sx={{textAlign: 'center', py: 2}}>
-                                    暂无命令参数配置
+                                    {t('hook.parameters.noArguments')}
                                 </Typography>
                             ) : (
                                 <TableContainer component={Paper} variant="outlined">
                                     <Table size="small">
                                         <TableHead>
                                             <TableRow>
-                                                <TableCell>参数来源</TableCell>
-                                                <TableCell>参数名称</TableCell>
-                                                <TableCell width={100}>操作</TableCell>
+                                                <TableCell>
+                                                    {t('hook.parameters.sourceHeader')}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {t('hook.parameters.nameHeader')}
+                                                </TableCell>
+                                                <TableCell width={100}>
+                                                    {t('common.actions')}
+                                                </TableCell>
                                             </TableRow>
                                         </TableHead>
                                         <TableBody>
@@ -223,7 +248,7 @@ export default function EditParametersDialog({
                                                                             e.target.value
                                                                         )
                                                                     }>
-                                                                    {PARAMETER_SOURCES.map(
+                                                                    {parameterSources.map(
                                                                         (source) => (
                                                                             <MenuItem
                                                                                 key={source.value}
@@ -264,12 +289,20 @@ export default function EditParametersDialog({
                                                                 }
                                                                 placeholder={
                                                                     param.source === 'payload'
-                                                                        ? '例如: repository.name'
+                                                                        ? t(
+                                                                              'hook.parameters.placeholders.payload'
+                                                                          )
                                                                         : param.source === 'header'
-                                                                        ? '例如: X-GitHub-Event'
+                                                                        ? t(
+                                                                              'hook.parameters.placeholders.header'
+                                                                          )
                                                                         : param.source === 'query'
-                                                                        ? '例如: token'
-                                                                        : '固定值'
+                                                                        ? t(
+                                                                              'hook.parameters.placeholders.query'
+                                                                          )
+                                                                        : t(
+                                                                              'hook.parameters.placeholders.string'
+                                                                          )
                                                                 }
                                                             />
                                                         </TableCell>
@@ -298,9 +331,9 @@ export default function EditParametersDialog({
                         <CardContent>
                             <Box sx={{display: 'flex', alignItems: 'center', mb: 2}}>
                                 <Typography variant="h6" sx={{flexGrow: 1}}>
-                                    环境变量
+                                    {t('hook.parameters.environmentVariables')}
                                 </Typography>
-                                <Tooltip title="环境变量会设置到命令的执行环境中">
+                                <Tooltip title={t('hook.parameters.environmentVariablesHelp')}>
                                     <IconButton size="small">
                                         <HelpIcon />
                                     </IconButton>
@@ -310,23 +343,31 @@ export default function EditParametersDialog({
                                     onClick={addEnvironmentVariable}
                                     variant="outlined"
                                     size="small">
-                                    添加环境变量
+                                    {t('hook.parameters.addEnvironmentVariable')}
                                 </Button>
                             </Box>
 
                             {formData['pass-environment-to-command'].length === 0 ? (
                                 <Typography color="textSecondary" sx={{textAlign: 'center', py: 2}}>
-                                    暂无环境变量配置
+                                    {t('hook.parameters.noEnvironmentVariables')}
                                 </Typography>
                             ) : (
                                 <TableContainer component={Paper} variant="outlined">
                                     <Table size="small">
                                         <TableHead>
                                             <TableRow>
-                                                <TableCell>变量名</TableCell>
-                                                <TableCell>数据来源</TableCell>
-                                                <TableCell>数据路径</TableCell>
-                                                <TableCell width={100}>操作</TableCell>
+                                                <TableCell>
+                                                    {t('hook.parameters.envNameHeader')}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {t('hook.parameters.envSourceHeader')}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {t('hook.parameters.envPathHeader')}
+                                                </TableCell>
+                                                <TableCell width={100}>
+                                                    {t('common.actions')}
+                                                </TableCell>
                                             </TableRow>
                                         </TableHead>
                                         <TableBody>
@@ -345,7 +386,9 @@ export default function EditParametersDialog({
                                                                         e.target.value
                                                                     )
                                                                 }
-                                                                placeholder="环境变量名"
+                                                                placeholder={t(
+                                                                    'hook.parameters.placeholders.envName'
+                                                                )}
                                                             />
                                                         </TableCell>
                                                         <TableCell>
@@ -359,7 +402,7 @@ export default function EditParametersDialog({
                                                                             e.target.value
                                                                         )
                                                                     }>
-                                                                    {PARAMETER_SOURCES.map(
+                                                                    {parameterSources.map(
                                                                         (source) => (
                                                                             <MenuItem
                                                                                 key={source.value}
@@ -400,12 +443,20 @@ export default function EditParametersDialog({
                                                                 }
                                                                 placeholder={
                                                                     env.source === 'payload'
-                                                                        ? '例如: pusher.name'
+                                                                        ? t(
+                                                                              'hook.parameters.placeholders.envPayload'
+                                                                          )
                                                                         : env.source === 'header'
-                                                                        ? '例如: User-Agent'
+                                                                        ? t(
+                                                                              'hook.parameters.placeholders.envHeader'
+                                                                          )
                                                                         : env.source === 'query'
-                                                                        ? '例如: branch'
-                                                                        : '固定值'
+                                                                        ? t(
+                                                                              'hook.parameters.placeholders.envQuery'
+                                                                          )
+                                                                        : t(
+                                                                              'hook.parameters.placeholders.string'
+                                                                          )
                                                                 }
                                                             />
                                                         </TableCell>
@@ -432,9 +483,9 @@ export default function EditParametersDialog({
             </DialogContent>
 
             <DialogActions>
-                <Button onClick={onClose}>取消</Button>
+                <Button onClick={onClose}>{t('common.cancel')}</Button>
                 <Button onClick={handleSave} variant="contained" color="primary">
-                    保存参数配置
+                    {t('hook.parameters.save')}
                 </Button>
             </DialogActions>
         </Dialog>

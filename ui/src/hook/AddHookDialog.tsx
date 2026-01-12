@@ -11,6 +11,7 @@ import {
     Typography,
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
+import useTranslation from '../i18n/useTranslation';
 
 interface AddHookDialogProps {
     open: boolean;
@@ -24,11 +25,13 @@ interface AddHookDialogProps {
 }
 
 export default function AddHookDialog({open, onClose, onSave}: AddHookDialogProps) {
+    const {t} = useTranslation();
+    const defaultResponseMessage = t('hook.defaultResponseMessage');
     const [formData, setFormData] = useState({
         id: '',
         'execute-command': '',
         'command-working-directory': '',
-        'response-message': '执行成功',
+        'response-message': defaultResponseMessage,
     });
 
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -48,13 +51,13 @@ export default function AddHookDialog({open, onClose, onSave}: AddHookDialogProp
         const newErrors: Record<string, string> = {};
 
         if (!formData.id.trim()) {
-            newErrors.id = 'Hook ID不能为空';
+            newErrors.id = t('hook.validation.idRequired');
         } else if (!/^[a-zA-Z0-9\-_]+$/.test(formData.id)) {
-            newErrors.id = 'Hook ID只能包含字母、数字、连字符和下划线';
+            newErrors.id = t('hook.validation.idPattern');
         }
 
         if (!formData['execute-command'].trim()) {
-            newErrors['execute-command'] = '执行命令不能为空';
+            newErrors['execute-command'] = t('hook.validation.commandRequired');
         }
 
         setErrors(newErrors);
@@ -75,7 +78,7 @@ export default function AddHookDialog({open, onClose, onSave}: AddHookDialogProp
             id: '',
             'execute-command': '',
             'command-working-directory': '',
-            'response-message': '执行成功',
+            'response-message': defaultResponseMessage,
         });
         setErrors({});
         onClose();
@@ -83,26 +86,24 @@ export default function AddHookDialog({open, onClose, onSave}: AddHookDialogProp
 
     return (
         <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
-            <DialogTitle>添加新的Webhook</DialogTitle>
+            <DialogTitle>{t('hook.addDialogTitle')}</DialogTitle>
 
             <DialogContent>
                 <Box sx={{pt: 2}}>
                     <Alert severity="info" sx={{mb: 3}}>
-                        <Typography variant="body2">
-                            创建webhook的基本信息。创建后，您可以在列表中进一步配置参数传递、触发规则和响应设置。
-                        </Typography>
+                        <Typography variant="body2">{t('hook.addDialogDescription')}</Typography>
                     </Alert>
 
                     <Grid container spacing={3}>
                         <Grid size={{xs: 12, md: 6}}>
                             <TextField
                                 fullWidth
-                                label="Hook ID"
+                                label={t('hook.fields.id')}
                                 value={formData.id}
                                 onChange={(e) => handleFieldChange('id', e.target.value)}
                                 error={!!errors.id}
-                                helperText={errors.id || 'webhook的唯一标识符，用于构建URL路径'}
-                                placeholder="例如: github-deploy"
+                                helperText={errors.id || t('hook.fields.idHelper')}
+                                placeholder={t('hook.placeholders.id')}
                                 required
                             />
                         </Grid>
@@ -110,7 +111,7 @@ export default function AddHookDialog({open, onClose, onSave}: AddHookDialogProp
                         <Grid size={12}>
                             <TextField
                                 fullWidth
-                                label="执行命令"
+                                label={t('hook.fields.executeCommand')}
                                 value={formData['execute-command']}
                                 onChange={(e) =>
                                     handleFieldChange('execute-command', e.target.value)
@@ -118,9 +119,9 @@ export default function AddHookDialog({open, onClose, onSave}: AddHookDialogProp
                                 error={!!errors['execute-command']}
                                 helperText={
                                     errors['execute-command'] ||
-                                    '当webhook被触发时执行的命令或脚本路径'
+                                    t('hook.fields.executeCommandHelper')
                                 }
-                                placeholder="例如: /path/to/script.sh 或 node /path/to/handler.js"
+                                placeholder={t('hook.placeholders.executeCommand')}
                                 required
                             />
                         </Grid>
@@ -128,26 +129,26 @@ export default function AddHookDialog({open, onClose, onSave}: AddHookDialogProp
                         <Grid size={12}>
                             <TextField
                                 fullWidth
-                                label="工作目录"
+                                label={t('hook.fields.workingDirectory')}
                                 value={formData['command-working-directory']}
                                 onChange={(e) =>
                                     handleFieldChange('command-working-directory', e.target.value)
                                 }
-                                helperText="命令执行时的工作目录，留空则使用当前目录"
-                                placeholder="例如: /var/www/project"
+                                helperText={t('hook.fields.workingDirectoryHelper')}
+                                placeholder={t('hook.placeholders.workingDirectory')}
                             />
                         </Grid>
 
                         <Grid size={12}>
                             <TextField
                                 fullWidth
-                                label="响应消息"
+                                label={t('hook.fields.responseMessage')}
                                 value={formData['response-message']}
                                 onChange={(e) =>
                                     handleFieldChange('response-message', e.target.value)
                                 }
-                                helperText="webhook执行成功时返回的消息"
-                                placeholder="例如: 部署完成"
+                                helperText={t('hook.fields.responseMessageHelper')}
+                                placeholder={t('hook.placeholders.responseMessage')}
                             />
                         </Grid>
                     </Grid>
@@ -155,9 +156,9 @@ export default function AddHookDialog({open, onClose, onSave}: AddHookDialogProp
             </DialogContent>
 
             <DialogActions>
-                <Button onClick={handleClose}>取消</Button>
+                <Button onClick={handleClose}>{t('common.cancel')}</Button>
                 <Button onClick={handleSave} variant="contained" color="primary">
-                    创建Hook
+                    {t('hook.createHook')}
                 </Button>
             </DialogActions>
         </Dialog>

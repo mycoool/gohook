@@ -3,6 +3,7 @@ import * as config from '../config';
 import {action, observable} from 'mobx';
 import {SnackReporter} from '../snack/SnackManager';
 import {IHook} from '../types';
+import translate from '../i18n/translator';
 
 export class HookStore {
     @observable
@@ -25,7 +26,7 @@ export class HookStore {
             .delete(`${config.get('url')}hook/${id}`, {
                 headers: {'X-GoHook-Key': this.tokenProvider()},
             })
-            .then(() => this.snack('Hook deleted'));
+            .then(() => this.snack(translate('hook.snack.deleteSuccess')));
 
     @action
     public remove = async (id: string): Promise<void> => {
@@ -48,15 +49,15 @@ export class HookStore {
                     headers: {'X-GoHook-Key': this.tokenProvider()},
                 }
             );
-            this.snack(response.data.message || 'Hooks配置加载成功');
+            this.snack(response.data.message || translate('hook.snack.reloadConfigSuccess'));
             await this.refresh(); // 加载后刷新数据
         } catch (error: unknown) {
             const errorMessage =
                 error instanceof Error
                     ? error.message
                     : (error as {response?: {data?: {error?: string}}})?.response?.data?.error ??
-                      '未知错误';
-            this.snack('加载Hook失败: ' + errorMessage);
+                      translate('hook.snack.unknownError');
+            this.snack(translate('hook.snack.loadFailedWithError', {error: errorMessage}));
         }
     };
 
@@ -70,7 +71,7 @@ export class HookStore {
                     headers: {'X-GoHook-Key': this.tokenProvider()},
                 }
             );
-            this.snack(response.data.message || 'Hook triggered successfully');
+            this.snack(response.data.message || translate('hook.snack.triggerSuccess'));
         } catch (error: unknown) {
             // 处理错误情况
             if (error && typeof error === 'object' && 'response' in error) {
@@ -89,15 +90,20 @@ export class HookStore {
                 const responseData = axiosError.response?.data;
                 if (responseData) {
                     // 构建详细的错误消息
-                    let errorMessage = responseData.message || 'Hook execution failed';
+                    let errorMessage =
+                        responseData.message || translate('hook.snack.triggerFailed');
                     if (responseData.hook) {
                         errorMessage += ` (${responseData.hook})`;
                     }
                     if (responseData.error) {
-                        errorMessage += `\n错误详情: ${responseData.error}`;
+                        errorMessage += `\n${translate('hook.snack.errorDetails', {
+                            error: responseData.error,
+                        })}`;
                     }
                     if (responseData.output) {
-                        errorMessage += `\n输出: ${responseData.output}`;
+                        errorMessage += `\n${translate('hook.snack.commandOutput', {
+                            output: responseData.output,
+                        })}`;
                     }
 
                     this.snack(errorMessage);
@@ -106,7 +112,8 @@ export class HookStore {
             }
 
             // 兜底错误处理
-            const errorMessage = error instanceof Error ? error.message : 'Hook执行失败：未知错误';
+            const errorMessage =
+                error instanceof Error ? error.message : translate('hook.snack.triggerFailed');
             this.snack(errorMessage);
         }
     };
@@ -123,8 +130,8 @@ export class HookStore {
                 error instanceof Error
                     ? error.message
                     : (error as {response?: {data?: {error?: string}}})?.response?.data?.error ??
-                      '获取Hook详情失败';
-            this.snack('获取Hook详情失败: ' + errorMessage);
+                      translate('hook.snack.detailsFailed');
+            this.snack(translate('hook.snack.detailsFailedWithError', {error: errorMessage}));
             throw new Error(errorMessage);
         }
     };
@@ -163,14 +170,14 @@ export class HookStore {
             const response = await axios.post(`${config.get('url')}hook`, hookData, {
                 headers: {'X-GoHook-Key': this.tokenProvider()},
             });
-            this.snack(response.data.message || 'Hook创建成功');
+            this.snack(response.data.message || translate('hook.snack.createSuccess'));
         } catch (error: unknown) {
             const errorMessage =
                 error instanceof Error
                     ? error.message
                     : (error as {response?: {data?: {error?: string}}})?.response?.data?.error ??
-                      '创建Hook失败';
-            this.snack('创建Hook失败: ' + errorMessage);
+                      translate('hook.snack.createFailed');
+            this.snack(translate('hook.snack.createFailedWithError', {error: errorMessage}));
             throw new Error(errorMessage);
         }
     };
@@ -192,14 +199,14 @@ export class HookStore {
                     headers: {'X-GoHook-Key': this.tokenProvider()},
                 }
             );
-            this.snack(response.data.message || 'Hook基本信息更新成功');
+            this.snack(response.data.message || translate('hook.snack.updateBasicSuccess'));
         } catch (error: unknown) {
             const errorMessage =
                 error instanceof Error
                     ? error.message
                     : (error as {response?: {data?: {error?: string}}})?.response?.data?.error ??
-                      '更新Hook基本信息失败';
-            this.snack('更新Hook基本信息失败: ' + errorMessage);
+                      translate('hook.snack.updateBasicFailed');
+            this.snack(translate('hook.snack.updateBasicFailedWithError', {error: errorMessage}));
             throw new Error(errorMessage);
         }
     };
@@ -221,14 +228,16 @@ export class HookStore {
                     headers: {'X-GoHook-Key': this.tokenProvider()},
                 }
             );
-            this.snack(response.data.message || 'Hook参数配置更新成功');
+            this.snack(response.data.message || translate('hook.snack.updateParametersSuccess'));
         } catch (error: unknown) {
             const errorMessage =
                 error instanceof Error
                     ? error.message
                     : (error as {response?: {data?: {error?: string}}})?.response?.data?.error ??
-                      '更新Hook参数配置失败';
-            this.snack('更新Hook参数配置失败: ' + errorMessage);
+                      translate('hook.snack.updateParametersFailed');
+            this.snack(
+                translate('hook.snack.updateParametersFailedWithError', {error: errorMessage})
+            );
             throw new Error(errorMessage);
         }
     };
@@ -249,14 +258,16 @@ export class HookStore {
                     headers: {'X-GoHook-Key': this.tokenProvider()},
                 }
             );
-            this.snack(response.data.message || 'Hook触发规则更新成功');
+            this.snack(response.data.message || translate('hook.snack.updateTriggersSuccess'));
         } catch (error: unknown) {
             const errorMessage =
                 error instanceof Error
                     ? error.message
                     : (error as {response?: {data?: {error?: string}}})?.response?.data?.error ??
-                      '更新Hook触发规则失败';
-            this.snack('更新Hook触发规则失败: ' + errorMessage);
+                      translate('hook.snack.updateTriggersFailed');
+            this.snack(
+                translate('hook.snack.updateTriggersFailedWithError', {error: errorMessage})
+            );
             throw new Error(errorMessage);
         }
     };
@@ -279,14 +290,16 @@ export class HookStore {
                     headers: {'X-GoHook-Key': this.tokenProvider()},
                 }
             );
-            this.snack(response.data.message || 'Hook响应配置更新成功');
+            this.snack(response.data.message || translate('hook.snack.updateResponseSuccess'));
         } catch (error: unknown) {
             const errorMessage =
                 error instanceof Error
                     ? error.message
                     : (error as {response?: {data?: {error?: string}}})?.response?.data?.error ??
-                      '更新Hook响应配置失败';
-            this.snack('更新Hook响应配置失败: ' + errorMessage);
+                      translate('hook.snack.updateResponseFailed');
+            this.snack(
+                translate('hook.snack.updateResponseFailedWithError', {error: errorMessage})
+            );
             throw new Error(errorMessage);
         }
     };
@@ -322,8 +335,8 @@ export class HookStore {
                 error instanceof Error
                     ? error.message
                     : (error as {response?: {data?: {error?: string}}})?.response?.data?.error ??
-                      '获取脚本文件失败';
-            this.snack('获取脚本文件失败: ' + errorMessage);
+                      translate('hook.snack.getScriptFailed');
+            this.snack(translate('hook.snack.getScriptFailedWithError', {error: errorMessage}));
             throw new Error(errorMessage);
         }
     };
@@ -342,14 +355,14 @@ export class HookStore {
                     headers: {'X-GoHook-Key': this.tokenProvider()},
                 }
             );
-            this.snack(response.data.message || '脚本文件保存成功');
+            this.snack(response.data.message || translate('hook.snack.saveScriptSuccess'));
         } catch (error: unknown) {
             const errorMessage =
                 error instanceof Error
                     ? error.message
                     : (error as {response?: {data?: {error?: string}}})?.response?.data?.error ??
-                      '保存脚本文件失败';
-            this.snack('保存脚本文件失败: ' + errorMessage);
+                      translate('hook.snack.saveScriptFailed');
+            this.snack(translate('hook.snack.saveScriptFailedWithError', {error: errorMessage}));
             throw new Error(errorMessage);
         }
     };
@@ -365,14 +378,14 @@ export class HookStore {
                     headers: {'X-GoHook-Key': this.tokenProvider()},
                 }
             );
-            this.snack(response.data.message || '执行命令更新成功');
+            this.snack(response.data.message || translate('hook.snack.updateCommandSuccess'));
         } catch (error: unknown) {
             const errorMessage =
                 error instanceof Error
                     ? error.message
                     : (error as {response?: {data?: {error?: string}}})?.response?.data?.error ??
-                      '更新执行命令失败';
-            this.snack('更新执行命令失败: ' + errorMessage);
+                      translate('hook.snack.updateCommandFailed');
+            this.snack(translate('hook.snack.updateCommandFailedWithError', {error: errorMessage}));
             throw new Error(errorMessage);
         }
     };

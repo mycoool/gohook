@@ -514,17 +514,360 @@
         "command": "执行命令",
         "workingDir": "工作目录",
         "httpMethods": "HTTP方法",
-        "parameters": "参数配置",
+        "parametersLabel": "参数配置",
         "triggerRule": "触发规则",
         "lastUsed": "最后使用",
         "status": "状态",
         "triggerHook": "触发脚本",
-        "deleteHook": "删除项目",
-        "confirmDelete": "确认删除WebHook项目",
+        "deleteHook": "删除Hook",
+        "confirmDelete": "确认删除WebHook",
         "confirmDeleteText": "确定要删除WebHook \"{{name}}\" 吗？",
         "hookTriggered": "WebHook触发成功",
         "hookFailed": "WebHook执行失败",
-        "reloadConfig": "加载配置"
+        "reloadConfig": "加载配置",
+        "addHook": "添加Hook",
+        "createHook": "创建Hook",
+        "idLabel": "ID",
+        "fullCommand": "完整命令",
+        "argumentsCount": "参数: {{count}}",
+        "environmentCount": "环境变量: {{count}}",
+        "ruleCount": "规则: {{count}}",
+        "editScript": "编辑脚本",
+        "editBasic": "编辑基本信息",
+        "editParameters": "编辑参数配置",
+        "editTriggers": "编辑触发规则",
+        "editResponse": "编辑响应配置",
+        "defaultResponseMessage": "执行成功",
+        "addDialogTitle": "添加新的Webhook",
+        "addDialogDescription": "创建webhook的基本信息。创建后，您可以在列表中进一步配置参数传递、触发规则和响应设置。",
+        "editBasicTitle": "编辑基本信息 - {{id}}",
+        "editBasicDescription": "修改webhook的基本配置信息，包括执行命令、工作目录和响应消息。",
+        "editParametersTitle": "编辑参数传递 - {{id}}",
+        "editResponseTitle": "编辑响应配置 - {{id}}",
+        "editTriggersTitle": "编辑触发规则 - {{id}}",
+        "loadingConfig": "正在加载Hook配置数据...",
+        "fields": {
+            "id": "Hook ID",
+            "idHelper": "webhook的唯一标识符，用于构建URL路径",
+            "executeCommand": "执行命令",
+            "executeCommandHelper": "当webhook被触发时执行的命令或脚本路径",
+            "workingDirectory": "工作目录",
+            "workingDirectoryHelper": "命令执行时的工作目录，留空则使用当前目录",
+            "responseMessage": "响应消息",
+            "responseMessageHelper": "webhook执行成功时返回的消息"
+        },
+        "placeholders": {
+            "id": "例如: github-deploy",
+            "executeCommand": "例如: /path/to/script.sh 或 node /path/to/handler.js",
+            "workingDirectory": "例如: /var/www/project",
+            "responseMessage": "例如: 部署完成"
+        },
+        "validation": {
+            "idRequired": "Hook ID不能为空",
+            "idPattern": "Hook ID只能包含字母、数字、连字符和下划线",
+            "commandRequired": "执行命令不能为空"
+        },
+        "parameters": {
+            "description": "配置如何将webhook请求中的数据传递给执行命令。参数会按顺序传递给命令，环境变量会设置到命令的执行环境中。",
+            "commandArguments": "命令参数",
+            "commandArgumentsHelp": "参数会按顺序传递给执行命令",
+            "addArgument": "添加参数",
+            "noArguments": "暂无命令参数配置",
+            "sourceHeader": "参数来源",
+            "nameHeader": "参数名称",
+            "environmentVariables": "环境变量",
+            "environmentVariablesHelp": "环境变量会设置到命令的执行环境中",
+            "addEnvironmentVariable": "添加环境变量",
+            "noEnvironmentVariables": "暂无环境变量配置",
+            "envNameHeader": "变量名",
+            "envSourceHeader": "数据来源",
+            "envPathHeader": "数据路径",
+            "save": "保存参数配置",
+            "placeholders": {
+                "payload": "例如: repository.name",
+                "header": "例如: X-GitHub-Event",
+                "query": "例如: token",
+                "string": "固定值",
+                "envName": "环境变量名",
+                "envPayload": "例如: pusher.name",
+                "envHeader": "例如: User-Agent",
+                "envQuery": "例如: branch"
+            },
+            "source": {
+                "payload": {
+                    "label": "Payload",
+                    "description": "从请求体JSON中获取"
+                },
+                "header": {
+                    "label": "Header",
+                    "description": "从HTTP请求头中获取"
+                },
+                "query": {
+                    "label": "Query",
+                    "description": "从URL查询参数中获取"
+                },
+                "string": {
+                    "label": "String",
+                    "description": "固定字符串值"
+                }
+            }
+        },
+        "response": {
+            "description": "配置webhook的HTTP响应设置，包括支持的HTTP方法、响应头和输出控制。",
+            "supportedMethods": "支持的HTTP方法",
+            "methodsHint": "选择webhook支持的HTTP方法。至少需要选择一个方法。",
+            "customHeaders": "自定义响应头",
+            "headerName": "响应头名称",
+            "headerNamePlaceholder": "例如: X-Custom-Header",
+            "headerValue": "响应头值",
+            "headerValuePlaceholder": "例如: custom-value",
+            "noCustomHeaders": "暂无自定义响应头",
+            "outputControl": "命令输出控制",
+            "includeOutput": "在响应中包含命令输出",
+            "includeOutputHint": "开启后，命令的标准输出会包含在HTTP响应中",
+            "includeErrorOutput": "命令失败时在响应中包含错误输出",
+            "includeErrorOutputHint": "开启后，命令执行失败时会在HTTP响应中包含错误信息",
+            "save": "保存响应配置"
+        },
+        "triggers": {
+            "viewDocs": "查看触发规则文档",
+            "builderDescription": "使用图形界面构建触发规则。支持多种匹配类型和逻辑组合（AND/OR/NOT）。如果不添加任何规则，则所有请求都会执行命令。",
+            "emptyTitle": "还没有添加任何规则",
+            "emptyDescription": "点击下面的按钮开始添加触发规则",
+            "addMatchRule": "添加匹配规则",
+            "addRuleGroup": "添加规则组",
+            "mismatchStatusCode": "触发规则不匹配时的HTTP响应码",
+            "mismatchStatusCodeHelp": "当请求不满足触发规则时返回的HTTP状态码（建议使用400-499范围）",
+            "save": "保存触发规则",
+            "addRule": "添加规则",
+            "ruleCount": "{{count}} 个规则",
+            "placeholders": {
+                "parameterName": "参数名",
+                "matchValue": "匹配值",
+                "regex": "正则表达式",
+                "secret": "密钥",
+                "ipRange": "IP范围 (CIDR)"
+            },
+            "matchTypes": {
+                "value": {
+                    "label": "完全匹配",
+                    "description": "参数值必须完全等于指定值"
+                },
+                "regex": {
+                    "label": "正则表达式",
+                    "description": "参数值匹配正则表达式"
+                },
+                "hmacSha1": {
+                    "label": "SHA1签名验证",
+                    "description": "验证SHA1 HMAC签名"
+                },
+                "hmacSha256": {
+                    "label": "SHA256签名验证",
+                    "description": "验证SHA256 HMAC签名"
+                },
+                "hmacSha512": {
+                    "label": "SHA512签名验证",
+                    "description": "验证SHA512 HMAC签名"
+                },
+                "ipWhitelist": {
+                    "label": "IP白名单",
+                    "description": "检查请求IP是否在允许范围内"
+                },
+                "scalrSignature": {
+                    "label": "Scalr签名",
+                    "description": "验证Scalr平台签名"
+                }
+            },
+            "parameterSources": {
+                "payload": {
+                    "label": "Payload数据",
+                    "description": "从请求体中获取参数"
+                },
+                "header": {
+                    "label": "HTTP头部",
+                    "description": "从HTTP请求头中获取参数"
+                },
+                "query": {
+                    "label": "查询参数",
+                    "description": "从URL查询字符串中获取参数"
+                }
+            },
+            "logicOperators": {
+                "and": {
+                    "label": "AND (且)",
+                    "description": "所有子规则都必须满足"
+                },
+                "or": {
+                    "label": "OR (或)",
+                    "description": "任意一个子规则满足即可"
+                },
+                "not": {
+                    "label": "NOT (非)",
+                    "description": "子规则不满足时匹配"
+                }
+            }
+        },
+        "script": {
+            "loadFailed": "加载脚本文件失败",
+            "saveWarningUpdateCommandFailed": "脚本保存成功，但更新执行命令失败，请手动配置",
+            "saveSuccess": "脚本文件保存成功",
+            "saveFailed": "保存脚本文件失败",
+            "updateCommandSuccess": "执行命令更新成功",
+            "updateCommandFailed": "更新执行命令失败",
+            "validation": {
+                "scriptNameRequired": "请输入脚本名称"
+            },
+            "modeCommand": "命令",
+            "modeScript": "脚本",
+            "dialogTitleCommand": "执行命令配置",
+            "dialogTitleEdit": "编辑脚本文件",
+            "dialogTitleCreate": "创建脚本文件",
+            "commandSectionTitle": "⚙️ 执行命令配置",
+            "commandSectionDescription": "配置要执行的命令或可执行文件路径，支持添加参数和选项",
+            "executeCommandLabel": "执行命令",
+            "executeCommandPlaceholder": "例如: /bin/echo hello 或 /usr/bin/python3 /path/to/script.py",
+            "commandExamplesTitle": "💡 使用示例：",
+            "commandExampleOutput": "输出文本",
+            "commandExampleHttp": "发送HTTP请求",
+            "commandExamplePython": "执行Python脚本",
+            "commandExampleBash": "执行Bash脚本",
+            "tipPrefix": "💡 提示:",
+            "setupTitle": "📝 创建新脚本文件",
+            "setupDescription": "请配置脚本文件的基本信息",
+            "scriptNameLabel": "脚本名称",
+            "scriptNamePlaceholder": "例如: webhook-handler",
+            "scriptNameHelper": "不需要包含文件扩展名，会根据选择的类型自动添加",
+            "scriptDirectoryLabel": "保存目录",
+            "scriptDirectoryHelper": "脚本文件将保存到此目录",
+            "templateLabel": "脚本类型和模板",
+            "templates": {
+                "emptyBash": "空白 Bash 脚本 (.sh)",
+                "simpleBash": "简单 Bash 脚本 (.sh)",
+                "gitDeploy": "Git 部署脚本 (.sh)",
+                "simpleJavascript": "简单 JavaScript 脚本 (.js)",
+                "webhookJavascript": "Webhook 处理脚本 (.js)",
+                "simplePython": "简单 Python 脚本 (.py)",
+                "webhookPython": "Python Webhook 处理脚本 (.py)",
+                "empty": "空白"
+            },
+            "generatedPathLabel": "生成的文件路径:",
+            "editTitle": "📄 脚本文件编辑",
+            "templateSelectLabel": "选择模板",
+            "templateFillHint": "选择模板将自动填充内容到编辑器中",
+            "editorPlaceholderNew": "# {{format}} 脚本内容\n\n# 选择上方模板快速开始",
+            "editorPlaceholderEdit": "# {{format}} 脚本文件",
+            "scriptPathLabel": "脚本文件路径:",
+            "unknownPath": "未知路径",
+            "templateQuickHint": "💡 提示：选择上方模板可快速开始配置脚本",
+            "validationTitle": "验证错误：",
+            "updateCommandNoChange": "命令未改变，无需更新",
+            "updateCommandMissing": "请输入执行命令",
+            "updateCommandAction": "更新执行命令",
+            "updateCommandButton": "更新执行命令",
+            "confirmCreateScript": "确认并创建脚本",
+            "saveChanges": "保存修改",
+            "createScript": "创建脚本"
+        },
+        "templateCodes": {
+            "bashSimple": {
+                "comment1": "简单的 Bash 脚本示例",
+                "line1": "Hook 被触发: $HOOK_ID",
+                "line2": "请求方法: $HOOK_METHOD",
+                "line3": "远程地址: $HOOK_REMOTE_ADDR",
+                "comment2": "执行你的逻辑",
+                "line4": "执行完成"
+            },
+            "gitDeploy": {
+                "comment1": "Git 部署脚本示例",
+                "comment2": "遇到错误立即退出",
+                "line1": "开始部署...",
+                "comment3": "进入项目目录",
+                "comment4": "拉取最新代码",
+                "comment5": "安装依赖 (根据项目类型选择)",
+                "comment6": "构建项目 (如果需要)",
+                "comment7": "重启服务 (根据实际情况选择)",
+                "line2": "部署完成"
+            },
+            "jsSimple": {
+                "comment1": "JavaScript 脚本示例",
+                "line1": "Hook 被触发: {{hookId}}",
+                "line2": "请求方法: {{method}}",
+                "line3": "远程地址: {{remoteAddr}}",
+                "comment2": "执行你的逻辑",
+                "line4": "执行完成"
+            },
+            "jsWebhook": {
+                "comment1": "Webhook 处理脚本示例",
+                "comment2": "从环境变量获取 webhook 数据",
+                "comment3": "解析 payload (如果是 JSON)",
+                "line1": "收到 Webhook",
+                "comment4": "记录到日志文件",
+                "line2": "处理完成",
+                "line3": "处理失败"
+            },
+            "pySimple": {
+                "comment1": "Python 脚本示例",
+                "comment2": "从环境变量获取 webhook 信息",
+                "line1": "Hook 被触发: {{hook_id}}",
+                "line2": "请求方法: {{method}}",
+                "line3": "远程地址: {{remote_addr}}",
+                "comment3": "执行你的逻辑",
+                "line4": "执行完成"
+            },
+            "pyWebhook": {
+                "comment1": "Python Webhook 处理脚本示例",
+                "comment2": "配置日志",
+                "comment3": "处理 webhook 请求",
+                "comment4": "从环境变量获取数据",
+                "comment5": "解析 JSON payload",
+                "line1": "收到 Webhook: {{hook_id}}",
+                "line2": "请求方法: {{method}}",
+                "line3": "远程地址: {{remote_addr}}",
+                "comment6": "处理不同类型的事件",
+                "line4": "事件类型: {{event_type}}",
+                "line5": "仓库名称: {{repository}}",
+                "comment7": "记录到文件",
+                "comment8": "写入日志文件",
+                "line6": "处理完成",
+                "line7": "处理失败: {{error}}",
+                "comment9": "主函数"
+            },
+            "snack": {
+                "deleteSuccess": "Hook已删除",
+                "reloadConfigSuccess": "Hook配置加载成功",
+                "loadFailedWithError": "加载Hook失败: {{error}}",
+                "unknownError": "未知错误",
+                "triggerSuccess": "Hook触发成功",
+                "triggerFailed": "Hook执行失败",
+                "errorDetails": "错误详情: {{error}}",
+                "commandOutput": "输出: {{output}}",
+                "detailsFailed": "获取Hook详情失败",
+                "detailsFailedWithError": "获取Hook详情失败: {{error}}",
+                "createSuccess": "Hook创建成功",
+                "createFailed": "创建Hook失败",
+                "createFailedWithError": "创建Hook失败: {{error}}",
+                "updateBasicSuccess": "Hook基本信息更新成功",
+                "updateBasicFailed": "更新Hook基本信息失败",
+                "updateBasicFailedWithError": "更新Hook基本信息失败: {{error}}",
+                "updateParametersSuccess": "Hook参数配置更新成功",
+                "updateParametersFailed": "更新Hook参数配置失败",
+                "updateParametersFailedWithError": "更新Hook参数配置失败: {{error}}",
+                "updateTriggersSuccess": "Hook触发规则更新成功",
+                "updateTriggersFailed": "更新Hook触发规则失败",
+                "updateTriggersFailedWithError": "更新Hook触发规则失败: {{error}}",
+                "updateResponseSuccess": "Hook响应配置更新成功",
+                "updateResponseFailed": "更新Hook响应配置失败",
+                "updateResponseFailedWithError": "更新Hook响应配置失败: {{error}}",
+                "getScriptFailed": "获取脚本文件失败",
+                "getScriptFailedWithError": "获取脚本文件失败: {{error}}",
+                "saveScriptSuccess": "脚本文件保存成功",
+                "saveScriptFailed": "保存脚本文件失败",
+                "saveScriptFailedWithError": "保存脚本文件失败: {{error}}",
+                "updateCommandSuccess": "执行命令更新成功",
+                "updateCommandFailed": "更新执行命令失败",
+                "updateCommandFailedWithError": "更新执行命令失败: {{error}}"
+            }
+        }
     },
     "message": {
         "title": "实时消息",

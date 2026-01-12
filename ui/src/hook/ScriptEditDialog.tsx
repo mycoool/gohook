@@ -30,6 +30,7 @@ import 'prismjs/components/prism-javascript';
 import 'prismjs/components/prism-python';
 import 'prismjs/themes/prism.css';
 import '../version/EnvFileDialog.css';
+import translate from '../i18n/translator';
 
 // 扩展主题类型定义
 declare module '@mui/material/styles' {
@@ -184,122 +185,122 @@ const highlightScript = (code: string, scriptType: ScriptType, isDark: boolean =
 };
 
 // 预定义模板
-const templates = {
+const getTemplates = (t: (key: string, params?: Record<string, string | number>) => string) => ({
     empty: '',
     bash_simple: `#!/bin/bash
-# 简单的 Bash 脚本示例
+# ${t('hook.script.templateCodes.bashSimple.comment1')}
 
-echo "Hook 被触发: $HOOK_ID"
-echo "请求方法: $HOOK_METHOD"
-echo "远程地址: $HOOK_REMOTE_ADDR"
+echo "${t('hook.script.templateCodes.bashSimple.line1')}"
+echo "${t('hook.script.templateCodes.bashSimple.line2')}"
+echo "${t('hook.script.templateCodes.bashSimple.line3')}"
 
-# 执行你的逻辑
-echo "执行完成"`,
+# ${t('hook.script.templateCodes.bashSimple.comment2')}
+echo "${t('hook.script.templateCodes.bashSimple.line4')}"`,
 
     bash_git_deploy: `#!/bin/bash
-# Git 部署脚本示例
+# ${t('hook.script.templateCodes.gitDeploy.comment1')}
 
-set -e  # 遇到错误立即退出
+set -e  # ${t('hook.script.templateCodes.gitDeploy.comment2')}
 
-echo "开始部署..."
+echo "${t('hook.script.templateCodes.gitDeploy.line1')}"
 
-# 进入项目目录
+# ${t('hook.script.templateCodes.gitDeploy.comment3')}
 cd /path/to/your/project
 
-# 拉取最新代码
+# ${t('hook.script.templateCodes.gitDeploy.comment4')}
 git pull origin main
 
-# 安装依赖 (根据项目类型选择)
+# ${t('hook.script.templateCodes.gitDeploy.comment5')}
 # npm install
 # yarn install
 # composer install
 # pip install -r requirements.txt
 
-# 构建项目 (如果需要)
+# ${t('hook.script.templateCodes.gitDeploy.comment6')}
 # npm run build
 # yarn build
 
-# 重启服务 (根据实际情况选择)
+# ${t('hook.script.templateCodes.gitDeploy.comment7')}
 # systemctl restart your-service
 # pm2 restart app
 # docker-compose restart
 
-echo "部署完成"`,
+echo "${t('hook.script.templateCodes.gitDeploy.line2')}"`,
 
-    javascript_simple: `// JavaScript 脚本示例
+    javascript_simple: `// ${t('hook.script.templateCodes.jsSimple.comment1')}
 const hookId = process.env.HOOK_ID;
 const method = process.env.HOOK_METHOD;
 const remoteAddr = process.env.HOOK_REMOTE_ADDR;
 
-console.log(\`Hook 被触发: \${hookId}\`);
-console.log(\`请求方法: \${method}\`);
-console.log(\`远程地址: \${remoteAddr}\`);
+console.log(\`${t('hook.script.templateCodes.jsSimple.line1')}\`);
+console.log(\`${t('hook.script.templateCodes.jsSimple.line2')}\`);
+console.log(\`${t('hook.script.templateCodes.jsSimple.line3')}\`);
 
-// 执行你的逻辑
-console.log("执行完成");`,
+// ${t('hook.script.templateCodes.jsSimple.comment2')}
+console.log("${t('hook.script.templateCodes.jsSimple.line4')}");`,
 
-    javascript_webhook_handler: `// Webhook 处理脚本示例
+    javascript_webhook_handler: `// ${t('hook.script.templateCodes.jsWebhook.comment1')}
 const fs = require('fs');
 const path = require('path');
 
-// 从环境变量获取 webhook 数据
+// ${t('hook.script.templateCodes.jsWebhook.comment2')}
 const hookId = process.env.HOOK_ID;
 const payload = process.env.HOOK_PAYLOAD;
 
 try {
-    // 解析 payload (如果是 JSON)
+    // ${t('hook.script.templateCodes.jsWebhook.comment3')}
     const data = payload ? JSON.parse(payload) : {};
-    
-    console.log('收到 Webhook:', {
+
+    console.log('${t('hook.script.templateCodes.jsWebhook.line1')}', {
         hookId,
         event: data.event_type || 'unknown',
         repository: data.repository?.name || 'unknown'
     });
-    
-    // 记录到日志文件
+
+    // ${t('hook.script.templateCodes.jsWebhook.comment4')}
     const logEntry = {
         timestamp: new Date().toISOString(),
         hookId,
         data
     };
-    
+
     fs.appendFileSync(
         path.join(__dirname, 'webhook.log'),
         JSON.stringify(logEntry) + '\\n'
     );
-    
-    console.log('处理完成');
+
+    console.log('${t('hook.script.templateCodes.jsWebhook.line2')}');
 } catch (error) {
-    console.error('处理失败:', error.message);
+    console.error('${t('hook.script.templateCodes.jsWebhook.line3')}', error.message);
     process.exit(1);
 }`,
 
     python_simple: `#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Python 脚本示例
+# ${t('hook.script.templateCodes.pySimple.comment1')}
 
 import os
 import sys
 
 def main():
-    # 从环境变量获取 webhook 信息
+    # ${t('hook.script.templateCodes.pySimple.comment2')}
     hook_id = os.environ.get('HOOK_ID', 'unknown')
     method = os.environ.get('HOOK_METHOD', 'unknown')
     remote_addr = os.environ.get('HOOK_REMOTE_ADDR', 'unknown')
-    
-    print(f"Hook 被触发: {hook_id}")
-    print(f"请求方法: {method}")
-    print(f"远程地址: {remote_addr}")
-    
-    # 执行你的逻辑
-    print("执行完成")
+
+    print(f"${t('hook.script.templateCodes.pySimple.line1')}")
+    print(f"${t('hook.script.templateCodes.pySimple.line2')}")
+    print(f"${t('hook.script.templateCodes.pySimple.line3')}")
+
+    # ${t('hook.script.templateCodes.pySimple.comment3')}
+    print("${t('hook.script.templateCodes.pySimple.line4')}")
 
 if __name__ == "__main__":
     main()`,
 
     python_webhook_handler: `#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Python Webhook 处理脚本示例
+# ${t('hook.script.templateCodes.pyWebhook.comment1')}
 
 import os
 import sys
@@ -307,39 +308,39 @@ import json
 import logging
 from datetime import datetime
 
-# 配置日志
+# ${t('hook.script.templateCodes.pyWebhook.comment2')}
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
 def process_webhook():
-    """处理 webhook 请求"""
+    """${t('hook.script.templateCodes.pyWebhook.comment3')}"""
     try:
-        # 从环境变量获取数据
+        # ${t('hook.script.templateCodes.pyWebhook.comment4')}
         hook_id = os.environ.get('HOOK_ID')
         payload = os.environ.get('HOOK_PAYLOAD', '{}')
         method = os.environ.get('HOOK_METHOD', 'POST')
         remote_addr = os.environ.get('HOOK_REMOTE_ADDR', 'unknown')
-        
-        # 解析 JSON payload
+
+        # ${t('hook.script.templateCodes.pyWebhook.comment5')}
         try:
             data = json.loads(payload)
         except json.JSONDecodeError:
             data = {}
-        
-        logging.info(f"收到 Webhook: {hook_id}")
-        logging.info(f"请求方法: {method}")
-        logging.info(f"远程地址: {remote_addr}")
-        
-        # 处理不同类型的事件
+
+        logging.info(f"${t('hook.script.templateCodes.pyWebhook.line1')}")
+        logging.info(f"${t('hook.script.templateCodes.pyWebhook.line2')}")
+        logging.info(f"${t('hook.script.templateCodes.pyWebhook.line3')}")
+
+        # ${t('hook.script.templateCodes.pyWebhook.comment6')}
         event_type = data.get('event_type', 'unknown')
         repository = data.get('repository', {}).get('name', 'unknown')
-        
-        logging.info(f"事件类型: {event_type}")
-        logging.info(f"仓库名称: {repository}")
-        
-        # 记录到文件
+
+        logging.info(f"${t('hook.script.templateCodes.pyWebhook.line4')}")
+        logging.info(f"${t('hook.script.templateCodes.pyWebhook.line5')}")
+
+        # ${t('hook.script.templateCodes.pyWebhook.comment7')}
         log_entry = {
             'timestamp': datetime.now().isoformat(),
             'hook_id': hook_id,
@@ -349,27 +350,27 @@ def process_webhook():
             'remote_addr': remote_addr,
             'data': data
         }
-        
-        # 写入日志文件
+
+        # ${t('hook.script.templateCodes.pyWebhook.comment8')}
         log_file = os.path.join(os.getcwd(), 'webhook.log')
         with open(log_file, 'a', encoding='utf-8') as f:
             f.write(json.dumps(log_entry, ensure_ascii=False) + '\\n')
-        
-        logging.info("处理完成")
+
+        logging.info("${t('hook.script.templateCodes.pyWebhook.line6')}")
         return True
-        
+
     except Exception as e:
-        logging.error(f"处理失败: {str(e)}")
+        logging.error(f"${t('hook.script.templateCodes.pyWebhook.line7')}")
         return False
 
 def main():
-    """主函数"""
+    """${t('hook.script.templateCodes.pyWebhook.comment9')}"""
     success = process_webhook()
     sys.exit(0 if success else 1)
 
 if __name__ == "__main__":
     main()`,
-};
+});
 
 interface IProps {
     open: boolean;
@@ -473,6 +474,11 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
         }
     }
 
+    private getTemplates = () => {
+        const t = translate;
+        return getTemplates(t);
+    };
+
     loadScript = async () => {
         try {
             const [scriptResult, hookDetails] = await Promise.all([
@@ -551,7 +557,7 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
                 });
             }
         } catch (error) {
-            this.props.snackManager.snack('加载脚本文件失败');
+            this.props.snackManager.snack(translate('hook.script.loadFailed'));
         }
     };
 
@@ -575,6 +581,7 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
 
     handleTemplateChange = (event: SelectChangeEvent<string>) => {
         const templateKey = event.target.value as string;
+        const templates = this.getTemplates();
         const templateContent = templates[templateKey as keyof typeof templates];
         this.setState({
             selectedTemplate: templateKey,
@@ -608,12 +615,14 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
                     );
                 } catch (error) {
                     // 如果更新execute-command失败，只显示警告，不阻止脚本保存
-                    this.props.snackManager.snack('脚本保存成功，但更新执行命令失败，请手动配置');
+                    this.props.snackManager.snack(
+                        translate('hook.script.saveWarningUpdateCommandFailed')
+                    );
                     return;
                 }
             }
 
-            this.props.snackManager.snack('脚本文件保存成功');
+            this.props.snackManager.snack(translate('hook.script.saveSuccess'));
             this.setState({
                 originalScriptContent: this.state.scriptContent,
                 hasScript: true,
@@ -624,7 +633,7 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
             if (error.response?.data?.errors) {
                 this.setState({errors: error.response.data.errors});
             } else {
-                this.props.snackManager.snack('保存脚本文件失败');
+                this.props.snackManager.snack(translate('hook.script.saveFailed'));
             }
         }
     };
@@ -657,7 +666,7 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
     handleUpdateExecuteCommand = async () => {
         try {
             await this.props.onUpdateExecuteCommand(this.props.hookId, this.state.executeCommand);
-            this.props.snackManager.snack('执行命令更新成功');
+            this.props.snackManager.snack(translate('hook.script.updateCommandSuccess'));
             this.setState({
                 originalExecuteCommand: this.state.executeCommand,
                 errors: [],
@@ -669,7 +678,7 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
                 await this.loadScript();
             }
         } catch (error: any) {
-            this.props.snackManager.snack('更新执行命令失败');
+            this.props.snackManager.snack(translate('hook.script.updateCommandFailed'));
         }
     };
 
@@ -715,7 +724,7 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
 
         if (!scriptName.trim()) {
             this.setState({
-                errors: ['请输入脚本名称'],
+                errors: [translate('hook.script.validation.scriptNameRequired')],
             });
             return;
         }
@@ -728,6 +737,7 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
             : scriptWorkingDirectory + '/' + fileName;
 
         // 根据模板生成初始内容
+        const templates = this.getTemplates();
         const initialContent = templates[selectedTemplate as keyof typeof templates];
 
         this.setState({
@@ -757,15 +767,25 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
             executeCommand,
             originalExecuteCommand,
         } = this.state;
+        const t = translate;
 
         // 根据编辑模式和内容类型确定显示格式
         const getFormatDisplay = () => {
             if (editMode === 'executable') {
-                return {label: '命令', color: this.theme.custom.colors.interactive.button.command};
+                return {
+                    label: t('hook.script.modeCommand'),
+                    color: this.theme.custom.colors.interactive.button.command,
+                };
             } else if (hasScript || scriptContent) {
-                return {label: '脚本', color: this.theme.custom.colors.interactive.button.script};
+                return {
+                    label: t('hook.script.modeScript'),
+                    color: this.theme.custom.colors.interactive.button.script,
+                };
             } else {
-                return {label: '脚本', color: this.theme.custom.colors.interactive.button.script};
+                return {
+                    label: t('hook.script.modeScript'),
+                    color: this.theme.custom.colors.interactive.button.script,
+                };
             }
         };
 
@@ -814,10 +834,10 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
                         <Box display="flex" alignItems="center" justifyContent="space-between">
                             <span>
                                 {editMode === 'executable'
-                                    ? '执行命令配置'
+                                    ? t('hook.script.dialogTitleCommand')
                                     : isEditMode
-                                    ? '编辑脚本文件'
-                                    : '创建脚本文件'}{' '}
+                                    ? t('hook.script.dialogTitleEdit')
+                                    : t('hook.script.dialogTitleCreate')}{' '}
                                 - {hookId}
                             </span>
                             <Chip
@@ -832,20 +852,20 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
                             // 可执行文件模式
                             <Box>
                                 <Typography variant="h6" gutterBottom>
-                                    ⚙️ 执行命令配置
+                                    {t('hook.script.commandSectionTitle')}
                                 </Typography>
                                 <Typography variant="body2" color="textSecondary" gutterBottom>
-                                    配置要执行的命令或可执行文件路径，支持添加参数和选项
+                                    {t('hook.script.commandSectionDescription')}
                                 </Typography>
 
                                 <TextField
                                     fullWidth
-                                    label="执行命令"
+                                    label={t('hook.script.executeCommandLabel')}
                                     value={executeCommand}
                                     onChange={(e) =>
                                         this.handleExecuteCommandChange(e.target.value)
                                     }
-                                    placeholder="例如: /bin/echo hello 或 /usr/bin/python3 /path/to/script.py"
+                                    placeholder={t('hook.script.executeCommandPlaceholder')}
                                     variant="outlined"
                                     size="small"
                                     style={{marginBottom: 16}}
@@ -864,7 +884,7 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
                                     <Typography
                                         variant="subtitle2"
                                         style={{marginBottom: 8, color: '#e0e0e0'}}>
-                                        💡 使用示例：
+                                        {t('hook.script.commandExamplesTitle')}
                                     </Typography>
                                     <Typography
                                         variant="body2"
@@ -877,7 +897,7 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
                                         <code style={getCodeStyle(this.theme)}>
                                             /bin/echo &quot;Hello World&quot;
                                         </code>{' '}
-                                        - 输出文本
+                                        - {t('hook.script.commandExampleOutput')}
                                     </Typography>
                                     <Typography
                                         variant="body2"
@@ -890,7 +910,7 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
                                         <code style={getCodeStyle(this.theme)}>
                                             /usr/bin/curl -X POST https://api.example.com/webhook
                                         </code>{' '}
-                                        - 发送HTTP请求
+                                        - {t('hook.script.commandExampleHttp')}
                                     </Typography>
                                     <Typography
                                         variant="body2"
@@ -903,7 +923,7 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
                                         <code style={getCodeStyle(this.theme)}>
                                             /usr/bin/python3 /path/to/your-script.py
                                         </code>{' '}
-                                        - 执行Python脚本
+                                        - {t('hook.script.commandExamplePython')}
                                     </Typography>
                                     <Typography
                                         variant="body2"
@@ -912,7 +932,7 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
                                         <code style={getCodeStyle(this.theme)}>
                                             /bin/bash /path/to/your-script.sh
                                         </code>{' '}
-                                        - 执行Bash脚本
+                                        - {t('hook.script.commandExampleBash')}
                                     </Typography>
                                 </Box>
 
@@ -927,7 +947,7 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
                                             color: '#e0e0e0',
                                         }}>
                                         <Typography variant="body2">
-                                            <strong>💡 提示:</strong> {message}
+                                            <strong>{t('hook.script.tipPrefix')}</strong> {message}
                                         </Typography>
                                     </Box>
                                 )}
@@ -939,13 +959,13 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
                                     // 脚本设置阶段
                                     <Box>
                                         <Typography variant="h6" gutterBottom>
-                                            📝 创建新脚本文件
+                                            {t('hook.script.setupTitle')}
                                         </Typography>
                                         <Typography
                                             variant="body2"
                                             color="textSecondary"
                                             gutterBottom>
-                                            请配置脚本文件的基本信息
+                                            {t('hook.script.setupDescription')}
                                         </Typography>
 
                                         <Paper
@@ -954,21 +974,23 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
                                             <Box mb={2}>
                                                 <TextField
                                                     fullWidth
-                                                    label="脚本名称"
+                                                    label={t('hook.script.scriptNameLabel')}
                                                     value={this.state.scriptName}
                                                     onChange={(e) =>
                                                         this.handleScriptNameChange(e.target.value)
                                                     }
-                                                    placeholder="例如: webhook-handler"
+                                                    placeholder={t(
+                                                        'hook.script.scriptNamePlaceholder'
+                                                    )}
                                                     variant="outlined"
                                                     size="small"
-                                                    helperText="不需要包含文件扩展名，会根据选择的类型自动添加"
+                                                    helperText={t('hook.script.scriptNameHelper')}
                                                 />
                                             </Box>
                                             <Box mb={2}>
                                                 <TextField
                                                     fullWidth
-                                                    label="保存目录"
+                                                    label={t('hook.script.scriptDirectoryLabel')}
                                                     value={this.state.scriptWorkingDirectory}
                                                     onChange={(e) =>
                                                         this.handleScriptWorkingDirectoryChange(
@@ -977,7 +999,9 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
                                                     }
                                                     variant="outlined"
                                                     size="small"
-                                                    helperText="脚本文件将保存到此目录"
+                                                    helperText={t(
+                                                        'hook.script.scriptDirectoryHelper'
+                                                    )}
                                                 />
                                             </Box>
                                             <Box mb={2}>
@@ -985,31 +1009,41 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
                                                     fullWidth
                                                     variant="outlined"
                                                     size="small">
-                                                    <InputLabel>脚本类型和模板</InputLabel>
+                                                    <InputLabel>
+                                                        {t('hook.script.templateLabel')}
+                                                    </InputLabel>
                                                     <Select
                                                         value={this.state.selectedTemplate}
                                                         onChange={this.handleTemplateChangeInSetup}
-                                                        label="脚本类型和模板">
+                                                        label={t('hook.script.templateLabel')}>
                                                         <MenuItem value="empty">
-                                                            空白 Bash 脚本 (.sh)
+                                                            {t('hook.script.templates.emptyBash')}
                                                         </MenuItem>
                                                         <MenuItem value="bash_simple">
-                                                            简单 Bash 脚本 (.sh)
+                                                            {t('hook.script.templates.simpleBash')}
                                                         </MenuItem>
                                                         <MenuItem value="bash_git_deploy">
-                                                            Git 部署脚本 (.sh)
+                                                            {t('hook.script.templates.gitDeploy')}
                                                         </MenuItem>
                                                         <MenuItem value="javascript_simple">
-                                                            简单 JavaScript 脚本 (.js)
+                                                            {t(
+                                                                'hook.script.templates.simpleJavascript'
+                                                            )}
                                                         </MenuItem>
                                                         <MenuItem value="javascript_webhook_handler">
-                                                            Webhook 处理脚本 (.js)
+                                                            {t(
+                                                                'hook.script.templates.webhookJavascript'
+                                                            )}
                                                         </MenuItem>
                                                         <MenuItem value="python_simple">
-                                                            简单 Python 脚本 (.py)
+                                                            {t(
+                                                                'hook.script.templates.simplePython'
+                                                            )}
                                                         </MenuItem>
                                                         <MenuItem value="python_webhook_handler">
-                                                            Python Webhook 处理脚本 (.py)
+                                                            {t(
+                                                                'hook.script.templates.webhookPython'
+                                                            )}
                                                         </MenuItem>
                                                     </Select>
                                                 </FormControl>
@@ -1027,7 +1061,9 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
                                                 <Typography
                                                     variant="body2"
                                                     style={{color: '#e0e0e0'}}>
-                                                    <strong>生成的文件路径:</strong>
+                                                    <strong>
+                                                        {t('hook.script.generatedPathLabel')}
+                                                    </strong>
                                                 </Typography>
                                                 <Typography
                                                     variant="body2"
@@ -1053,7 +1089,7 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
                                     // 脚本编辑阶段
                                     <Box>
                                         <Typography variant="h6" gutterBottom>
-                                            📄 脚本文件编辑
+                                            {t('hook.script.editTitle')}
                                         </Typography>
 
                                         {/* 模板选择器 - 仅在创建模式显示 */}
@@ -1063,29 +1099,43 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
                                                     fullWidth
                                                     variant="outlined"
                                                     size="small">
-                                                    <InputLabel>选择模板</InputLabel>
+                                                    <InputLabel>
+                                                        {t('hook.script.templateSelectLabel')}
+                                                    </InputLabel>
                                                     <Select
                                                         value={selectedTemplate}
                                                         onChange={this.handleTemplateChange}
-                                                        label="选择模板">
-                                                        <MenuItem value="empty">空白</MenuItem>
+                                                        label={t(
+                                                            'hook.script.templateSelectLabel'
+                                                        )}>
+                                                        <MenuItem value="empty">
+                                                            {t('hook.script.templates.empty')}
+                                                        </MenuItem>
                                                         <MenuItem value="bash_simple">
-                                                            简单 Bash 脚本
+                                                            {t('hook.script.templates.simpleBash')}
                                                         </MenuItem>
                                                         <MenuItem value="bash_git_deploy">
-                                                            Git 部署脚本
+                                                            {t('hook.script.templates.gitDeploy')}
                                                         </MenuItem>
                                                         <MenuItem value="javascript_simple">
-                                                            简单 JavaScript 脚本
+                                                            {t(
+                                                                'hook.script.templates.simpleJavascript'
+                                                            )}
                                                         </MenuItem>
                                                         <MenuItem value="javascript_webhook_handler">
-                                                            Webhook 处理脚本
+                                                            {t(
+                                                                'hook.script.templates.webhookJavascript'
+                                                            )}
                                                         </MenuItem>
                                                         <MenuItem value="python_simple">
-                                                            简单 Python 脚本
+                                                            {t(
+                                                                'hook.script.templates.simplePython'
+                                                            )}
                                                         </MenuItem>
                                                         <MenuItem value="python_webhook_handler">
-                                                            Python Webhook 处理脚本
+                                                            {t(
+                                                                'hook.script.templates.webhookPython'
+                                                            )}
                                                         </MenuItem>
                                                     </Select>
                                                 </FormControl>
@@ -1093,7 +1143,7 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
                                                     variant="caption"
                                                     color="textSecondary"
                                                     style={{display: 'block', marginTop: '8px'}}>
-                                                    选择模板将自动填充内容到编辑器中
+                                                    {t('hook.script.templateFillHint')}
                                                 </Typography>
                                             </Box>
                                         )}
@@ -1114,8 +1164,12 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
                                                 textareaId="script-editor"
                                                 placeholder={
                                                     !isEditMode
-                                                        ? `# ${formatIndicator} 脚本内容\n\n# 选择上方模板快速开始`
-                                                        : `# ${formatIndicator} 脚本文件`
+                                                        ? t('hook.script.editorPlaceholderNew', {
+                                                              format: formatIndicator,
+                                                          })
+                                                        : t('hook.script.editorPlaceholderEdit', {
+                                                              format: formatIndicator,
+                                                          })
                                                 }
                                             />
                                         </Box>
@@ -1123,7 +1177,7 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
                                         {/* 脚本文件信息 */}
                                         <Box mt={2} mb={1}>
                                             <Typography variant="body2" color="textSecondary">
-                                                脚本文件路径:{' '}
+                                                {t('hook.script.scriptPathLabel')}{' '}
                                                 <code
                                                     style={{
                                                         backgroundColor: '#2c2c2c',
@@ -1132,7 +1186,8 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
                                                         borderRadius: 4,
                                                         fontSize: '0.875rem',
                                                     }}>
-                                                    {this.state.scriptPath || '未知路径'}
+                                                    {this.state.scriptPath ||
+                                                        t('hook.script.unknownPath')}
                                                 </code>
                                             </Typography>
                                             {!isEditMode && !scriptContent && (
@@ -1140,7 +1195,7 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
                                                     variant="body2"
                                                     color="primary"
                                                     style={{marginTop: '8px'}}>
-                                                    💡 提示：选择上方模板可快速开始配置脚本
+                                                    {t('hook.script.templateQuickHint')}
                                                 </Typography>
                                             )}
                                         </Box>
@@ -1153,7 +1208,7 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
                         {errors.length > 0 && (
                             <Box mt={2}>
                                 <Typography variant="subtitle2" color="error">
-                                    验证错误：
+                                    {t('hook.script.validationTitle')}
                                 </Typography>
                                 {errors.map((error, index) => (
                                     <Typography key={index} variant="body2" color="error">
@@ -1183,7 +1238,7 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
                                     border: '1px solid #555555',
                                     minWidth: '60px',
                                 }}>
-                                命令
+                                {t('hook.script.modeCommand')}
                             </ToggleButton>
                             <ToggleButton
                                 value="script"
@@ -1194,7 +1249,7 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
                                     border: '1px solid #555555',
                                     minWidth: '60px',
                                 }}>
-                                脚本
+                                {t('hook.script.modeScript')}
                             </ToggleButton>
                         </ToggleButtonGroup>
 
@@ -1203,7 +1258,7 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
                         {/* 右侧：操作按钮组 */}
                         <Box display="flex" gap={1}>
                             <Button onClick={this.handleClose} variant="outlined" color="secondary">
-                                关闭
+                                {t('common.close')}
                             </Button>
                         </Box>
 
@@ -1213,10 +1268,10 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
                                 title={
                                     executeCommand === originalExecuteCommand &&
                                     executeCommand.trim()
-                                        ? '命令未改变，无需更新'
+                                        ? t('hook.script.updateCommandNoChange')
                                         : !executeCommand.trim()
-                                        ? '请输入执行命令'
-                                        : '更新执行命令'
+                                        ? t('hook.script.updateCommandMissing')
+                                        : t('hook.script.updateCommandAction')
                                 }
                                 arrow>
                                 <span>
@@ -1228,7 +1283,7 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
                                             executeCommand === originalExecuteCommand ||
                                             !executeCommand.trim()
                                         }>
-                                        更新执行命令
+                                        {t('hook.script.updateCommandButton')}
                                     </Button>
                                 </span>
                             </Tooltip>
@@ -1239,11 +1294,13 @@ class ScriptEditDialog extends Component<IProps & Stores<'snackManager'>, IState
                                 color="primary"
                                 variant="contained"
                                 disabled={!this.state.scriptName.trim()}>
-                                确认并创建脚本
+                                {t('hook.script.confirmCreateScript')}
                             </Button>
                         ) : (
                             <Button onClick={this.handleSave} color="primary" variant="contained">
-                                {isEditMode ? '保存修改' : '创建脚本'}
+                                {isEditMode
+                                    ? t('hook.script.saveChanges')
+                                    : t('hook.script.createScript')}
                             </Button>
                         )}
                     </DialogActions>

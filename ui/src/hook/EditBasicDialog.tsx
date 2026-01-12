@@ -12,6 +12,7 @@ import {
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
 import {IHook} from '../types';
+import useTranslation from '../i18n/useTranslation';
 
 interface EditBasicDialogProps {
     open: boolean;
@@ -35,6 +36,7 @@ export default function EditBasicDialog({
     onSave,
     onGetHookDetails,
 }: EditBasicDialogProps) {
+    const {t} = useTranslation();
     const [formData, setFormData] = useState({
         'execute-command': '',
         'command-working-directory': '',
@@ -81,7 +83,7 @@ export default function EditBasicDialog({
         const newErrors: Record<string, string> = {};
 
         if (!formData['execute-command'].trim()) {
-            newErrors['execute-command'] = '执行命令不能为空';
+            newErrors['execute-command'] = t('hook.validation.commandRequired');
         }
 
         setErrors(newErrors);
@@ -99,19 +101,17 @@ export default function EditBasicDialog({
 
     return (
         <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-            <DialogTitle>编辑基本信息 - {hookId}</DialogTitle>
+            <DialogTitle>{t('hook.editBasicTitle', {id: hookId || ''})}</DialogTitle>
 
             <DialogContent>
                 <Box sx={{pt: 2}}>
                     <Alert severity="info" sx={{mb: 3}}>
-                        <Typography variant="body2">
-                            修改webhook的基本配置信息，包括执行命令、工作目录和响应消息。
-                        </Typography>
+                        <Typography variant="body2">{t('hook.editBasicDescription')}</Typography>
                     </Alert>
 
                     {loading && (
                         <Alert severity="info" sx={{mb: 3}}>
-                            <Typography variant="body2">正在加载Hook配置数据...</Typography>
+                            <Typography variant="body2">{t('hook.loadingConfig')}</Typography>
                         </Alert>
                     )}
 
@@ -119,7 +119,7 @@ export default function EditBasicDialog({
                         <Grid size={12}>
                             <TextField
                                 fullWidth
-                                label="执行命令"
+                                label={t('hook.fields.executeCommand')}
                                 value={formData['execute-command']}
                                 onChange={(e) =>
                                     handleFieldChange('execute-command', e.target.value)
@@ -127,9 +127,9 @@ export default function EditBasicDialog({
                                 error={!!errors['execute-command']}
                                 helperText={
                                     errors['execute-command'] ||
-                                    '当webhook被触发时执行的命令或脚本路径'
+                                    t('hook.fields.executeCommandHelper')
                                 }
-                                placeholder="例如: /path/to/script.sh 或 node /path/to/handler.js"
+                                placeholder={t('hook.placeholders.executeCommand')}
                                 required
                             />
                         </Grid>
@@ -137,26 +137,26 @@ export default function EditBasicDialog({
                         <Grid size={12}>
                             <TextField
                                 fullWidth
-                                label="工作目录"
+                                label={t('hook.fields.workingDirectory')}
                                 value={formData['command-working-directory']}
                                 onChange={(e) =>
                                     handleFieldChange('command-working-directory', e.target.value)
                                 }
-                                helperText="命令执行时的工作目录，留空则使用当前目录"
-                                placeholder="例如: /var/www/project"
+                                helperText={t('hook.fields.workingDirectoryHelper')}
+                                placeholder={t('hook.placeholders.workingDirectory')}
                             />
                         </Grid>
 
                         <Grid size={12}>
                             <TextField
                                 fullWidth
-                                label="响应消息"
+                                label={t('hook.fields.responseMessage')}
                                 value={formData['response-message']}
                                 onChange={(e) =>
                                     handleFieldChange('response-message', e.target.value)
                                 }
-                                helperText="webhook执行成功时返回的消息"
-                                placeholder="例如: 部署完成"
+                                helperText={t('hook.fields.responseMessageHelper')}
+                                placeholder={t('hook.placeholders.responseMessage')}
                             />
                         </Grid>
                     </Grid>
@@ -164,9 +164,9 @@ export default function EditBasicDialog({
             </DialogContent>
 
             <DialogActions>
-                <Button onClick={onClose}>取消</Button>
+                <Button onClick={onClose}>{t('common.cancel')}</Button>
                 <Button onClick={handleSave} variant="contained" color="primary">
-                    保存
+                    {t('common.save')}
                 </Button>
             </DialogActions>
         </Dialog>

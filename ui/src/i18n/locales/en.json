@@ -524,7 +524,351 @@
         "hookTriggered": "Hook triggered successfully",
         "hookFailed": "Hook execution failed",
         "reloadConfig": "Reload Config",
-        "parameters": "Parameters"
+        "parametersLabel": "Parameters",
+        "addHook": "Add Hook",
+        "createHook": "Create Hook",
+        "idLabel": "ID",
+        "fullCommand": "Full command",
+        "argumentsCount": "Args: {{count}}",
+        "environmentCount": "Env: {{count}}",
+        "ruleCount": "Rules: {{count}}",
+        "editScript": "Edit script",
+        "editBasic": "Edit basic settings",
+        "editParameters": "Edit parameters",
+        "editTriggers": "Edit trigger rules",
+        "editResponse": "Edit response",
+        "defaultResponseMessage": "Success",
+        "addDialogTitle": "Add New Webhook",
+        "addDialogDescription": "Create basic webhook info. After creation, configure parameter passing, trigger rules, and response settings.",
+        "editBasicTitle": "Edit Basic Settings - {{id}}",
+        "editBasicDescription": "Update basic webhook settings including command, working directory, and response message.",
+        "editParametersTitle": "Edit Parameters - {{id}}",
+        "editResponseTitle": "Edit Response - {{id}}",
+        "editTriggersTitle": "Edit Trigger Rules - {{id}}",
+        "loadingConfig": "Loading hook configuration...",
+        "fields": {
+            "id": "Hook ID",
+            "idHelper": "Unique identifier for the webhook and URL path",
+            "executeCommand": "Execute Command",
+            "executeCommandHelper": "Command or script path to run when the webhook is triggered",
+            "workingDirectory": "Working Directory",
+            "workingDirectoryHelper": "Working directory for executing the command; leave empty to use current directory",
+            "responseMessage": "Response Message",
+            "responseMessageHelper": "Message returned when webhook executes successfully"
+        },
+        "placeholders": {
+            "id": "e.g. github-deploy",
+            "executeCommand": "e.g. /path/to/script.sh or node /path/to/handler.js",
+            "workingDirectory": "e.g. /var/www/project",
+            "responseMessage": "e.g. Deployment completed"
+        },
+        "validation": {
+            "idRequired": "Hook ID is required",
+            "idPattern": "Hook ID can only contain letters, numbers, hyphens, and underscores",
+            "commandRequired": "Execute command is required",
+            "scriptNameRequired": "Script name is required"
+        },
+        "parameters": {
+            "description": "Configure how to pass webhook request data to the command. Arguments are passed in order; environment variables are set in the command environment.",
+            "commandArguments": "Command Arguments",
+            "commandArgumentsHelp": "Arguments are passed to the command in order",
+            "addArgument": "Add Argument",
+            "noArguments": "No command arguments configured",
+            "sourceHeader": "Source",
+            "nameHeader": "Parameter Name",
+            "environmentVariables": "Environment Variables",
+            "environmentVariablesHelp": "Environment variables are set in the command environment",
+            "addEnvironmentVariable": "Add Environment Variable",
+            "noEnvironmentVariables": "No environment variables configured",
+            "envNameHeader": "Variable Name",
+            "envSourceHeader": "Source",
+            "envPathHeader": "Data Path",
+            "save": "Save Parameters",
+            "placeholders": {
+                "payload": "e.g. repository.name",
+                "header": "e.g. X-GitHub-Event",
+                "query": "e.g. token",
+                "string": "Fixed value",
+                "envName": "Environment variable name",
+                "envPayload": "e.g. pusher.name",
+                "envHeader": "e.g. User-Agent",
+                "envQuery": "e.g. branch"
+            },
+            "source": {
+                "payload": {
+                    "label": "Payload",
+                    "description": "Read from request body JSON"
+                },
+                "header": {
+                    "label": "Header",
+                    "description": "Read from HTTP headers"
+                },
+                "query": {
+                    "label": "Query",
+                    "description": "Read from URL query parameters"
+                },
+                "string": {
+                    "label": "String",
+                    "description": "Fixed string value"
+                }
+            }
+        },
+        "response": {
+            "description": "Configure webhook HTTP response settings, including allowed methods, headers, and output.",
+            "supportedMethods": "Supported HTTP Methods",
+            "methodsHint": "Select allowed HTTP methods. At least one method is required.",
+            "customHeaders": "Custom Response Headers",
+            "headerName": "Header Name",
+            "headerNamePlaceholder": "e.g. X-Custom-Header",
+            "headerValue": "Header Value",
+            "headerValuePlaceholder": "e.g. custom-value",
+            "noCustomHeaders": "No custom headers",
+            "outputControl": "Command Output Control",
+            "includeOutput": "Include command output in response",
+            "includeOutputHint": "When enabled, stdout will be included in the HTTP response",
+            "includeErrorOutput": "Include error output when command fails",
+            "includeErrorOutputHint": "When enabled, error output is included in the HTTP response",
+            "save": "Save Response"
+        },
+        "triggers": {
+            "viewDocs": "View trigger rules docs",
+            "builderDescription": "Build trigger rules with the visual editor. Supports multiple match types and logic combinations (AND/OR/NOT). If no rules are added, all requests will execute the command.",
+            "emptyTitle": "No rules yet",
+            "emptyDescription": "Click a button below to start adding trigger rules",
+            "addMatchRule": "Add Match Rule",
+            "addRuleGroup": "Add Rule Group",
+            "mismatchStatusCode": "HTTP status code when trigger rules do not match",
+            "mismatchStatusCodeHelp": "Returned when the request doesn't match trigger rules (recommended 400-499)",
+            "save": "Save Trigger Rules",
+            "addRule": "Add Rule",
+            "ruleCount": "{{count}} rules",
+            "placeholders": {
+                "parameterName": "Parameter name",
+                "matchValue": "Match value",
+                "regex": "Regular expression",
+                "secret": "Secret",
+                "ipRange": "IP range (CIDR)"
+            },
+            "matchTypes": {
+                "value": {
+                    "label": "Exact match",
+                    "description": "Parameter value must equal the specified value"
+                },
+                "regex": {
+                    "label": "Regular expression",
+                    "description": "Parameter value matches the regex"
+                },
+                "hmacSha1": {
+                    "label": "SHA1 signature",
+                    "description": "Validate SHA1 HMAC signature"
+                },
+                "hmacSha256": {
+                    "label": "SHA256 signature",
+                    "description": "Validate SHA256 HMAC signature"
+                },
+                "hmacSha512": {
+                    "label": "SHA512 signature",
+                    "description": "Validate SHA512 HMAC signature"
+                },
+                "ipWhitelist": {
+                    "label": "IP allowlist",
+                    "description": "Check if request IP is allowed"
+                },
+                "scalrSignature": {
+                    "label": "Scalr signature",
+                    "description": "Validate Scalr signature"
+                }
+            },
+            "parameterSources": {
+                "payload": {
+                    "label": "Payload",
+                    "description": "Read from request body"
+                },
+                "header": {
+                    "label": "Header",
+                    "description": "Read from HTTP headers"
+                },
+                "query": {
+                    "label": "Query",
+                    "description": "Read from URL query parameters"
+                }
+            },
+            "logicOperators": {
+                "and": {
+                    "label": "AND",
+                    "description": "All child rules must match"
+                },
+                "or": {
+                    "label": "OR",
+                    "description": "Any child rule can match"
+                },
+                "not": {
+                    "label": "NOT",
+                    "description": "Match when child rule does not match"
+                }
+            }
+        },
+        "script": {
+            "loadFailed": "Failed to load script file",
+            "saveWarningUpdateCommandFailed": "Script saved, but failed to update execute command. Update it manually.",
+            "saveSuccess": "Script saved successfully",
+            "saveFailed": "Failed to save script file",
+            "updateCommandSuccess": "Execute command updated successfully",
+            "updateCommandFailed": "Failed to update execute command",
+            "validation": {
+                "scriptNameRequired": "Script name is required"
+            },
+            "modeCommand": "Command",
+            "modeScript": "Script",
+            "dialogTitleCommand": "Command Configuration",
+            "dialogTitleEdit": "Edit Script File",
+            "dialogTitleCreate": "Create Script File",
+            "commandSectionTitle": "⚙️ Command Configuration",
+            "commandSectionDescription": "Configure the command or executable path to run, including arguments and options",
+            "executeCommandLabel": "Execute Command",
+            "executeCommandPlaceholder": "e.g. /bin/echo hello or /usr/bin/python3 /path/to/script.py",
+            "commandExamplesTitle": "💡 Examples:",
+            "commandExampleOutput": "Output text",
+            "commandExampleHttp": "Send HTTP request",
+            "commandExamplePython": "Run Python script",
+            "commandExampleBash": "Run Bash script",
+            "tipPrefix": "💡 Tip:",
+            "setupTitle": "📝 Create New Script File",
+            "setupDescription": "Configure basic script information",
+            "scriptNameLabel": "Script Name",
+            "scriptNamePlaceholder": "e.g. webhook-handler",
+            "scriptNameHelper": "No file extension needed; it will be added automatically",
+            "scriptDirectoryLabel": "Save Directory",
+            "scriptDirectoryHelper": "Script file will be saved in this directory",
+            "templateLabel": "Script Type & Template",
+            "templates": {
+                "emptyBash": "Blank Bash Script (.sh)",
+                "simpleBash": "Simple Bash Script (.sh)",
+                "gitDeploy": "Git Deploy Script (.sh)",
+                "simpleJavascript": "Simple JavaScript Script (.js)",
+                "webhookJavascript": "Webhook Handler Script (.js)",
+                "simplePython": "Simple Python Script (.py)",
+                "webhookPython": "Python Webhook Handler (.py)",
+                "empty": "Blank"
+            },
+            "generatedPathLabel": "Generated file path:",
+            "editTitle": "📄 Script File Editor",
+            "templateSelectLabel": "Select Template",
+            "templateFillHint": "Selecting a template will populate the editor",
+            "editorPlaceholderNew": "# {{format}} script content\n\n# Use the template above to get started",
+            "editorPlaceholderEdit": "# {{format}} script file",
+            "scriptPathLabel": "Script file path:",
+            "unknownPath": "Unknown path",
+            "templateQuickHint": "💡 Tip: choose a template above to start faster",
+            "validationTitle": "Validation errors:",
+            "updateCommandNoChange": "Command unchanged; no update needed",
+            "updateCommandMissing": "Please enter execute command",
+            "updateCommandAction": "Update execute command",
+            "updateCommandButton": "Update execute command",
+            "confirmCreateScript": "Confirm and create script",
+            "saveChanges": "Save changes",
+            "createScript": "Create script"
+        },
+        "templateCodes": {
+            "bashSimple": {
+                "comment1": "Simple Bash script example",
+                "line1": "Hook triggered: $HOOK_ID",
+                "line2": "Request method: $HOOK_METHOD",
+                "line3": "Remote address: $HOOK_REMOTE_ADDR",
+                "comment2": "Execute your logic",
+                "line4": "Execution completed"
+            },
+            "gitDeploy": {
+                "comment1": "Git deployment script example",
+                "comment2": "Exit immediately on error",
+                "line1": "Starting deployment...",
+                "comment3": "Enter project directory",
+                "comment4": "Pull latest code",
+                "comment5": "Install dependencies (choose based on project type)",
+                "comment6": "Build project (if needed)",
+                "comment7": "Restart services (choose based on actual situation)",
+                "line2": "Deployment completed"
+            },
+            "jsSimple": {
+                "comment1": "JavaScript script example",
+                "line1": "Hook triggered: {{hookId}}",
+                "line2": "Request method: {{method}}",
+                "line3": "Remote address: {{remoteAddr}}",
+                "comment2": "Execute your logic",
+                "line4": "Execution completed"
+            },
+            "jsWebhook": {
+                "comment1": "Webhook handler script example",
+                "comment2": "Get webhook data from environment variables",
+                "comment3": "Parse payload (if JSON)",
+                "line1": "Webhook received",
+                "comment4": "Log to file",
+                "line2": "Processing completed",
+                "line3": "Processing failed"
+            },
+            "pySimple": {
+                "comment1": "Python script example",
+                "comment2": "Get webhook info from environment variables",
+                "line1": "Hook triggered: {{hook_id}}",
+                "line2": "Request method: {{method}}",
+                "line3": "Remote address: {{remote_addr}}",
+                "comment3": "Execute your logic",
+                "line4": "Execution completed"
+            },
+            "pyWebhook": {
+                "comment1": "Python Webhook handler script example",
+                "comment2": "Configure logging",
+                "comment3": "Process webhook request",
+                "comment4": "Get data from environment variables",
+                "comment5": "Parse JSON payload",
+                "line1": "Webhook received: {{hook_id}}",
+                "line2": "Request method: {{method}}",
+                "line3": "Remote address: {{remote_addr}}",
+                "comment6": "Handle different event types",
+                "line4": "Event type: {{event_type}}",
+                "line5": "Repository name: {{repository}}",
+                "comment7": "Log to file",
+                "comment8": "Write to log file",
+                "line6": "Processing completed",
+                "line7": "Processing failed: {{error}}",
+                "comment9": "Main function"
+            },
+            "snack": {
+                "deleteSuccess": "Hook deleted",
+                "reloadConfigSuccess": "Hook configuration reloaded",
+                "loadFailedWithError": "Failed to load hooks: {{error}}",
+                "unknownError": "Unknown error",
+                "triggerSuccess": "Hook triggered successfully",
+                "triggerFailed": "Hook execution failed",
+                "errorDetails": "Error details: {{error}}",
+                "commandOutput": "Output: {{output}}",
+                "detailsFailed": "Failed to get hook details",
+                "detailsFailedWithError": "Failed to get hook details: {{error}}",
+                "createSuccess": "Hook created successfully",
+                "createFailed": "Failed to create hook",
+                "createFailedWithError": "Failed to create hook: {{error}}",
+                "updateBasicSuccess": "Hook basic settings updated",
+                "updateBasicFailed": "Failed to update hook basic settings",
+                "updateBasicFailedWithError": "Failed to update hook basic settings: {{error}}",
+                "updateParametersSuccess": "Hook parameters updated",
+                "updateParametersFailed": "Failed to update hook parameters",
+                "updateParametersFailedWithError": "Failed to update hook parameters: {{error}}",
+                "updateTriggersSuccess": "Hook trigger rules updated",
+                "updateTriggersFailed": "Failed to update hook trigger rules",
+                "updateTriggersFailedWithError": "Failed to update hook trigger rules: {{error}}",
+                "updateResponseSuccess": "Hook response settings updated",
+                "updateResponseFailed": "Failed to update hook response settings",
+                "updateResponseFailedWithError": "Failed to update hook response settings: {{error}}",
+                "getScriptFailed": "Failed to get script file",
+                "getScriptFailedWithError": "Failed to get script file: {{error}}",
+                "saveScriptSuccess": "Script file saved successfully",
+                "saveScriptFailed": "Failed to save script file",
+                "saveScriptFailedWithError": "Failed to save script file: {{error}}",
+                "updateCommandSuccess": "Execute command updated successfully",
+                "updateCommandFailed": "Failed to update execute command",
+                "updateCommandFailedWithError": "Failed to update execute command: {{error}}"
+            }
+        }
     },
     "message": {
         "title": "Real-time Messages",

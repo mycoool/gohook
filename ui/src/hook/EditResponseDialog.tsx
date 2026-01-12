@@ -29,6 +29,7 @@ import {
 import {Add as AddIcon, Delete as DeleteIcon} from '@mui/icons-material';
 import Grid from '@mui/material/Grid';
 import {IHook} from '../types';
+import useTranslation from '../i18n/useTranslation';
 
 interface EditResponseDialogProps {
     open: boolean;
@@ -55,6 +56,7 @@ export default function EditResponseDialog({
     onSave,
     onGetHookDetails,
 }: EditResponseDialogProps) {
+    const {t} = useTranslation();
     const [formData, setFormData] = useState({
         'http-methods': ['POST'] as string[],
         'response-headers': {} as {[key: string]: string},
@@ -143,21 +145,19 @@ export default function EditResponseDialog({
 
     return (
         <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-            <DialogTitle>编辑响应配置 - {hookId}</DialogTitle>
+            <DialogTitle>{t('hook.editResponseTitle', {id: hookId || ''})}</DialogTitle>
 
             <DialogContent>
                 <Box sx={{pt: 2}}>
                     <Alert severity="info" sx={{mb: 3}}>
-                        <Typography variant="body2">
-                            配置webhook的HTTP响应设置，包括支持的HTTP方法、响应头和输出控制。
-                        </Typography>
+                        <Typography variant="body2">{t('hook.response.description')}</Typography>
                     </Alert>
 
                     {/* HTTP方法配置 */}
                     <Card sx={{mb: 3}}>
                         <CardContent>
                             <Typography variant="h6" sx={{mb: 2}}>
-                                支持的HTTP方法
+                                {t('hook.response.supportedMethods')}
                             </Typography>
                             <Box sx={{display: 'flex', flexWrap: 'wrap', gap: 1}}>
                                 {HTTP_METHODS.map((method) => (
@@ -180,7 +180,7 @@ export default function EditResponseDialog({
                                 ))}
                             </Box>
                             <Typography variant="body2" color="textSecondary" sx={{mt: 1}}>
-                                选择webhook支持的HTTP方法。至少需要选择一个方法。
+                                {t('hook.response.methodsHint')}
                             </Typography>
                         </CardContent>
                     </Card>
@@ -189,51 +189,57 @@ export default function EditResponseDialog({
                     <Card sx={{mb: 3}}>
                         <CardContent>
                             <Typography variant="h6" sx={{mb: 2}}>
-                                自定义响应头
+                                {t('hook.response.customHeaders')}
                             </Typography>
 
                             {/* 添加新响应头 */}
                             <Box sx={{display: 'flex', gap: 2, mb: 2}}>
                                 <TextField
                                     size="small"
-                                    label="响应头名称"
+                                    label={t('hook.response.headerName')}
                                     value={newHeader.name}
                                     onChange={(e) =>
                                         setNewHeader((prev) => ({...prev, name: e.target.value}))
                                     }
-                                    placeholder="例如: X-Custom-Header"
+                                    placeholder={t('hook.response.headerNamePlaceholder')}
                                 />
                                 <TextField
                                     size="small"
-                                    label="响应头值"
+                                    label={t('hook.response.headerValue')}
                                     value={newHeader.value}
                                     onChange={(e) =>
                                         setNewHeader((prev) => ({...prev, value: e.target.value}))
                                     }
-                                    placeholder="例如: custom-value"
+                                    placeholder={t('hook.response.headerValuePlaceholder')}
                                 />
                                 <Button
                                     variant="outlined"
                                     startIcon={<AddIcon />}
                                     onClick={addResponseHeader}
                                     disabled={!newHeader.name.trim() || !newHeader.value.trim()}>
-                                    添加
+                                    {t('common.add')}
                                 </Button>
                             </Box>
 
                             {/* 响应头列表 */}
                             {Object.keys(formData['response-headers']).length === 0 ? (
                                 <Typography color="textSecondary" sx={{textAlign: 'center', py: 2}}>
-                                    暂无自定义响应头
+                                    {t('hook.response.noCustomHeaders')}
                                 </Typography>
                             ) : (
                                 <TableContainer component={Paper} variant="outlined">
                                     <Table size="small">
                                         <TableHead>
                                             <TableRow>
-                                                <TableCell>响应头名称</TableCell>
-                                                <TableCell>响应头值</TableCell>
-                                                <TableCell width={100}>操作</TableCell>
+                                                <TableCell>
+                                                    {t('hook.response.headerName')}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {t('hook.response.headerValue')}
+                                                </TableCell>
+                                                <TableCell width={100}>
+                                                    {t('common.actions')}
+                                                </TableCell>
                                             </TableRow>
                                         </TableHead>
                                         <TableBody>
@@ -266,7 +272,7 @@ export default function EditResponseDialog({
                     <Card>
                         <CardContent>
                             <Typography variant="h6" sx={{mb: 2}}>
-                                命令输出控制
+                                {t('hook.response.outputControl')}
                             </Typography>
 
                             <FormControlLabel
@@ -282,11 +288,11 @@ export default function EditResponseDialog({
                                         }
                                     />
                                 }
-                                label="在响应中包含命令输出"
+                                label={t('hook.response.includeOutput')}
                             />
 
                             <Typography variant="body2" color="textSecondary" sx={{ml: 4, mb: 2}}>
-                                开启后，命令的标准输出会包含在HTTP响应中
+                                {t('hook.response.includeOutputHint')}
                             </Typography>
 
                             <FormControlLabel
@@ -304,11 +310,11 @@ export default function EditResponseDialog({
                                         }
                                     />
                                 }
-                                label="命令失败时在响应中包含错误输出"
+                                label={t('hook.response.includeErrorOutput')}
                             />
 
                             <Typography variant="body2" color="textSecondary" sx={{ml: 4}}>
-                                开启后，命令执行失败时会在HTTP响应中包含错误信息
+                                {t('hook.response.includeErrorOutputHint')}
                             </Typography>
                         </CardContent>
                     </Card>
@@ -316,9 +322,9 @@ export default function EditResponseDialog({
             </DialogContent>
 
             <DialogActions>
-                <Button onClick={onClose}>取消</Button>
+                <Button onClick={onClose}>{t('common.cancel')}</Button>
                 <Button onClick={handleSave} variant="contained" color="primary">
-                    保存响应配置
+                    {t('hook.response.save')}
                 </Button>
             </DialogActions>
         </Dialog>
