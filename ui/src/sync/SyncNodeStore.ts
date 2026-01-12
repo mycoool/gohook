@@ -77,6 +77,14 @@ export class SyncNodeStore {
     };
 
     @action
+    public applyLocalRuntimeUpdate = (runtime: ISyncNodeRuntime) => {
+        this.localRuntime = {
+            ...(this.localRuntime || {}),
+            ...(runtime || {}),
+        };
+    };
+
+    @action
     public refreshNodes = async () => {
         this.loading = true;
         try {

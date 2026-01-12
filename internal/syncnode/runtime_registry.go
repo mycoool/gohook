@@ -12,7 +12,9 @@ type NodeRuntimeStatus struct {
 	CPUPercent      float64   `json:"cpuPercent,omitempty"`
 	MemUsedPercent  float64   `json:"memUsedPercent,omitempty"`
 	Load1           float64   `json:"load1,omitempty"`
+	Load1Percent    float64   `json:"load1Percent,omitempty"`
 	DiskUsedPercent float64   `json:"diskUsedPercent,omitempty"`
+	CPUCores        int       `json:"cpuCores,omitempty"`
 }
 
 var runtimeRegistry = struct {

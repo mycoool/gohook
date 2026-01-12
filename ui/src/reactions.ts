@@ -42,8 +42,12 @@ export const registerReactions = (stores: StoreMapping) => {
                 break;
             case 'sync_node_status': {
                 const payload = (message.data || {}) as {nodeId?: number; runtime?: any};
-                if (payload.nodeId && payload.runtime) {
-                    stores.syncNodeStore.applyRuntimeUpdate(payload.nodeId, payload.runtime);
+                if (payload.runtime) {
+                    if (payload.nodeId === 0) {
+                        stores.syncNodeStore.applyLocalRuntimeUpdate(payload.runtime);
+                    } else if (payload.nodeId) {
+                        stores.syncNodeStore.applyRuntimeUpdate(payload.nodeId, payload.runtime);
+                    }
                 }
                 break;
             }

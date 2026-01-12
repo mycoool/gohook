@@ -264,9 +264,31 @@ class Navigation extends Component<IProps, {showRequestNotification: boolean}> {
         }
     }
 
-    private barColorByPercent(p: number) {
-        if (p >= 91) return '#f44336';
-        if (p >= 81) return '#ff9800';
+    private barColorByPercent(label: string, p: number) {
+        let warn = 81;
+        let critical = 91;
+        switch (label) {
+            case 'C':
+                warn = 80;
+                critical = 90;
+                break;
+            case 'M':
+                warn = 75;
+                critical = 90;
+                break;
+            case 'D':
+                warn = 70;
+                critical = 85;
+                break;
+            case 'L':
+                warn = 60;
+                critical = 80;
+                break;
+            default:
+                break;
+        }
+        if (p >= critical) return '#f44336';
+        if (p >= warn) return '#ff9800';
         return '#4caf50';
     }
 
@@ -274,7 +296,7 @@ class Navigation extends Component<IProps, {showRequestNotification: boolean}> {
         const v =
             value == null || !Number.isFinite(value) ? null : Math.max(0, Math.min(100, value));
         const fill = v == null ? 0 : v;
-        const fillColor = disabled ? '#9e9e9e' : this.barColorByPercent(fill);
+        const fillColor = disabled ? '#9e9e9e' : this.barColorByPercent(label, fill);
         return (
             <Box sx={{display: 'flex', alignItems: 'center', gap: 0.5}}>
                 <Typography
@@ -318,7 +340,17 @@ class Navigation extends Component<IProps, {showRequestNotification: boolean}> {
 
         // Load1: normalize roughly to 0-100. Without core count, cap at 4.0 => 100%.
         const load1 = runtime?.load1 != null ? Number(runtime.load1) : null;
-        const loadPercent = load1 == null ? null : Math.max(0, Math.min(100, (load1 / 4) * 100));
+        const loadPercent = (() => {
+            if (runtime?.load1Percent != null) {
+                return Number(runtime.load1Percent);
+            }
+            if (load1 == null) {
+                return null;
+            }
+            const cores = runtime?.cpuCores != null ? Number(runtime.cpuCores) : 0;
+            const divisor = cores > 0 ? cores : 4;
+            return (load1 / divisor) * 100;
+        })();
 
         return (
             <>

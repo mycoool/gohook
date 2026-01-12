@@ -2,6 +2,7 @@ package nodeclient
 
 import (
 	"context"
+	"runtime"
 	"time"
 
 	"github.com/shirou/gopsutil/v3/cpu"
@@ -20,7 +21,9 @@ type runtimeStatus struct {
 	CPUPercent      float64 `json:"cpuPercent,omitempty"`
 	MemUsedPercent  float64 `json:"memUsedPercent,omitempty"`
 	Load1           float64 `json:"load1,omitempty"`
+	Load1Percent    float64 `json:"load1Percent,omitempty"`
 	DiskUsedPercent float64 `json:"diskUsedPercent,omitempty"`
+	CPUCores        int     `json:"cpuCores,omitempty"`
 }
 
 func collectRuntimeStatus(ctx context.Context, nodeID uint) runtimeStatus {
@@ -45,6 +48,17 @@ func collectRuntimeStatus(ctx context.Context, nodeID uint) runtimeStatus {
 	}
 	if perc, err := cpu.PercentWithContext(ctx, 0, false); err == nil && len(perc) > 0 {
 		out.CPUPercent = perc[0]
+	}
+
+	cores := 0
+	if counts, err := cpu.CountsWithContext(ctx, true); err == nil && counts > 0 {
+		cores = counts
+	} else {
+		cores = runtime.NumCPU()
+	}
+	if cores > 0 {
+		out.CPUCores = cores
+		out.Load1Percent = (out.Load1 / float64(cores)) * 100
 	}
 
 	return out

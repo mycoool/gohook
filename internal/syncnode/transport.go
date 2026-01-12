@@ -132,7 +132,9 @@ type nodeStatusMsg struct {
 	CPUPercent      float64 `json:"cpuPercent,omitempty"`
 	MemUsedPercent  float64 `json:"memUsedPercent,omitempty"`
 	Load1           float64 `json:"load1,omitempty"`
+	Load1Percent    float64 `json:"load1Percent,omitempty"`
 	DiskUsedPercent float64 `json:"diskUsedPercent,omitempty"`
+	CPUCores        int     `json:"cpuCores,omitempty"`
 }
 
 // StartAgentTCPServer starts a TLS-enabled TCP server for agent long connections.
@@ -440,7 +442,9 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 						CPUPercent:      st.CPUPercent,
 						MemUsedPercent:  st.MemUsedPercent,
 						Load1:           st.Load1,
+						Load1Percent:    st.Load1Percent,
 						DiskUsedPercent: st.DiskUsedPercent,
+						CPUCores:        st.CPUCores,
 					}
 					setRuntimeStatus(st.NodeID, rs)
 					broadcastWS(wsTypeSyncNodeStatus, map[string]any{"nodeId": st.NodeID, "runtime": rs})
@@ -662,7 +666,9 @@ func handleAgentConn(ctx context.Context, conn net.Conn) {
 						CPUPercent:      st.CPUPercent,
 						MemUsedPercent:  st.MemUsedPercent,
 						Load1:           st.Load1,
+						Load1Percent:    st.Load1Percent,
 						DiskUsedPercent: st.DiskUsedPercent,
+						CPUCores:        st.CPUCores,
 					}
 					setRuntimeStatus(st.NodeID, rs)
 					broadcastWS(wsTypeSyncNodeStatus, map[string]any{"nodeId": st.NodeID, "runtime": rs})

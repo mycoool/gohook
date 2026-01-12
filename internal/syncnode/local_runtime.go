@@ -2,6 +2,10 @@ package syncnode
 
 import (
 	"context"
+	"os"
+	"runtime"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/shirou/gopsutil/v3/cpu"
@@ -33,5 +37,40 @@ func collectLocalRuntime(ctx context.Context) NodeRuntimeStatus {
 		out.CPUPercent = perc[0]
 	}
 
+	cores := 0
+	if counts, err := cpu.CountsWithContext(ctx, true); err == nil && counts > 0 {
+		cores = counts
+	} else {
+		cores = runtime.NumCPU()
+	}
+	if cores > 0 {
+		out.CPUCores = cores
+		out.Load1Percent = (out.Load1 / float64(cores)) * 100
+	}
+
 	return out
+}
+
+func StartLocalRuntimeBroadcaster(ctx context.Context) {
+	interval := 5 * time.Second
+	if raw := strings.TrimSpace(os.Getenv("SYNC_LOCAL_RUNTIME_INTERVAL")); raw != "" {
+		if d, err := time.ParseDuration(raw); err == nil && d > 0 {
+			interval = d
+		} else if sec, err := strconv.Atoi(raw); err == nil && sec > 0 {
+			interval = time.Duration(sec) * time.Second
+		}
+	}
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				runtime := collectLocalRuntime(ctx)
+				broadcastWS(wsTypeSyncNodeStatus, map[string]any{"nodeId": 0, "runtime": runtime})
+			}
+		}
+	}()
 }

@@ -388,6 +388,7 @@ func main() {
 		// Start sync project file watchers (primary node).
 		syncnode.StartAutoSyncController(context.Background())
 		syncnode.StartProjectWatchers()
+		syncnode.StartLocalRuntimeBroadcaster(context.Background())
 
 		// Start agent TCP mTLS transport (primary node).
 		go func() {

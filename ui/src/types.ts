@@ -316,7 +316,9 @@ export interface ISyncNodeRuntime {
     cpuPercent?: number;
     memUsedPercent?: number;
     load1?: number;
+    load1Percent?: number;
     diskUsedPercent?: number;
+    cpuCores?: number;
 }
 
 export interface ISyncTask {
