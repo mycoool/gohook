@@ -234,7 +234,9 @@ const SyncNodesPage: React.FC<Props> = ({syncNodeStore, currentUser}) => {
                                             <TableCell>
                                                 {node.address || t('syncNodes.notAvailable')}
                                             </TableCell>
-                                            <TableCell>{node.remark || t('syncNodes.notAvailable')}</TableCell>
+                                            <TableCell>
+                                                {node.remark || t('syncNodes.notAvailable')}
+                                            </TableCell>
                                             <TableCell>
                                                 <Chip
                                                     label={connectionLabel(node, t)}
@@ -314,7 +316,8 @@ const SyncNodesPage: React.FC<Props> = ({syncNodeStore, currentUser}) => {
                                                         display: 'inline-flex',
                                                         alignItems: 'center',
                                                     }}>
-                                                    <Tooltip title={t('syncNodes.tooltips.taskDetails')}>
+                                                    <Tooltip
+                                                        title={t('syncNodes.tooltips.taskDetails')}>
                                                         <span>
                                                             <IconButton
                                                                 size="small"
@@ -326,7 +329,10 @@ const SyncNodesPage: React.FC<Props> = ({syncNodeStore, currentUser}) => {
                                                             </IconButton>
                                                         </span>
                                                     </Tooltip>
-                                                    <Tooltip title={t('syncNodes.tooltips.resetPairing')}>
+                                                    <Tooltip
+                                                        title={t(
+                                                            'syncNodes.tooltips.resetPairing'
+                                                        )}>
                                                         <span>
                                                             <IconButton
                                                                 size="small"

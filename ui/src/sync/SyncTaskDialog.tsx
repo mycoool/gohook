@@ -251,7 +251,9 @@ const SyncTaskDialog: React.FC<Props> = ({open, title, query, onClose, syncTaskS
 
     const goOlder = () => {
         if (!tasks.length) return;
-        const minID = Math.min(...tasks.map((task) => Number(task.id)).filter((v) => Number.isFinite(v)));
+        const minID = Math.min(
+            ...tasks.map((task) => Number(task.id)).filter((v) => Number.isFinite(v))
+        );
         if (!Number.isFinite(minID) || minID <= 0) return;
         setPageCursors((prev) => [...prev, minID]);
     };
@@ -309,7 +311,9 @@ const SyncTaskDialog: React.FC<Props> = ({open, title, query, onClose, syncTaskS
                             variant={includeLogs ? 'contained' : 'outlined'}
                             onClick={() => setIncludeLogs((v) => !v)}
                             disabled={syncTaskStore.loading}>
-                            {includeLogs ? translate('syncTasks.includeLogs') : translate('syncTasks.excludeLogs')}
+                            {includeLogs
+                                ? translate('syncTasks.includeLogs')
+                                : translate('syncTasks.excludeLogs')}
                         </Button>
                         <Button
                             size="small"
@@ -363,19 +367,18 @@ const SyncTaskDialog: React.FC<Props> = ({open, title, query, onClose, syncTaskS
                 ) : (
                     <Table size="small">
                         <TableHead>
-                                <TableRow>
-                                    <TableCell>{translate('syncTasks.table.id')}</TableCell>
-                                    {showProjectColumn ? (
-                                        <TableCell>{translate('syncTasks.table.project')}</TableCell>
-                                    ) : null}
-                                    <TableCell>{translate('syncTasks.table.node')}</TableCell>
-                                    <TableCell>{translate('syncTasks.table.status')}</TableCell>
-                                    <TableCell>{translate('syncTasks.table.time')}</TableCell>
-                                    <TableCell>{translate('syncTasks.table.transfer')}</TableCell>
-                                    <TableCell>{translate('syncTasks.table.error')}</TableCell>
-                                    <TableCell>{translate('syncTasks.table.logs')}</TableCell>
-                                </TableRow>
-
+                            <TableRow>
+                                <TableCell>{translate('syncTasks.table.id')}</TableCell>
+                                {showProjectColumn ? (
+                                    <TableCell>{translate('syncTasks.table.project')}</TableCell>
+                                ) : null}
+                                <TableCell>{translate('syncTasks.table.node')}</TableCell>
+                                <TableCell>{translate('syncTasks.table.status')}</TableCell>
+                                <TableCell>{translate('syncTasks.table.time')}</TableCell>
+                                <TableCell>{translate('syncTasks.table.transfer')}</TableCell>
+                                <TableCell>{translate('syncTasks.table.error')}</TableCell>
+                                <TableCell>{translate('syncTasks.table.logs')}</TableCell>
+                            </TableRow>
                         </TableHead>
                         <TableBody>
                             {tasks.length === 0 ? (
@@ -522,15 +525,18 @@ const SyncTaskDialog: React.FC<Props> = ({open, title, query, onClose, syncTaskS
                                                                             <Typography
                                                                                 variant="caption"
                                                                                 color="textSecondary">
-                                                                                {translate('syncTasks.logPageHint', {
-                                                                                    count: logPageSize,
-                                                                                    page: Math.max(
-                                                                                        1,
-                                                                                        totalPages -
-                                                                                            pageIndex
-                                                                                    ),
-                                                                                    total: totalPages,
-                                                                                })}
+                                                                                {translate(
+                                                                                    'syncTasks.logPageHint',
+                                                                                    {
+                                                                                        count: logPageSize,
+                                                                                        page: Math.max(
+                                                                                            1,
+                                                                                            totalPages -
+                                                                                                pageIndex
+                                                                                        ),
+                                                                                        total: totalPages,
+                                                                                    }
+                                                                                )}
                                                                             </Typography>
                                                                             <Stack
                                                                                 direction="row"
@@ -560,7 +566,9 @@ const SyncTaskDialog: React.FC<Props> = ({open, title, query, onClose, syncTaskS
                                                                                             })
                                                                                         )
                                                                                     }>
-                                                                                    {translate('syncTasks.older')}
+                                                                                    {translate(
+                                                                                        'syncTasks.older'
+                                                                                    )}
                                                                                 </Button>
                                                                                 <Button
                                                                                     size="small"
@@ -588,7 +596,9 @@ const SyncTaskDialog: React.FC<Props> = ({open, title, query, onClose, syncTaskS
                                                                                             })
                                                                                         )
                                                                                     }>
-                                                                                    {translate('syncTasks.newer')}
+                                                                                    {translate(
+                                                                                        'syncTasks.newer'
+                                                                                    )}
                                                                                 </Button>
                                                                             </Stack>
                                                                         </Stack>

@@ -22,6 +22,7 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import CloseIcon from '@mui/icons-material/Close';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import {IProjectSyncNodeConfig, ISyncNode} from '../types';
+import useTranslation from '../i18n/useTranslation';
 
 export type SyncNodeRow = {
     nodeId: string;
@@ -91,39 +92,34 @@ const normalizeNodeRow = (row: SyncNodeRow): IProjectSyncNodeConfig => {
 export const normalizeNodes = (rows: SyncNodeRow[]): IProjectSyncNodeConfig[] =>
     rows.map(normalizeNodeRow).filter((n) => n.nodeId && n.targetPath);
 
-const IgnoreRulesHelp: React.FC<{open: boolean}> = ({open}) => (
+const IgnoreRulesHelp: React.FC<{open: boolean; t: (key: string) => string}> = ({open, t}) => (
     <Collapse in={open}>
         <Paper variant="outlined" sx={{p: 1, mt: 1}}>
             <Stack spacing={0.5}>
                 <Typography variant="body2">
-                    <code>#</code> 注释（行首）
+                    <code>#</code> {t('syncConfig.ignoreHelp.comment')}
                 </Typography>
                 <Typography variant="body2">
-                    <code>!</code> 反选（取消忽略）
+                    <code>!</code> {t('syncConfig.ignoreHelp.negate')}
                 </Typography>
                 <Typography variant="body2">
-                    <code>*</code> 单层通配（不跨目录）
+                    <code>*</code> {t('syncConfig.ignoreHelp.singleWildcard')}
                 </Typography>
                 <Typography variant="body2">
-                    <code>**</code> 多层通配（可跨目录）
+                    <code>**</code> {t('syncConfig.ignoreHelp.multiWildcard')}
                 </Typography>
                 <Typography variant="body2">
-                    <code>?</code> / <code>[abc]</code> 单字符 / 字符组
+                    <code>?</code> / <code>[abc]</code> {t('syncConfig.ignoreHelp.charGroup')}
                 </Typography>
                 <Typography variant="body2">
-                    <code>dir/</code> 目录规则（匹配该目录及其子路径）
+                    <code>dir/</code> {t('syncConfig.ignoreHelp.dirRule')}
                 </Typography>
                 <Typography variant="body2">
-                    <code>/pattern</code> 锚定到项目根目录
+                    <code>/pattern</code> {t('syncConfig.ignoreHelp.rootAnchor')}
                 </Typography>
-                <Typography variant="body2">规则按顺序匹配，“最后匹配规则生效”。</Typography>
-                <Typography variant="body2">
-                    不含 <code>/</code> 的规则默认匹配任意层级（等同 <code>**/pattern</code>）。
-                </Typography>
-                <Typography variant="body2">
-                    示例：<code>node_modules/**</code>、<code>*.log</code>、<code>runtime/**</code>
-                    、<code>!.env</code>
-                </Typography>
+                <Typography variant="body2">{t('syncConfig.ignoreHelp.order')}</Typography>
+                <Typography variant="body2">{t('syncConfig.ignoreHelp.anyDepth')}</Typography>
+                <Typography variant="body2">{t('syncConfig.ignoreHelp.examples')}</Typography>
             </Stack>
         </Paper>
     </Collapse>
@@ -161,6 +157,7 @@ const SyncConfigEditor: React.FC<Props> = ({
     onOverlayFullScanIntervalChange,
     onSyncNodesChange,
 }) => {
+    const {t} = useTranslation();
     const [expanded, setExpanded] = useState<Record<number, boolean>>({});
     const [tab, setTab] = useState(0);
     const [showIgnoreHelp, setShowIgnoreHelp] = useState(false);
@@ -213,16 +210,16 @@ const SyncConfigEditor: React.FC<Props> = ({
                 onChange={(_, v) => setTab(v)}
                 variant="scrollable"
                 scrollButtons="auto">
-                <Tab label="同步" />
-                <Tab label="权限" />
-                <Tab label="节点" />
-                <Tab label="高级" />
+                <Tab label={t('syncConfig.tabs.sync')} />
+                <Tab label={t('syncConfig.tabs.permissions')} />
+                <Tab label={t('syncConfig.tabs.nodes')} />
+                <Tab label={t('syncConfig.tabs.advanced')} />
             </Tabs>
 
             {tab === 0 ? (
                 <Box mt={1}>
                     <Stack direction="row" alignItems="center" justifyContent="space-between">
-                        <Typography variant="subtitle1">同步</Typography>
+                        <Typography variant="subtitle1">{t('syncConfig.sections.sync')}</Typography>
                         <FormControlLabel
                             control={
                                 <Switch
@@ -230,7 +227,7 @@ const SyncConfigEditor: React.FC<Props> = ({
                                     onChange={(_, checked) => onEnabledChange(checked)}
                                 />
                             }
-                            label="启用"
+                            label={t('syncConfig.sync.enable')}
                         />
                     </Stack>
 
@@ -244,10 +241,10 @@ const SyncConfigEditor: React.FC<Props> = ({
                                             onChange={(_, checked) => onWatchEnabledChange(checked)}
                                         />
                                     }
-                                    label="文件监听"
+                                    label={t('syncConfig.sync.watch')}
                                 />
                                 <Typography variant="caption" color="textSecondary">
-                                    开启后将通过文件系统事件监控变化并自动触发同步。
+                                    {t('syncConfig.sync.watchHelp')}
                                 </Typography>
                             </Box>
 
@@ -265,43 +262,43 @@ const SyncConfigEditor: React.FC<Props> = ({
                                                 }
                                             />
                                         }
-                                        label="启用默认忽略列表 (.git、runtime)"
+                                        label={t('syncConfig.sync.ignoreDefaults')}
                                     />
                                     <Button
                                         size="small"
                                         startIcon={<HelpOutlineIcon />}
                                         onClick={() => setShowIgnoreHelp((v) => !v)}>
-                                        规则说明
+                                        {t('syncConfig.sync.rulesHelp')}
                                     </Button>
                                 </Stack>
                             </Box>
-                            <IgnoreRulesHelp open={showIgnoreHelp} />
+                            <IgnoreRulesHelp open={showIgnoreHelp} t={t} />
 
                             <TextField
                                 margin="dense"
-                                label="忽略规则（支持 # 注释 与 ! 反选）"
+                                label={t('syncConfig.sync.ignorePatterns')}
                                 value={ignorePatterns}
                                 onChange={(e) => onIgnorePatternsChange(e.target.value)}
                                 fullWidth
                                 multiline
                                 minRows={4}
-                                placeholder={`# example\n.env\n!keep.env\nnode_modules/**\n*.log`}
-                                helperText="无“/”的规则默认匹配任意目录层级；支持 **。"
+                                placeholder={t('syncConfig.sync.ignorePlaceholder')}
+                                helperText={t('syncConfig.sync.ignoreHelp')}
                             />
 
                             <TextField
                                 margin="dense"
-                                label="忽略文件路径（可选）"
+                                label={t('syncConfig.sync.ignoreFile')}
                                 value={ignoreFile}
                                 onChange={(e) => onIgnoreFileChange(e.target.value)}
                                 fullWidth
-                                placeholder=".stignore"
-                                helperText="路径相对于主节点项目目录；内容同样支持 # 与 !。"
+                                placeholder={t('syncConfig.sync.ignoreFilePlaceholder')}
+                                helperText={t('syncConfig.sync.ignoreFileHelp')}
                             />
                         </>
                     ) : (
                         <Typography variant="body2" color="textSecondary" sx={{mt: 1}}>
-                            当前同步已关闭。开启后可配置忽略规则与同步节点。
+                            {t('syncConfig.sync.disabledHint')}
                         </Typography>
                     )}
                 </Box>
@@ -309,7 +306,9 @@ const SyncConfigEditor: React.FC<Props> = ({
 
             {tab === 1 ? (
                 <Box mt={1}>
-                    <Typography variant="subtitle1">权限</Typography>
+                    <Typography variant="subtitle1">
+                        {t('syncConfig.sections.permissions')}
+                    </Typography>
                     {enabled ? (
                         <Box mt={1}>
                             <FormControlLabel
@@ -321,7 +320,7 @@ const SyncConfigEditor: React.FC<Props> = ({
                                         }
                                     />
                                 }
-                                label="忽略权限与时间（不做 chmod/chown/mtime）"
+                                label={t('syncConfig.permissions.ignoreAll')}
                             />
 
                             <Collapse in={!ignorePermissions}>
@@ -335,7 +334,7 @@ const SyncConfigEditor: React.FC<Props> = ({
                                                 }
                                             />
                                         }
-                                        label="保留权限位（chmod）"
+                                        label={t('syncConfig.permissions.preserveMode')}
                                     />
                                     <FormControlLabel
                                         control={
@@ -346,7 +345,7 @@ const SyncConfigEditor: React.FC<Props> = ({
                                                 }
                                             />
                                         }
-                                        label="保留修改时间（mtime）"
+                                        label={t('syncConfig.permissions.preserveMtime')}
                                     />
                                 </Box>
                             </Collapse>
@@ -354,7 +353,7 @@ const SyncConfigEditor: React.FC<Props> = ({
                             <TextField
                                 margin="dense"
                                 select
-                                label="符号链接策略"
+                                label={t('syncConfig.permissions.symlinkPolicy')}
                                 value={symlinkPolicy}
                                 onChange={(e) =>
                                     onSymlinkPolicyChange(
@@ -362,16 +361,20 @@ const SyncConfigEditor: React.FC<Props> = ({
                                     )
                                 }
                                 fullWidth>
-                                <MenuItem value="ignore">忽略（默认）</MenuItem>
-                                <MenuItem value="preserve">保留为 symlink</MenuItem>
+                                <MenuItem value="ignore">
+                                    {t('syncConfig.permissions.symlinkIgnore')}
+                                </MenuItem>
+                                <MenuItem value="preserve">
+                                    {t('syncConfig.permissions.symlinkPreserve')}
+                                </MenuItem>
                             </TextField>
                             <Typography variant="caption" color="textSecondary">
-                                注意：Windows 下创建 symlink 可能需要管理员/开发者模式权限。
+                                {t('syncConfig.permissions.symlinkHint')}
                             </Typography>
                         </Box>
                     ) : (
                         <Typography variant="body2" color="textSecondary" sx={{mt: 1}}>
-                            当前同步已关闭。开启后可配置权限与符号链接策略。
+                            {t('syncConfig.permissions.disabledHint')}
                         </Typography>
                     )}
                 </Box>
@@ -379,7 +382,7 @@ const SyncConfigEditor: React.FC<Props> = ({
 
             {tab === 3 ? (
                 <Box mt={1}>
-                    <Typography variant="subtitle1">高级</Typography>
+                    <Typography variant="subtitle1">{t('syncConfig.sections.advanced')}</Typography>
                     {enabled ? (
                         <Box mt={1}>
                             <FormControlLabel
@@ -391,11 +394,11 @@ const SyncConfigEditor: React.FC<Props> = ({
                                         }
                                     />
                                 }
-                                label="启用 Overlay 增量索引（高性能，需配合基线全量校验）"
+                                label={t('syncConfig.advanced.overlayEnable')}
                             />
                             <TextField
                                 margin="dense"
-                                label="增量索引最大文件数（超过自动回退全量）"
+                                label={t('syncConfig.advanced.deltaMaxFiles')}
                                 type="number"
                                 value={deltaMaxFiles}
                                 onChange={(e) =>
@@ -404,11 +407,11 @@ const SyncConfigEditor: React.FC<Props> = ({
                                     )
                                 }
                                 fullWidth
-                                placeholder="5000"
+                                placeholder={t('syncConfig.advanced.deltaMaxFilesPlaceholder')}
                             />
                             <TextField
                                 margin="dense"
-                                label="Overlay 基线全量索引：每 N 次任务强制全量（可选）"
+                                label={t('syncConfig.advanced.overlayFullScanEvery')}
                                 type="number"
                                 value={overlayFullScanEvery}
                                 onChange={(e) =>
@@ -417,21 +420,25 @@ const SyncConfigEditor: React.FC<Props> = ({
                                     )
                                 }
                                 fullWidth
-                                placeholder="10"
-                                helperText="用于纠偏：子节点误删/损坏文件、watcher 漏事件等。"
+                                placeholder={t(
+                                    'syncConfig.advanced.overlayFullScanEveryPlaceholder'
+                                )}
+                                helperText={t('syncConfig.advanced.overlayFullScanEveryHelp')}
                             />
                             <TextField
                                 margin="dense"
-                                label="Overlay 基线全量索引：最大间隔（duration，可选）"
+                                label={t('syncConfig.advanced.overlayFullScanInterval')}
                                 value={overlayFullScanInterval}
                                 onChange={(e) => onOverlayFullScanIntervalChange(e.target.value)}
                                 fullWidth
-                                placeholder="30m"
+                                placeholder={t(
+                                    'syncConfig.advanced.overlayFullScanIntervalPlaceholder'
+                                )}
                             />
                         </Box>
                     ) : (
                         <Typography variant="body2" color="textSecondary" sx={{mt: 1}}>
-                            当前同步已关闭。开启后可配置增量索引与基线全量校验策略。
+                            {t('syncConfig.advanced.disabledHint')}
                         </Typography>
                     )}
                 </Box>
@@ -440,18 +447,18 @@ const SyncConfigEditor: React.FC<Props> = ({
             {tab === 2 ? (
                 <Box mt={2}>
                     <Stack direction="row" alignItems="center" justifyContent="space-between">
-                        <Typography variant="subtitle2">同步节点</Typography>
+                        <Typography variant="subtitle2">{t('syncConfig.nodes.title')}</Typography>
                         <Button
                             size="small"
                             startIcon={<AddIcon />}
                             onClick={addSyncNodeRow}
                             disabled={availableNodes.length === 0}>
-                            添加节点
+                            {t('syncConfig.nodes.add')}
                         </Button>
                     </Stack>
                     {availableNodes.length === 0 ? (
                         <Typography variant="caption" color="textSecondary">
-                            还没有可用节点，请先在“节点管理”里创建节点。
+                            {t('syncConfig.nodes.empty')}
                         </Typography>
                     ) : null}
                     <Box sx={{mt: 1}}>
@@ -494,7 +501,7 @@ const SyncConfigEditor: React.FC<Props> = ({
                                     }}>
                                     <TextField
                                         select
-                                        label="节点"
+                                        label={t('syncConfig.nodes.nodeLabel')}
                                         value={row.nodeId}
                                         onChange={(e) =>
                                             updateNodeRow(idx, {nodeId: e.target.value})
@@ -508,19 +515,22 @@ const SyncConfigEditor: React.FC<Props> = ({
                                         ))}
                                     </TextField>
                                     <TextField
-                                        label="目标目录"
+                                        label={t('syncConfig.nodes.targetPath')}
                                         value={row.targetPath}
                                         onChange={(e) =>
                                             updateNodeRow(idx, {targetPath: e.target.value})
                                         }
                                         size="small"
                                         fullWidth
-                                        placeholder={projectPath || '/www/wwwroot/app'}
+                                        placeholder={
+                                            projectPath ||
+                                            t('syncConfig.nodes.targetPathPlaceholder')
+                                        }
                                     />
                                     <IconButton
                                         size="small"
                                         onClick={() => toggleExpanded(idx)}
-                                        title="节点同步设置">
+                                        title={t('syncConfig.nodes.settings')}>
                                         {expanded[idx] ? (
                                             <CloseIcon fontSize="small" />
                                         ) : (
@@ -530,7 +540,7 @@ const SyncConfigEditor: React.FC<Props> = ({
                                     <IconButton
                                         size="small"
                                         onClick={() => removeNodeRow(idx)}
-                                        title="移除"
+                                        title={t('syncConfig.nodes.remove')}
                                         color="error">
                                         <DeleteIcon fontSize="small" />
                                     </IconButton>
@@ -541,19 +551,19 @@ const SyncConfigEditor: React.FC<Props> = ({
                                         <TextField
                                             margin="dense"
                                             select
-                                            label="策略"
+                                            label={t('syncConfig.nodes.strategy')}
                                             value={row.strategy || 'mirror'}
                                             onChange={(e) =>
                                                 updateNodeRow(idx, {strategy: e.target.value})
                                             }
                                             fullWidth
-                                            helperText="mirror：对齐源并删除额外文件；overlay：仅覆盖/新增，不删除目标端额外文件。">
+                                            helperText={t('syncConfig.nodes.strategyHelp')}>
                                             <MenuItem value="mirror">mirror</MenuItem>
                                             <MenuItem value="overlay">overlay</MenuItem>
                                         </TextField>
                                         <TextField
                                             margin="dense"
-                                            label="节点额外忽略规则（可选）"
+                                            label={t('syncConfig.nodes.extraIgnore')}
                                             value={row.ignorePatterns}
                                             onChange={(e) =>
                                                 updateNodeRow(idx, {
@@ -563,32 +573,36 @@ const SyncConfigEditor: React.FC<Props> = ({
                                             fullWidth
                                             multiline
                                             minRows={3}
-                                            placeholder={`# only for this node\n*.local\n!important.local`}
-                                            helperText="与项目级规则合并后按顺序生效（支持 ! 反选）。"
+                                            placeholder={t(
+                                                'syncConfig.nodes.extraIgnorePlaceholder'
+                                            )}
+                                            helperText={t('syncConfig.nodes.extraIgnoreHelp')}
                                         />
                                         <Box sx={{display: 'flex', justifyContent: 'flex-end'}}>
                                             <Button
                                                 size="small"
                                                 startIcon={<HelpOutlineIcon />}
                                                 onClick={() => setShowIgnoreHelp((v) => !v)}>
-                                                规则说明
+                                                {t('syncConfig.sync.rulesHelp')}
                                             </Button>
                                         </Box>
-                                        <IgnoreRulesHelp open={showIgnoreHelp} />
+                                        <IgnoreRulesHelp open={showIgnoreHelp} t={t} />
                                         <TextField
                                             margin="dense"
-                                            label="节点忽略文件路径（可选）"
+                                            label={t('syncConfig.nodes.ignoreFile')}
                                             value={row.ignoreFile}
                                             onChange={(e) =>
                                                 updateNodeRow(idx, {ignoreFile: e.target.value})
                                             }
                                             fullWidth
-                                            placeholder=".stignore.node"
+                                            placeholder={t(
+                                                'syncConfig.nodes.ignoreFilePlaceholder'
+                                            )}
                                         />
                                         {row.strategy === 'mirror' ? (
                                             <Box mt={1}>
                                                 <Typography variant="subtitle2">
-                                                    Mirror 优化（可选）
+                                                    {t('syncConfig.nodes.mirror.title')}
                                                 </Typography>
                                                 <FormControlLabel
                                                     control={
@@ -601,7 +615,9 @@ const SyncConfigEditor: React.FC<Props> = ({
                                                             }
                                                         />
                                                     }
-                                                    label="同步空目录（创建源端目录结构）"
+                                                    label={t(
+                                                        'syncConfig.nodes.mirror.syncEmptyDirs'
+                                                    )}
                                                 />
                                                 <FormControlLabel
                                                     control={
@@ -614,11 +630,13 @@ const SyncConfigEditor: React.FC<Props> = ({
                                                             }
                                                         />
                                                     }
-                                                    label="快速删除（基于 manifest，性能更好）"
+                                                    label={t('syncConfig.nodes.mirror.fastDelete')}
                                                 />
                                                 <TextField
                                                     margin="dense"
-                                                    label="每 N 次强制全量扫描删除（可选）"
+                                                    label={t(
+                                                        'syncConfig.nodes.mirror.fullscanEvery'
+                                                    )}
                                                     type="number"
                                                     value={row.mirrorFastFullscanEvery}
                                                     onChange={(e) =>
@@ -630,7 +648,9 @@ const SyncConfigEditor: React.FC<Props> = ({
                                                         })
                                                     }
                                                     fullWidth
-                                                    placeholder="10"
+                                                    placeholder={t(
+                                                        'syncConfig.nodes.mirror.fullscanEveryPlaceholder'
+                                                    )}
                                                     disabled={!row.mirrorFastDelete}
                                                 />
                                                 <FormControlLabel
@@ -644,7 +664,9 @@ const SyncConfigEditor: React.FC<Props> = ({
                                                             }
                                                         />
                                                     }
-                                                    label="清理空目录（删除文件后向上尝试移除空父目录）"
+                                                    label={t(
+                                                        'syncConfig.nodes.mirror.cleanEmptyDirs'
+                                                    )}
                                                 />
                                             </Box>
                                         ) : null}

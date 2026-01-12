@@ -116,6 +116,7 @@
     },
     "syncTasks": {
         "title": "任务详情 - {{name}}",
+        "projectTitle": "任务详情 - {{name}}",
         "recentHint": "默认展示最近 {{count}} 条任务；翻页可查看更早记录。",
         "includeLogs": "包含日志",
         "excludeLogs": "不含日志",
@@ -155,6 +156,148 @@
             "enospc": "可能原因：磁盘空间不足（清理空间）",
             "invalidTarget": "可能原因：targetPath 配置不合法（不能为空或 /）",
             "proto": "可能原因：连接/协议异常（检查主节点与 Agent 版本）"
+        },
+        "snack": {
+            "loadFailed": "加载任务失败"
+        }
+    },
+    "syncProjects": {
+        "pageTitle": "同步管理",
+        "empty": "暂无同步项目（请在版本管理中开启同步）",
+        "notAvailable": "N/A",
+        "table": {
+            "project": "项目",
+            "overall": "全局状态",
+            "lastSync": "最后同步",
+            "nodes": "节点状态"
+        },
+        "status": {
+            "running": "同步中",
+            "success": "成功",
+            "failed": "失败",
+            "retrying": "重试中",
+            "pending": "待处理",
+            "idle": "空闲"
+        },
+        "connection": {
+            "connected": "在线",
+            "disconnected": "离线",
+            "unpaired": "未配对",
+            "unknown": "未知"
+        },
+        "badge": {
+            "noNodes": "未配置节点",
+            "offlineSuffix": "（有节点离线）",
+            "running": "同步中",
+            "latest": "最新",
+            "failed": "失败",
+            "retrying": "重试中",
+            "pending": "待同步",
+            "idle": "暂无"
+        },
+        "tooltip": {
+            "connection": "连接",
+            "status": "状态",
+            "time": "时间",
+            "path": "目录"
+        },
+        "tooltips": {
+            "taskDetails": "查看任务/错误详情",
+            "manageConfig": "管理同步配置",
+            "syncNow": "立即同步（手动触发）"
+        },
+        "snack": {
+            "loadFailed": "加载同步项目失败",
+            "saveSuccess": "同步配置已保存",
+            "saveFailed": "保存同步配置失败",
+            "runSuccess": "已触发同步",
+            "runFailed": "触发同步失败"
+        }
+    },
+    "syncConfig": {
+        "title": "同步管理 - {{name}}",
+        "tabs": {
+            "sync": "同步",
+            "permissions": "权限",
+            "nodes": "节点",
+            "advanced": "高级"
+        },
+        "sections": {
+            "sync": "同步",
+            "permissions": "权限",
+            "advanced": "高级"
+        },
+        "sync": {
+            "enable": "启用",
+            "watch": "文件监听",
+            "watchHelp": "开启后将通过文件系统事件监控变化并自动触发同步。",
+            "ignoreDefaults": "启用默认忽略列表 (.git、runtime)",
+            "rulesHelp": "规则说明",
+            "ignorePatterns": "忽略规则（支持 # 注释 与 ! 反选）",
+            "ignorePlaceholder": "# example\n.env\n!keep.env\nnode_modules/**\n*.log",
+            "ignoreHelp": "无“/”的规则默认匹配任意目录层级；支持 **。",
+            "ignoreFile": "忽略文件路径（可选）",
+            "ignoreFilePlaceholder": ".stignore",
+            "ignoreFileHelp": "路径相对于主节点项目目录；内容同样支持 # 与 !。",
+            "disabledHint": "当前同步已关闭。开启后可配置忽略规则与同步节点。"
+        },
+        "permissions": {
+            "ignoreAll": "忽略权限与时间（不做 chmod/chown/mtime）",
+            "preserveMode": "保留权限位（chmod）",
+            "preserveMtime": "保留修改时间（mtime）",
+            "symlinkPolicy": "符号链接策略",
+            "symlinkIgnore": "忽略（默认）",
+            "symlinkPreserve": "保留为 symlink",
+            "symlinkHint": "注意：Windows 下创建 symlink 可能需要管理员/开发者模式权限。",
+            "disabledHint": "当前同步已关闭。开启后可配置权限与符号链接策略。"
+        },
+        "advanced": {
+            "overlayEnable": "启用 Overlay 增量索引（高性能，需配合基线全量校验）",
+            "deltaMaxFiles": "增量索引最大文件数（超过自动回退全量）",
+            "deltaMaxFilesPlaceholder": "5000",
+            "overlayFullScanEvery": "Overlay 基线全量索引：每 N 次任务强制全量（可选）",
+            "overlayFullScanEveryPlaceholder": "10",
+            "overlayFullScanEveryHelp": "用于纠偏：子节点误删/损坏文件、watcher 漏事件等。",
+            "overlayFullScanInterval": "Overlay 基线全量索引：最大间隔（duration，可选）",
+            "overlayFullScanIntervalPlaceholder": "30m",
+            "disabledHint": "当前同步已关闭。开启后可配置增量索引与基线全量校验策略。"
+        },
+        "nodes": {
+            "title": "同步节点",
+            "add": "添加节点",
+            "empty": "还没有可用节点，请先在“节点管理”里创建节点。",
+            "nodeLabel": "节点",
+            "targetPath": "目标目录",
+            "targetPathPlaceholder": "/www/wwwroot/app",
+            "settings": "节点同步设置",
+            "remove": "移除",
+            "strategy": "策略",
+            "strategyHelp": "mirror：对齐源并删除额外文件；overlay：仅覆盖/新增，不删除目标端额外文件。",
+            "extraIgnore": "节点额外忽略规则（可选）",
+            "extraIgnorePlaceholder": "# only for this node\n*.local\n!important.local",
+            "extraIgnoreHelp": "与项目级规则合并后按顺序生效（支持 ! 反选）。",
+            "ignoreFile": "节点忽略文件路径（可选）",
+            "ignoreFilePlaceholder": ".stignore.node",
+            "mirror": {
+                "title": "Mirror 优化（可选）",
+                "syncEmptyDirs": "同步空目录（创建源端目录结构）",
+                "fastDelete": "快速删除（基于 manifest，性能更好）",
+                "fullscanEvery": "每 N 次强制全量扫描删除（可选）",
+                "fullscanEveryPlaceholder": "10",
+                "cleanEmptyDirs": "清理空目录（删除文件后向上尝试移除空父目录）"
+            }
+        },
+        "ignoreHelp": {
+            "comment": "注释（行首）",
+            "negate": "反选（取消忽略）",
+            "singleWildcard": "单层通配（不跨目录）",
+            "multiWildcard": "多层通配（可跨目录）",
+            "charGroup": "单字符 / 字符组",
+            "dirRule": "目录规则（匹配该目录及其子路径）",
+            "rootAnchor": "锚定到项目根目录",
+            "order": "规则按顺序匹配，“最后匹配规则生效”。",
+            "anyDepth": "不含 / 的规则默认匹配任意层级（等同 **/pattern）。",
+            "examples": "示例：node_modules/**、*.log、runtime/**、!.env"
         }
     },
     "auth": {

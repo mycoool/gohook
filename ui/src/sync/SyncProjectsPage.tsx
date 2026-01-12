@@ -26,6 +26,7 @@ import {observer} from 'mobx-react';
 import {ISyncProjectSummary} from '../types';
 import SyncConfigDialog from './SyncConfigDialog';
 import SyncTaskDialog from './SyncTaskDialog';
+import useTranslation from '../i18n/useTranslation';
 
 type Props = Stores<'syncProjectStore' | 'syncNodeStore' | 'currentUser'>;
 
@@ -36,8 +37,8 @@ const parseTime = (value?: string): number => {
     return Number.isNaN(ts) ? 0 : ts;
 };
 
-const formatTime = (value?: string) => {
-    if (!value) return 'N/A';
+const formatTime = (value: string | undefined, t: (key: string) => string) => {
+    if (!value) return t('syncProjects.notAvailable');
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return value;
     return date.toLocaleString();
@@ -48,33 +49,33 @@ const normalizeTaskStatus = (value?: string) =>
         .trim()
         .toLowerCase();
 
-const statusText = (status: string) => {
+const statusText = (status: string, t: (key: string) => string) => {
     switch (normalizeTaskStatus(status)) {
         case 'running':
-            return '同步中';
+            return t('syncProjects.status.running');
         case 'success':
-            return '成功';
+            return t('syncProjects.status.success');
         case 'failed':
-            return '失败';
+            return t('syncProjects.status.failed');
         case 'retrying':
-            return '重试中';
+            return t('syncProjects.status.retrying');
         case 'pending':
-            return '待处理';
+            return t('syncProjects.status.pending');
         default:
-            return '空闲';
+            return t('syncProjects.status.idle');
     }
 };
 
-const connText = (conn: string) => {
+const connText = (conn: string, t: (key: string) => string) => {
     switch (String(conn || '').toUpperCase()) {
         case 'CONNECTED':
-            return '在线';
+            return t('syncProjects.connection.connected');
         case 'DISCONNECTED':
-            return '离线';
+            return t('syncProjects.connection.disconnected');
         case 'UNPAIRED':
-            return '未配对';
+            return t('syncProjects.connection.unpaired');
         default:
-            return '未知';
+            return t('syncProjects.connection.unknown');
     }
 };
 
@@ -82,30 +83,31 @@ type BadgeColor = 'success' | 'info' | 'warning' | 'error' | 'default';
 
 const badgeForLatest = (
     focusStatus: string,
-    opts: {hasNodes: boolean; anyDisconnected: boolean}
+    opts: {hasNodes: boolean; anyDisconnected: boolean},
+    t: (key: string) => string
 ): {label: string; color: BadgeColor} => {
-    if (!opts.hasNodes) return {label: '未配置节点', color: 'error'};
+    if (!opts.hasNodes) return {label: t('syncProjects.badge.noNodes'), color: 'error'};
 
     const st = normalizeTaskStatus(focusStatus);
-    const suffix = opts.anyDisconnected ? '（有节点离线）' : '';
+    const suffix = opts.anyDisconnected ? t('syncProjects.badge.offlineSuffix') : '';
 
     switch (st) {
         case 'running':
-            return {label: `同步中${suffix}`, color: 'info'};
+            return {label: `${t('syncProjects.badge.running')}${suffix}`, color: 'info'};
         case 'success':
             return {
-                label: `最新${suffix}`,
+                label: `${t('syncProjects.badge.latest')}${suffix}`,
                 color: opts.anyDisconnected ? 'warning' : 'success',
             };
         case 'failed':
-            return {label: `失败${suffix}`, color: 'error'};
+            return {label: `${t('syncProjects.badge.failed')}${suffix}`, color: 'error'};
         case 'retrying':
-            return {label: `重试中${suffix}`, color: 'warning'};
+            return {label: `${t('syncProjects.badge.retrying')}${suffix}`, color: 'warning'};
         case 'pending':
-            return {label: `待同步${suffix}`, color: 'warning'};
+            return {label: `${t('syncProjects.badge.pending')}${suffix}`, color: 'warning'};
         default:
             return {
-                label: `暂无${suffix}`,
+                label: `${t('syncProjects.badge.idle')}${suffix}`,
                 color: opts.anyDisconnected ? 'warning' : 'default',
             };
     }
@@ -130,6 +132,7 @@ const nodeBlockColor = (connected: boolean, lastStatus: string) => {
 };
 
 const SyncProjectsPage: React.FC<Props> = ({syncProjectStore, syncNodeStore, currentUser}) => {
+    const {t} = useTranslation();
     const [selected, setSelected] = useState<ISyncProjectSummary | null>(null);
     const [taskDialogProject, setTaskDialogProject] = useState<ISyncProjectSummary | null>(null);
 
@@ -158,7 +161,7 @@ const SyncProjectsPage: React.FC<Props> = ({syncProjectStore, syncNodeStore, cur
     return (
         <>
             <DefaultPage
-                title="同步管理"
+                title={t('syncProjects.pageTitle')}
                 maxWidth={1200}
                 rightControl={
                     <ButtonGroup variant="contained">
@@ -166,7 +169,7 @@ const SyncProjectsPage: React.FC<Props> = ({syncProjectStore, syncNodeStore, cur
                             startIcon={<RefreshIcon />}
                             onClick={() => syncProjectStore.refreshProjects()}
                             disabled={syncProjectStore.loading}>
-                            刷新
+                            {t('common.refresh')}
                         </Button>
                     </ButtonGroup>
                 }>
@@ -175,14 +178,14 @@ const SyncProjectsPage: React.FC<Props> = ({syncProjectStore, syncNodeStore, cur
                         <Table size="small" sx={{minWidth: 980}}>
                             <TableHead>
                                 <TableRow>
-                                    <TableCell>项目</TableCell>
-                                    <TableCell>全局状态</TableCell>
-                                    <TableCell>最后同步</TableCell>
-                                    <TableCell>节点状态</TableCell>
+                                    <TableCell>{t('syncProjects.table.project')}</TableCell>
+                                    <TableCell>{t('syncProjects.table.overall')}</TableCell>
+                                    <TableCell>{t('syncProjects.table.lastSync')}</TableCell>
+                                    <TableCell>{t('syncProjects.table.nodes')}</TableCell>
                                     <TableCell
                                         align="left"
                                         style={{whiteSpace: 'nowrap', width: 1}}>
-                                        操作
+                                        {t('common.actions')}
                                     </TableCell>
                                 </TableRow>
                             </TableHead>
@@ -191,8 +194,8 @@ const SyncProjectsPage: React.FC<Props> = ({syncProjectStore, syncNodeStore, cur
                                     <TableRow>
                                         <TableCell colSpan={5} align="center">
                                             {syncProjectStore.loading
-                                                ? '加载中...'
-                                                : '暂无同步项目（请在版本管理中开启同步）'}
+                                                ? t('common.loading')
+                                                : t('syncProjects.empty')}
                                         </TableCell>
                                     </TableRow>
                                 ) : (
@@ -250,15 +253,19 @@ const SyncProjectsPage: React.FC<Props> = ({syncProjectStore, syncNodeStore, cur
                                                                   ?.connectionStatus || 'UNKNOWN'
                                                             : 'UNKNOWN';
                                                     const focusAt = focus?.lastTaskAt
-                                                        ? formatTime(focus.lastTaskAt)
+                                                        ? formatTime(focus.lastTaskAt, t)
                                                         : focus?.lastSuccessAt
-                                                        ? formatTime(focus.lastSuccessAt)
+                                                        ? formatTime(focus.lastSuccessAt, t)
                                                         : '';
 
-                                                    const badge = badgeForLatest(focusStatus, {
-                                                        hasNodes: nodes.length > 0,
-                                                        anyDisconnected,
-                                                    });
+                                                    const badge = badgeForLatest(
+                                                        focusStatus,
+                                                        {
+                                                            hasNodes: nodes.length > 0,
+                                                            anyDisconnected,
+                                                        },
+                                                        t
+                                                    );
 
                                                     const latestLine = '';
 
@@ -268,13 +275,14 @@ const SyncProjectsPage: React.FC<Props> = ({syncProjectStore, syncNodeStore, cur
                                                                 nodeIndex.get(n.nodeId)
                                                                     ?.connectionStatus || 'UNKNOWN';
                                                             const st = statusText(
-                                                                n.lastStatus || ''
+                                                                n.lastStatus || '',
+                                                                t
                                                             );
                                                             const when = n.lastTaskAt
-                                                                ? formatTime(n.lastTaskAt)
+                                                                ? formatTime(n.lastTaskAt, t)
                                                                 : n.lastSuccessAt
-                                                                ? formatTime(n.lastSuccessAt)
-                                                                : 'N/A';
+                                                                ? formatTime(n.lastSuccessAt, t)
+                                                                : t('syncProjects.notAvailable');
                                                             const err = n.lastError
                                                                 ? `\n${n.lastError}${
                                                                       n.lastErrorCode
@@ -285,7 +293,8 @@ const SyncProjectsPage: React.FC<Props> = ({syncProjectStore, syncNodeStore, cur
                                                             return `${n.nodeName} (#${
                                                                 n.nodeId
                                                             }) [${connText(
-                                                                conn
+                                                                conn,
+                                                                t
                                                             )}] [${st}] · ${when}\n${
                                                                 n.targetPath
                                                             }${err}`;
@@ -344,7 +353,7 @@ const SyncProjectsPage: React.FC<Props> = ({syncProjectStore, syncNodeStore, cur
                                                     );
                                                 })()}
                                             </TableCell>
-                                            <TableCell>{formatTime(p.lastSyncAt)}</TableCell>
+                                            <TableCell>{formatTime(p.lastSyncAt, t)}</TableCell>
                                             <TableCell>
                                                 <Stack
                                                     direction="row"
@@ -361,10 +370,10 @@ const SyncProjectsPage: React.FC<Props> = ({syncProjectStore, syncNodeStore, cur
                                                         );
                                                         const color = nodeBlockColor(connected, st);
                                                         const when = n.lastTaskAt
-                                                            ? formatTime(n.lastTaskAt)
+                                                            ? formatTime(n.lastTaskAt, t)
                                                             : n.lastSuccessAt
-                                                            ? formatTime(n.lastSuccessAt)
-                                                            : 'N/A';
+                                                            ? formatTime(n.lastSuccessAt, t)
+                                                            : t('syncProjects.notAvailable');
                                                         const tooltip = (
                                                             <Box
                                                                 sx={{
@@ -377,17 +386,24 @@ const SyncProjectsPage: React.FC<Props> = ({syncProjectStore, syncNodeStore, cur
                                                                     {n.nodeName} (#{n.nodeId})
                                                                 </Typography>
                                                                 <Typography variant="body2">
-                                                                    连接：{connText(conn)}
+                                                                    {t(
+                                                                        'syncProjects.tooltip.connection'
+                                                                    )}
+                                                                    :{connText(conn, t)}
                                                                 </Typography>
                                                                 <Typography variant="body2">
-                                                                    状态：
-                                                                    {statusText(st)}
+                                                                    {t(
+                                                                        'syncProjects.tooltip.status'
+                                                                    )}
+                                                                    :{statusText(st, t)}
                                                                 </Typography>
                                                                 <Typography variant="body2">
-                                                                    时间：{when}
+                                                                    {t('syncProjects.tooltip.time')}
+                                                                    : {when}
                                                                 </Typography>
                                                                 <Typography variant="body2">
-                                                                    目录：{n.targetPath}
+                                                                    {t('syncProjects.tooltip.path')}
+                                                                    : {n.targetPath}
                                                                 </Typography>
                                                                 {n.lastError ? (
                                                                     <Typography
@@ -433,7 +449,10 @@ const SyncProjectsPage: React.FC<Props> = ({syncProjectStore, syncNodeStore, cur
                                                         display: 'inline-flex',
                                                         alignItems: 'center',
                                                     }}>
-                                                    <Tooltip title="查看任务/错误详情">
+                                                    <Tooltip
+                                                        title={t(
+                                                            'syncProjects.tooltips.taskDetails'
+                                                        )}>
                                                         <span>
                                                             <IconButton
                                                                 size="small"
@@ -445,14 +464,18 @@ const SyncProjectsPage: React.FC<Props> = ({syncProjectStore, syncNodeStore, cur
                                                             </IconButton>
                                                         </span>
                                                     </Tooltip>
-                                                    <Tooltip title="管理同步配置">
+                                                    <Tooltip
+                                                        title={t(
+                                                            'syncProjects.tooltips.manageConfig'
+                                                        )}>
                                                         <IconButton
                                                             size="small"
                                                             onClick={() => setSelected(p)}>
                                                             <SettingsIcon fontSize="small" />
                                                         </IconButton>
                                                     </Tooltip>
-                                                    <Tooltip title="立即同步（手动触发）">
+                                                    <Tooltip
+                                                        title={t('syncProjects.tooltips.syncNow')}>
                                                         <span>
                                                             <IconButton
                                                                 size="small"
@@ -476,7 +499,7 @@ const SyncProjectsPage: React.FC<Props> = ({syncProjectStore, syncNodeStore, cur
             {taskDialogProject ? (
                 <SyncTaskDialog
                     open={!!taskDialogProject}
-                    title={`任务详情 - ${taskDialogProject.projectName}`}
+                    title={t('syncTasks.projectTitle', {name: taskDialogProject.projectName})}
                     query={{projectName: taskDialogProject.projectName}}
                     onClose={() => setTaskDialogProject(null)}
                 />

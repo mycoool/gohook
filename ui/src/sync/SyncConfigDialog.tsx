@@ -9,6 +9,7 @@ import {
 } from '@mui/material';
 import {IProjectSyncConfig, ISyncNode} from '../types';
 import SyncConfigEditor, {SyncNodeRow, normalizeNodes} from './SyncConfigEditor';
+import useTranslation from '../i18n/useTranslation';
 
 interface Props {
     open: boolean;
@@ -33,6 +34,7 @@ const SyncConfigDialog: React.FC<Props> = ({
     onClose,
     onSave,
 }) => {
+    const {t} = useTranslation();
     const [enabled, setEnabled] = useState(false);
     const [watchEnabled, setWatchEnabled] = useState(true);
     const [ignoreDefaults, setIgnoreDefaults] = useState(true);
@@ -108,7 +110,7 @@ const SyncConfigDialog: React.FC<Props> = ({
 
     return (
         <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-            <DialogTitle>同步管理 - {projectName}</DialogTitle>
+            <DialogTitle>{t('syncConfig.title', {name: projectName})}</DialogTitle>
             <DialogContent>
                 <SyncConfigEditor
                     enabled={enabled}
@@ -145,7 +147,7 @@ const SyncConfigDialog: React.FC<Props> = ({
             </DialogContent>
             <DialogActions>
                 <Button onClick={onClose} disabled={saving} variant="contained" color="secondary">
-                    取消
+                    {t('common.cancel')}
                 </Button>
                 <Button
                     onClick={handleSave}
@@ -153,7 +155,7 @@ const SyncConfigDialog: React.FC<Props> = ({
                     variant="contained"
                     color="primary"
                     startIcon={saving ? <CircularProgress size={16} /> : undefined}>
-                    保存
+                    {t('common.save')}
                 </Button>
             </DialogActions>
         </Dialog>

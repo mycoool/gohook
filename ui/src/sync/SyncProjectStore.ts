@@ -3,6 +3,7 @@ import {action, observable, runInAction} from 'mobx';
 import * as config from '../config';
 import {SnackReporter} from '../snack/SnackManager';
 import {IProjectSyncConfig, ISyncProjectSummary} from '../types';
+import translate from '../i18n/translator';
 
 export class SyncProjectStore {
     @observable
@@ -44,7 +45,7 @@ export class SyncProjectStore {
                 this.projects = response.data || [];
             });
         } catch (error: unknown) {
-            this.handleError(error, '加载同步项目失败');
+            this.handleError(error, translate('syncProjects.snack.loadFailed'));
             throw error;
         } finally {
             runInAction(() => {
@@ -63,9 +64,9 @@ export class SyncProjectStore {
                 {headers: this.headers}
             );
             await this.refreshProjects();
-            this.snack('同步配置已保存');
+            this.snack(translate('syncProjects.snack.saveSuccess'));
         } catch (error: unknown) {
-            this.handleError(error, '保存同步配置失败');
+            this.handleError(error, translate('syncProjects.snack.saveFailed'));
             throw error;
         } finally {
             runInAction(() => {
@@ -84,9 +85,9 @@ export class SyncProjectStore {
                 {headers: this.headers}
             );
             await this.refreshProjects();
-            this.snack('已触发同步');
+            this.snack(translate('syncProjects.snack.runSuccess'));
         } catch (error: unknown) {
-            this.handleError(error, '触发同步失败');
+            this.handleError(error, translate('syncProjects.snack.runFailed'));
             throw error;
         } finally {
             runInAction(() => {

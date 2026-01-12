@@ -3,6 +3,7 @@ import {action, observable, runInAction} from 'mobx';
 import * as config from '../config';
 import {SnackReporter} from '../snack/SnackManager';
 import {ISyncTask} from '../types';
+import translate from '../i18n/translator';
 
 export type TaskQuery = {
     projectName?: string;
@@ -64,7 +65,7 @@ export class SyncTaskStore {
                 this.tasks = response.data || [];
             });
         } catch (error: unknown) {
-            this.snack('加载任务失败');
+            this.snack(translate('syncTasks.snack.loadFailed'));
             throw error;
         } finally {
             runInAction(() => {

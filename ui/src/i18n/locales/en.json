@@ -116,6 +116,7 @@
     },
     "syncTasks": {
         "title": "Task Details - {{name}}",
+        "projectTitle": "Task Details - {{name}}",
         "recentHint": "Showing the latest {{count}} tasks; use paging for older records.",
         "includeLogs": "Include logs",
         "excludeLogs": "Exclude logs",
@@ -155,6 +156,148 @@
             "enospc": "Possible cause: disk is full (free up space).",
             "invalidTarget": "Possible cause: invalid targetPath (empty or '/').",
             "proto": "Possible cause: connection/protocol error (check primary node and agent versions)."
+        },
+        "snack": {
+            "loadFailed": "Failed to load tasks"
+        }
+    },
+    "syncProjects": {
+        "pageTitle": "Sync Management",
+        "empty": "No synced projects (enable sync in Versions).",
+        "notAvailable": "N/A",
+        "table": {
+            "project": "Project",
+            "overall": "Overall Status",
+            "lastSync": "Last Sync",
+            "nodes": "Node Status"
+        },
+        "status": {
+            "running": "Syncing",
+            "success": "Success",
+            "failed": "Failed",
+            "retrying": "Retrying",
+            "pending": "Pending",
+            "idle": "Idle"
+        },
+        "connection": {
+            "connected": "Online",
+            "disconnected": "Offline",
+            "unpaired": "Unpaired",
+            "unknown": "Unknown"
+        },
+        "badge": {
+            "noNodes": "No nodes",
+            "offlineSuffix": " (nodes offline)",
+            "running": "Syncing",
+            "latest": "Latest",
+            "failed": "Failed",
+            "retrying": "Retrying",
+            "pending": "Pending",
+            "idle": "Idle"
+        },
+        "tooltip": {
+            "connection": "Connection",
+            "status": "Status",
+            "time": "Time",
+            "path": "Path"
+        },
+        "tooltips": {
+            "taskDetails": "View task/error details",
+            "manageConfig": "Manage sync config",
+            "syncNow": "Sync now (manual)"
+        },
+        "snack": {
+            "loadFailed": "Failed to load sync projects",
+            "saveSuccess": "Sync configuration saved",
+            "saveFailed": "Failed to save sync configuration",
+            "runSuccess": "Sync triggered",
+            "runFailed": "Failed to trigger sync"
+        }
+    },
+    "syncConfig": {
+        "title": "Sync Management - {{name}}",
+        "tabs": {
+            "sync": "Sync",
+            "permissions": "Permissions",
+            "nodes": "Nodes",
+            "advanced": "Advanced"
+        },
+        "sections": {
+            "sync": "Sync",
+            "permissions": "Permissions",
+            "advanced": "Advanced"
+        },
+        "sync": {
+            "enable": "Enable",
+            "watch": "File watch",
+            "watchHelp": "Watches file system events and triggers sync automatically.",
+            "ignoreDefaults": "Enable default ignore list (.git, runtime)",
+            "rulesHelp": "Rules help",
+            "ignorePatterns": "Ignore rules (supports # comments and ! negate)",
+            "ignorePlaceholder": "# example\n.env\n!keep.env\nnode_modules/**\n*.log",
+            "ignoreHelp": "Rules without '/' match any depth; ** is supported.",
+            "ignoreFile": "Ignore file path (optional)",
+            "ignoreFilePlaceholder": ".stignore",
+            "ignoreFileHelp": "Path is relative to the primary node project root; # and ! are supported.",
+            "disabledHint": "Sync is disabled. Enable it to configure ignore rules and nodes."
+        },
+        "permissions": {
+            "ignoreAll": "Ignore permissions and times (no chmod/chown/mtime)",
+            "preserveMode": "Preserve mode bits (chmod)",
+            "preserveMtime": "Preserve mtime",
+            "symlinkPolicy": "Symlink policy",
+            "symlinkIgnore": "Ignore (default)",
+            "symlinkPreserve": "Preserve as symlink",
+            "symlinkHint": "Note: creating symlinks on Windows may require admin or developer mode.",
+            "disabledHint": "Sync is disabled. Enable it to configure permissions and symlink policy."
+        },
+        "advanced": {
+            "overlayEnable": "Enable overlay delta index (high performance; requires baseline scan)",
+            "deltaMaxFiles": "Delta index max files (fallback to full scan when exceeded)",
+            "deltaMaxFilesPlaceholder": "5000",
+            "overlayFullScanEvery": "Overlay baseline full scan: force every N tasks (optional)",
+            "overlayFullScanEveryPlaceholder": "10",
+            "overlayFullScanEveryHelp": "For correction: missing events or damaged files on agents.",
+            "overlayFullScanInterval": "Overlay baseline full scan: max interval (duration, optional)",
+            "overlayFullScanIntervalPlaceholder": "30m",
+            "disabledHint": "Sync is disabled. Enable it to configure delta index and baseline scans."
+        },
+        "nodes": {
+            "title": "Sync nodes",
+            "add": "Add node",
+            "empty": "No nodes available. Create one in Node Manager first.",
+            "nodeLabel": "Node",
+            "targetPath": "Target path",
+            "targetPathPlaceholder": "/www/wwwroot/app",
+            "settings": "Node sync settings",
+            "remove": "Remove",
+            "strategy": "Strategy",
+            "strategyHelp": "mirror: align source and delete extras; overlay: add/overwrite only.",
+            "extraIgnore": "Node extra ignore rules (optional)",
+            "extraIgnorePlaceholder": "# only for this node\n*.local\n!important.local",
+            "extraIgnoreHelp": "Merged with project rules in order (supports ! negate).",
+            "ignoreFile": "Node ignore file path (optional)",
+            "ignoreFilePlaceholder": ".stignore.node",
+            "mirror": {
+                "title": "Mirror optimizations (optional)",
+                "syncEmptyDirs": "Sync empty dirs (create source structure)",
+                "fastDelete": "Fast delete (manifest-based)",
+                "fullscanEvery": "Force full scan delete every N tasks (optional)",
+                "fullscanEveryPlaceholder": "10",
+                "cleanEmptyDirs": "Clean empty dirs (remove empty parents)"
+            }
+        },
+        "ignoreHelp": {
+            "comment": "Comment (line start)",
+            "negate": "Negate (un-ignore)",
+            "singleWildcard": "Single-level wildcard",
+            "multiWildcard": "Multi-level wildcard",
+            "charGroup": "Single char / char group",
+            "dirRule": "Directory rule (matches dir and subpaths)",
+            "rootAnchor": "Anchor to project root",
+            "order": "Rules match in order; the last match wins.",
+            "anyDepth": "Rules without / match any depth (same as **/pattern).",
+            "examples": "Examples: node_modules/**, *.log, runtime/**, !.env"
         }
     },
     "auth": {
