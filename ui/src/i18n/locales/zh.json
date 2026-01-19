@@ -36,6 +36,116 @@
         "logout": "退出",
         "menu": "菜单"
     },
+    "sidebar": {
+        "nodeList": "节点列表",
+        "refreshNodeList": "刷新节点列表",
+        "refreshNodeAria": "刷新节点",
+        "mainNode": "MAIN-NODE",
+        "noServerInfo": "暂无服务器信息",
+        "noNodes": "暂无节点",
+        "nodeFallback": "节点",
+        "connectionLabel": "连接",
+        "cpuLabel": "CPU",
+        "memoryLabel": "内存",
+        "loadLabel": "Load1",
+        "diskLabel": "磁盘",
+        "updatedLabel": "更新"
+    },
+    "websocket": {
+        "status": {
+            "connected": "WebSocket已连接",
+            "connecting": "WebSocket连接中...",
+            "reconnecting": "重连中... ({{current}}/{{total}})",
+            "disconnected": "WebSocket已断开"
+        },
+        "labels": {
+            "status": "状态",
+            "health": "健康状态",
+            "lastHeartbeat": "最后心跳",
+            "error": "错误"
+        },
+        "health": {
+            "healthy": "良好",
+            "unhealthy": "异常"
+        },
+        "manualPing": "点击发送手动心跳",
+        "none": "无"
+    },
+    "realtimeMessages": {
+        "header": {
+            "title": "实时消息 ({{count}})"
+        },
+        "empty": "暂无消息",
+        "clear": "清空消息",
+        "unknownError": "未知错误",
+        "title": {
+            "hookTriggered": "WebHook: {{name}}",
+            "hookManaged": "Hook配置: {{name}}",
+            "versionSwitched": "版本切换: {{name}}",
+            "projectManaged": "项目管理: {{name}}",
+            "githookTriggered": "GitHook: {{name}}"
+        },
+        "description": {
+            "hookTriggeredSuccess": "执行成功 ({{method}} from {{remote}}){{output}}",
+            "hookTriggeredOutput": "\n输出: {{output}}",
+            "hookTriggeredFailed": "执行失败: {{error}}",
+            "hookManagedSuccess": "{{action}}成功",
+            "hookManagedFailed": "{{action}}失败: {{error}}",
+            "githookSkipped": "{{action}}跳过: {{message}}",
+            "githookSuccess": "{{action}}成功: {{message}}",
+            "githookFailed": "{{action}}失败: {{error}}",
+            "versionSuccess": "{{action}}成功: {{target}}",
+            "versionFailed": "{{action}}失败: {{error}}",
+            "projectAddSuccess": "项目添加成功: {{path}}",
+            "projectDeleteSuccess": "项目删除成功: {{path}}",
+            "projectEditSuccess": "项目编辑成功: {{path}}",
+            "projectGenericSuccess": "项目{{action}}成功: {{path}}",
+            "projectAddFailed": "项目添加失败: {{error}}",
+            "projectDeleteFailed": "项目删除失败: {{error}}",
+            "projectEditFailed": "项目编辑失败: {{error}}",
+            "projectGenericFailed": "项目{{action}}失败: {{error}}"
+        },
+        "actions": {
+            "hook": {
+                "create": "创建",
+                "updateBasic": "基本信息更新",
+                "updateParameters": "参数配置更新",
+                "updateTriggers": "触发规则更新",
+                "updateResponse": "响应配置更新",
+                "updateScript": "脚本更新",
+                "delete": "删除"
+            },
+            "githook": {
+                "switchBranch": "分支切换",
+                "switchTag": "标签切换",
+                "deleteTag": "标签删除",
+                "deleteBranch": "分支删除",
+                "skipBranchSwitch": "分支检查",
+                "skipModeMismatch": "模式检查"
+            },
+            "version": {
+                "switchBranch": "分支切换",
+                "switchTag": "标签切换",
+                "deleteTag": "标签删除"
+            },
+            "project": {
+                "add": "添加",
+                "delete": "删除",
+                "edit": "编辑"
+            }
+        },
+        "status": {
+            "success": "成功",
+            "failed": "失败",
+            "skipped": "跳过",
+            "info": "信息"
+        }
+    },
+    "confirmDialog": {
+        "forceOptionLabel": "强制同步",
+        "forceOptionDescription": "启用此选项将会强制覆盖本地修改，确保与远程仓库同步",
+        "warningText": "注意：强制同步会永久丢弃所有未提交的本地修改"
+    },
     "syncNodes": {
         "createTitle": "新增节点",
         "editTitle": "编辑节点",

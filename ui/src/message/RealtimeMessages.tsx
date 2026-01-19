@@ -31,11 +31,15 @@ import {
     IGitHookTriggeredMessage,
     IHookManageMessage,
 } from '../types';
-import {WebSocketStatusIndicator} from '../common/WebSocketStatusIndicator';
+import WebSocketStatusIndicator from '../common/WebSocketStatusIndicator';
+import useTranslation from '../i18n/useTranslation';
 
 // 空接口用于扩展
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
-interface IProps {}
+interface IProps {
+    t: (key: string, params?: Record<string, string | number>) => string;
+    language: string;
+}
 
 @observer
 class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
@@ -143,26 +147,27 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
     };
 
     private getMessageTitle = (message: IWebSocketMessage): string => {
+        const {t} = this.props;
         switch (message.type) {
             case 'hook_triggered': {
                 const hookMsg = message.data as IHookTriggeredMessage;
-                return `WebHook: ${hookMsg.hookName}`;
+                return t('realtimeMessages.title.hookTriggered', {name: hookMsg.hookName});
             }
             case 'hook_managed': {
                 const hookManageMsg = message.data as IHookManageMessage;
-                return `Hook配置: ${hookManageMsg.hookName}`;
+                return t('realtimeMessages.title.hookManaged', {name: hookManageMsg.hookName});
             }
             case 'version_switched': {
                 const versionMsg = message.data as IVersionSwitchMessage;
-                return `版本切换: ${versionMsg.projectName}`;
+                return t('realtimeMessages.title.versionSwitched', {name: versionMsg.projectName});
             }
             case 'project_managed': {
                 const projectMsg = message.data as IProjectManageMessage;
-                return `项目管理: ${projectMsg.projectName}`;
+                return t('realtimeMessages.title.projectManaged', {name: projectMsg.projectName});
             }
             case 'githook_triggered': {
                 const githookMsg = message.data as IGitHookTriggeredMessage;
-                return `GitHook: ${githookMsg.projectName}`;
+                return t('realtimeMessages.title.githookTriggered', {name: githookMsg.projectName});
             }
             default:
                 return message.type;
@@ -170,113 +175,78 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
     };
 
     private getMessageDescription = (message: IWebSocketMessage): string => {
+        const {t} = this.props;
         switch (message.type) {
             case 'hook_triggered': {
                 const hookMsg = message.data as IHookTriggeredMessage;
                 if (hookMsg.success) {
-                    return `执行成功 (${hookMsg.method} from ${hookMsg.remoteAddr})${
-                        hookMsg.output
-                            ? '\n输出: ' +
-                              hookMsg.output.substring(0, 100) +
-                              (hookMsg.output.length > 100 ? '...' : '')
-                            : ''
-                    }`;
+                    const output =
+                        hookMsg.output?.substring(0, 100) +
+                        (hookMsg.output && hookMsg.output.length > 100 ? '...' : '');
+                    const outputSuffix = hookMsg.output
+                        ? t('realtimeMessages.description.hookTriggeredOutput', {output})
+                        : '';
+                    return t('realtimeMessages.description.hookTriggeredSuccess', {
+                        method: hookMsg.method,
+                        remote: hookMsg.remoteAddr,
+                        output: outputSuffix,
+                    });
                 } else {
-                    return `执行失败: ${hookMsg.error ?? '未知错误'}`;
+                    return t('realtimeMessages.description.hookTriggeredFailed', {
+                        error: hookMsg.error ?? t('realtimeMessages.unknownError'),
+                    });
                 }
             }
             case 'hook_managed': {
                 const hookManageMsg = message.data as IHookManageMessage;
-                let actionText = '';
-                switch (hookManageMsg.action) {
-                    case 'create':
-                        actionText = '创建';
-                        break;
-                    case 'update_basic':
-                        actionText = '基本信息更新';
-                        break;
-                    case 'update_parameters':
-                        actionText = '参数配置更新';
-                        break;
-                    case 'update_triggers':
-                        actionText = '触发规则更新';
-                        break;
-                    case 'update_response':
-                        actionText = '响应配置更新';
-                        break;
-                    case 'update_script':
-                        actionText = '脚本更新';
-                        break;
-                    case 'delete':
-                        actionText = '删除';
-                        break;
-                    default:
-                        actionText = hookManageMsg.action;
-                }
+                const actionText = this.getHookManageActionLabel(hookManageMsg.action);
 
                 if (hookManageMsg.success) {
-                    return `${actionText}成功`;
+                    return t('realtimeMessages.description.hookManagedSuccess', {action: actionText});
                 } else {
-                    return `${actionText}失败: ${hookManageMsg.error ?? '未知错误'}`;
+                    return t('realtimeMessages.description.hookManagedFailed', {
+                        action: actionText,
+                        error: hookManageMsg.error ?? t('realtimeMessages.unknownError'),
+                    });
                 }
             }
             case 'githook_triggered': {
                 const githookMsg = message.data as IGitHookTriggeredMessage;
-                let actionText = '';
-                switch (githookMsg.action) {
-                    case 'switch-branch':
-                        actionText = '分支切换';
-                        break;
-                    case 'switch-tag':
-                        actionText = '标签切换';
-                        break;
-                    case 'delete-tag':
-                        actionText = '标签删除';
-                        break;
-                    case 'delete-branch':
-                        actionText = '分支删除';
-                        break;
-                    case 'skip-branch-switch':
-                        actionText = '分支检查';
-                        break;
-                    case 'skip-mode-mismatch':
-                        actionText = '模式检查';
-                        break;
-                    default:
-                        actionText = githookMsg.action;
-                }
+                const actionText = this.getGitHookActionLabel(githookMsg.action);
 
                 if (githookMsg.success) {
                     if (githookMsg.skipped) {
-                        return `${actionText}跳过: ${githookMsg.message || githookMsg.target}`;
+                        return t('realtimeMessages.description.githookSkipped', {
+                            action: actionText,
+                            message: githookMsg.message || githookMsg.target,
+                        });
                     } else {
-                        return `${actionText}成功: ${githookMsg.message || githookMsg.target}`;
+                        return t('realtimeMessages.description.githookSuccess', {
+                            action: actionText,
+                            message: githookMsg.message || githookMsg.target,
+                        });
                     }
                 } else {
-                    return `${actionText}失败: ${githookMsg.error ?? '未知错误'}`;
+                    return t('realtimeMessages.description.githookFailed', {
+                        action: actionText,
+                        error: githookMsg.error ?? t('realtimeMessages.unknownError'),
+                    });
                 }
             }
             case 'version_switched': {
                 const versionMsg = message.data as IVersionSwitchMessage;
-                let actionText = '';
-                switch (versionMsg.action) {
-                    case 'switch-branch':
-                        actionText = '分支切换';
-                        break;
-                    case 'switch-tag':
-                        actionText = '标签切换';
-                        break;
-                    case 'delete-tag':
-                        actionText = '标签删除';
-                        break;
-                    default:
-                        actionText = versionMsg.action;
-                }
+                const actionText = this.getVersionActionLabel(versionMsg.action);
 
                 if (versionMsg.success) {
-                    return `${actionText}成功: ${versionMsg.target}`;
+                    return t('realtimeMessages.description.versionSuccess', {
+                        action: actionText,
+                        target: versionMsg.target,
+                    });
                 } else {
-                    return `${actionText}失败: ${versionMsg.error ?? '未知错误'}`;
+                    return t('realtimeMessages.description.versionFailed', {
+                        action: actionText,
+                        error: versionMsg.error ?? t('realtimeMessages.unknownError'),
+                    });
                 }
             }
             case 'project_managed': {
@@ -285,26 +255,42 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
                     //添加、删除、编辑
                     switch (projectMsg.action) {
                         case 'add':
-                            return `项目添加成功: ${projectMsg.projectPath}`;
+                            return t('realtimeMessages.description.projectAddSuccess', {
+                                path: projectMsg.projectPath,
+                            });
                         case 'delete':
-                            return `项目删除成功: ${projectMsg.projectPath}`;
+                            return t('realtimeMessages.description.projectDeleteSuccess', {
+                                path: projectMsg.projectPath,
+                            });
                         case 'edit':
-                            return `项目编辑成功: ${projectMsg.projectPath}`;
+                            return t('realtimeMessages.description.projectEditSuccess', {
+                                path: projectMsg.projectPath,
+                            });
                         default:
-                            return `项目${projectMsg.action}成功: ${projectMsg.projectPath}`;
+                            return t('realtimeMessages.description.projectGenericSuccess', {
+                                action: projectMsg.action,
+                                path: projectMsg.projectPath,
+                            });
                     }
                 } else {
                     switch (projectMsg.action) {
                         case 'add':
-                            return `项目添加失败: ${projectMsg.error ?? '未知错误'}`;
+                            return t('realtimeMessages.description.projectAddFailed', {
+                                error: projectMsg.error ?? t('realtimeMessages.unknownError'),
+                            });
                         case 'delete':
-                            return `项目删除失败: ${projectMsg.error ?? '未知错误'}`;
+                            return t('realtimeMessages.description.projectDeleteFailed', {
+                                error: projectMsg.error ?? t('realtimeMessages.unknownError'),
+                            });
                         case 'edit':
-                            return `项目编辑失败: ${projectMsg.error ?? '未知错误'}`;
+                            return t('realtimeMessages.description.projectEditFailed', {
+                                error: projectMsg.error ?? t('realtimeMessages.unknownError'),
+                            });
                         default:
-                            return `项目${projectMsg.action}失败: ${
-                                projectMsg.error ?? '未知错误'
-                            }`;
+                            return t('realtimeMessages.description.projectGenericFailed', {
+                                action: projectMsg.action,
+                                error: projectMsg.error ?? t('realtimeMessages.unknownError'),
+                            });
                     }
                 }
             }
@@ -313,55 +299,58 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
         }
     };
 
-    private formatTime = (timestamp: string): string =>
-        new Date(timestamp).toLocaleString('zh-CN', {
+    private formatTime = (timestamp: string): string => {
+        const {language} = this.props;
+        const locale = language.startsWith('zh') ? 'zh-CN' : 'en-US';
+        return new Date(timestamp).toLocaleString(locale, {
             month: '2-digit',
             day: '2-digit',
             hour: '2-digit',
             minute: '2-digit',
             second: '2-digit',
         });
+    };
 
     private getStatusChip = (message: IWebSocketMessage) => {
         let success = true;
-        let label = '';
+        let status: 'success' | 'failed' | 'skipped' | 'info' = 'info';
 
         switch (message.type) {
             case 'hook_triggered': {
                 const hookMsg = message.data as IHookTriggeredMessage;
                 success = hookMsg.success;
-                label = success ? '成功' : '失败';
+                status = success ? 'success' : 'failed';
                 break;
             }
             case 'version_switched': {
                 const versionMsg = message.data as IVersionSwitchMessage;
                 success = versionMsg.success;
-                label = success ? '成功' : '失败';
+                status = success ? 'success' : 'failed';
                 break;
             }
             case 'project_managed': {
                 const projectMsg = message.data as IProjectManageMessage;
                 success = projectMsg.success;
-                label = success ? '成功' : '失败';
+                status = success ? 'success' : 'failed';
                 break;
             }
             case 'githook_triggered': {
                 const githookMsg = message.data as IGitHookTriggeredMessage;
                 success = githookMsg.success;
                 if (success && githookMsg.skipped) {
-                    label = '跳过';
+                    status = 'skipped';
                 } else {
-                    label = success ? '成功' : '失败';
+                    status = success ? 'success' : 'failed';
                 }
                 break;
             }
             default:
-                label = '信息';
+                status = 'info';
         }
 
         // 优化状态标签的样式
         let chipProps = {};
-        if (label === '成功') {
+        if (status === 'success') {
             chipProps = {
                 sx: {
                     backgroundColor: 'success.main',
@@ -375,7 +364,7 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
                 },
                 variant: 'filled' as const,
             };
-        } else if (label === '失败') {
+        } else if (status === 'failed') {
             chipProps = {
                 sx: {
                     backgroundColor: 'error.main',
@@ -384,7 +373,7 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
                 },
                 variant: 'filled' as const,
             };
-        } else if (label === '跳过') {
+        } else if (status === 'skipped') {
             chipProps = {
                 sx: {
                     backgroundColor: 'warning.main',
@@ -404,7 +393,65 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
             };
         }
 
-        return <Chip size="small" label={label} {...chipProps} />;
+        return (
+            <Chip size="small" label={this.props.t(`realtimeMessages.status.${status}`)} {...chipProps} />
+        );
+    };
+
+    private getHookManageActionLabel = (action: string) => {
+        const {t} = this.props;
+        switch (action) {
+            case 'create':
+                return t('realtimeMessages.actions.hook.create');
+            case 'update_basic':
+                return t('realtimeMessages.actions.hook.updateBasic');
+            case 'update_parameters':
+                return t('realtimeMessages.actions.hook.updateParameters');
+            case 'update_triggers':
+                return t('realtimeMessages.actions.hook.updateTriggers');
+            case 'update_response':
+                return t('realtimeMessages.actions.hook.updateResponse');
+            case 'update_script':
+                return t('realtimeMessages.actions.hook.updateScript');
+            case 'delete':
+                return t('realtimeMessages.actions.hook.delete');
+            default:
+                return action;
+        }
+    };
+
+    private getGitHookActionLabel = (action: string) => {
+        const {t} = this.props;
+        switch (action) {
+            case 'switch-branch':
+                return t('realtimeMessages.actions.githook.switchBranch');
+            case 'switch-tag':
+                return t('realtimeMessages.actions.githook.switchTag');
+            case 'delete-tag':
+                return t('realtimeMessages.actions.githook.deleteTag');
+            case 'delete-branch':
+                return t('realtimeMessages.actions.githook.deleteBranch');
+            case 'skip-branch-switch':
+                return t('realtimeMessages.actions.githook.skipBranchSwitch');
+            case 'skip-mode-mismatch':
+                return t('realtimeMessages.actions.githook.skipModeMismatch');
+            default:
+                return action;
+        }
+    };
+
+    private getVersionActionLabel = (action: string) => {
+        const {t} = this.props;
+        switch (action) {
+            case 'switch-branch':
+                return t('realtimeMessages.actions.version.switchBranch');
+            case 'switch-tag':
+                return t('realtimeMessages.actions.version.switchTag');
+            case 'delete-tag':
+                return t('realtimeMessages.actions.version.deleteTag');
+            default:
+                return action;
+        }
     };
 
     public render() {
@@ -441,9 +488,13 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
                             justifyContent="space-between"
                             alignItems="center"
                             sx={{borderBottom: 1, borderColor: 'divider'}}>
-                            <Typography variant="h6">Messages ({this.messages.length})</Typography>
+                            <Typography variant="h6">
+                                {this.props.t('realtimeMessages.header.title', {
+                                    count: this.messages.length,
+                                })}
+                            </Typography>
                             <Box>
-                                <Tooltip title="清空消息">
+                                <Tooltip title={this.props.t('realtimeMessages.clear')}>
                                     <IconButton size="small" onClick={this.clearMessages}>
                                         <DeleteIcon />
                                     </IconButton>
@@ -486,7 +537,7 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
                             {this.messages.length === 0 ? (
                                 <Box p={2} textAlign="center">
                                     <Typography variant="body2" color="textSecondary">
-                                        No messages
+                                        {this.props.t('realtimeMessages.empty')}
                                     </Typography>
                                 </Box>
                             ) : (
@@ -554,4 +605,9 @@ class RealtimeMessages extends Component<IProps & Stores<'wsStore'>> {
     }
 }
 
-export default inject('wsStore')(RealtimeMessages);
+const RealtimeMessagesWithTranslation = inject('wsStore')((props: Stores<'wsStore'>) => {
+    const {t, i18n} = useTranslation();
+    return <RealtimeMessages {...props} t={t} language={i18n.language} />;
+});
+
+export default RealtimeMessagesWithTranslation;

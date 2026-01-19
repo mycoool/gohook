@@ -20,6 +20,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import {SyncNodeStore} from '../sync/SyncNodeStore';
 import {ISyncNodeRuntime} from '../types';
+import useTranslation from '../i18n/useTranslation';
 
 const StyledDrawer = styled(Drawer)(({theme}) => ({
     height: '100%',
@@ -62,6 +63,7 @@ interface IProps {
     setNavOpen: (open: boolean) => void;
     user?: {admin: boolean; role?: string};
     syncNodeStore: SyncNodeStore;
+    t: (key: string, params?: Record<string, string | number>) => string;
 }
 
 @observer
@@ -103,6 +105,7 @@ class Navigation extends Component<IProps, {showRequestNotification: boolean}> {
         const nodes = syncNodeStore.all;
         const loading = syncNodeStore.loading;
         const localRuntime = syncNodeStore.local;
+        const {t} = this.props;
 
         return (
             <Box mt={2}>
@@ -112,15 +115,15 @@ class Navigation extends Component<IProps, {showRequestNotification: boolean}> {
                         color="text.primary"
                         fontWeight={600}
                         sx={{textTransform: 'uppercase', fontSize: 14}}>
-                        节点列表
+                        {t('sidebar.nodeList')}
                     </Typography>
-                    <Tooltip title="刷新节点列表">
+                    <Tooltip title={t('sidebar.refreshNodeList')}>
                         <span>
                             <IconButton
                                 size="small"
                                 onClick={this.refreshNodes}
                                 disabled={loading}
-                                aria-label="刷新节点"
+                                aria-label={t('sidebar.refreshNodeAria')}
                                 sx={{width: 32, height: 32}}>
                                 <Box display="flex" alignItems="center" justifyContent="center">
                                     {loading ? (
@@ -138,7 +141,7 @@ class Navigation extends Component<IProps, {showRequestNotification: boolean}> {
                     <ListItemButton sx={{alignItems: 'flex-start'}}>
                         <ListItemText
                             primaryTypographyProps={{noWrap: true}}
-                            primary="MAIN-NODE"
+                            primary={t('sidebar.mainNode')}
                             secondaryTypographyProps={{
                                 noWrap: true,
                             }}
@@ -146,8 +149,8 @@ class Navigation extends Component<IProps, {showRequestNotification: boolean}> {
                                 localRuntime
                                     ? localRuntime.hostname || 'gohook'
                                     : loading
-                                    ? '加载中...'
-                                    : '暂无服务器信息'
+                                    ? t('common.loading')
+                                    : t('sidebar.noServerInfo')
                             }
                             sx={{minWidth: 0, mr: 1}}
                         />
@@ -176,7 +179,7 @@ class Navigation extends Component<IProps, {showRequestNotification: boolean}> {
                     {nodes.length === 0 ? (
                         <Box px={3} py={1}>
                             <Typography variant="body2" color="textSecondary">
-                                {loading ? '加载中...' : '暂无节点'}
+                                {loading ? t('common.loading') : t('sidebar.noNodes')}
                             </Typography>
                         </Box>
                     ) : (
@@ -227,40 +230,62 @@ class Navigation extends Component<IProps, {showRequestNotification: boolean}> {
 
     private runtimeTooltip(runtime?: ISyncNodeRuntime, connectionStatus?: string) {
         const cs = String(connectionStatus || 'UNKNOWN').toUpperCase();
-        const updatedAt = runtime?.updatedAt ? new Date(runtime.updatedAt).toLocaleString() : 'N/A';
-        const cpu = runtime?.cpuPercent != null ? `${runtime.cpuPercent.toFixed(1)}%` : 'N/A';
+        const {t} = this.props;
+        const updatedAt = runtime?.updatedAt
+            ? new Date(runtime.updatedAt).toLocaleString()
+            : t('syncNodes.notAvailable');
+        const cpu =
+            runtime?.cpuPercent != null
+                ? `${runtime.cpuPercent.toFixed(1)}%`
+                : t('syncNodes.notAvailable');
         const mem =
-            runtime?.memUsedPercent != null ? `${runtime.memUsedPercent.toFixed(1)}%` : 'N/A';
-        const load1 = runtime?.load1 != null ? runtime.load1.toFixed(2) : 'N/A';
+            runtime?.memUsedPercent != null
+                ? `${runtime.memUsedPercent.toFixed(1)}%`
+                : t('syncNodes.notAvailable');
+        const load1 =
+            runtime?.load1 != null ? runtime.load1.toFixed(2) : t('syncNodes.notAvailable');
         const disk =
-            runtime?.diskUsedPercent != null ? `${runtime.diskUsedPercent.toFixed(1)}%` : 'N/A';
+            runtime?.diskUsedPercent != null
+                ? `${runtime.diskUsedPercent.toFixed(1)}%`
+                : t('syncNodes.notAvailable');
         const host = runtime?.hostname || '';
         const conn = this.connText(cs);
         return (
             <Box sx={{whiteSpace: 'pre-wrap', maxWidth: 360}}>
-                <Typography variant="subtitle2">{host || '节点'}</Typography>
-                <Typography variant="body2">连接：{conn}</Typography>
-                <Typography variant="body2">CPU：{cpu}</Typography>
-                <Typography variant="body2">内存：{mem}</Typography>
-                <Typography variant="body2">Load1：{load1}</Typography>
-                <Typography variant="body2">磁盘：{disk}</Typography>
+                <Typography variant="subtitle2">{host || t('sidebar.nodeFallback')}</Typography>
+                <Typography variant="body2">
+                    {t('sidebar.connectionLabel')}：{conn}
+                </Typography>
+                <Typography variant="body2">
+                    {t('sidebar.cpuLabel')}：{cpu}
+                </Typography>
+                <Typography variant="body2">
+                    {t('sidebar.memoryLabel')}：{mem}
+                </Typography>
+                <Typography variant="body2">
+                    {t('sidebar.loadLabel')}：{load1}
+                </Typography>
+                <Typography variant="body2">
+                    {t('sidebar.diskLabel')}：{disk}
+                </Typography>
                 <Typography variant="caption" color="textSecondary">
-                    更新：{updatedAt}
+                    {t('sidebar.updatedLabel')}：{updatedAt}
                 </Typography>
             </Box>
         );
     }
 
     private connText(cs: string) {
+        const {t} = this.props;
         switch (cs) {
             case 'CONNECTED':
-                return '在线';
+                return t('syncNodes.connection.connected');
             case 'DISCONNECTED':
-                return '离线';
+                return t('syncNodes.connection.disconnected');
             case 'UNPAIRED':
-                return '未配对';
+                return t('syncNodes.connection.unpaired');
             default:
-                return '未知';
+                return t('syncNodes.connection.unknown');
         }
     }
 
@@ -403,4 +428,10 @@ const ResponsiveDrawer: React.FC<
     );
 };
 
-export default Navigation;
+const NavigationWithTranslation: React.FC<Omit<IProps, 't'>> = (props) => {
+    const {t} = useTranslation();
+    return <Navigation {...props} t={t} />;
+};
+
+export default NavigationWithTranslation;
+export {Navigation, NavigationWithTranslation};

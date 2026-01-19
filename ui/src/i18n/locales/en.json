@@ -36,6 +36,116 @@
         "logout": "Logout",
         "menu": "Menu"
     },
+    "sidebar": {
+        "nodeList": "Node List",
+        "refreshNodeList": "Refresh node list",
+        "refreshNodeAria": "Refresh nodes",
+        "mainNode": "MAIN-NODE",
+        "noServerInfo": "No server info",
+        "noNodes": "No nodes",
+        "nodeFallback": "Node",
+        "connectionLabel": "Connection",
+        "cpuLabel": "CPU",
+        "memoryLabel": "Memory",
+        "loadLabel": "Load1",
+        "diskLabel": "Disk",
+        "updatedLabel": "Updated"
+    },
+    "websocket": {
+        "status": {
+            "connected": "WebSocket connected",
+            "connecting": "WebSocket connecting...",
+            "reconnecting": "Reconnecting... ({{current}}/{{total}})",
+            "disconnected": "WebSocket disconnected"
+        },
+        "labels": {
+            "status": "Status",
+            "health": "Health",
+            "lastHeartbeat": "Last heartbeat",
+            "error": "Error"
+        },
+        "health": {
+            "healthy": "Healthy",
+            "unhealthy": "Unhealthy"
+        },
+        "manualPing": "Click to send manual heartbeat",
+        "none": "None"
+    },
+    "realtimeMessages": {
+        "header": {
+            "title": "Messages ({{count}})"
+        },
+        "empty": "No messages",
+        "clear": "Clear messages",
+        "unknownError": "Unknown error",
+        "title": {
+            "hookTriggered": "Webhook: {{name}}",
+            "hookManaged": "Hook config: {{name}}",
+            "versionSwitched": "Version switch: {{name}}",
+            "projectManaged": "Project: {{name}}",
+            "githookTriggered": "GitHook: {{name}}"
+        },
+        "description": {
+            "hookTriggeredSuccess": "Executed successfully ({{method}} from {{remote}}){{output}}",
+            "hookTriggeredOutput": "\nOutput: {{output}}",
+            "hookTriggeredFailed": "Execution failed: {{error}}",
+            "hookManagedSuccess": "{{action}} succeeded",
+            "hookManagedFailed": "{{action}} failed: {{error}}",
+            "githookSkipped": "{{action}} skipped: {{message}}",
+            "githookSuccess": "{{action}} succeeded: {{message}}",
+            "githookFailed": "{{action}} failed: {{error}}",
+            "versionSuccess": "{{action}} succeeded: {{target}}",
+            "versionFailed": "{{action}} failed: {{error}}",
+            "projectAddSuccess": "Project added: {{path}}",
+            "projectDeleteSuccess": "Project deleted: {{path}}",
+            "projectEditSuccess": "Project edited: {{path}}",
+            "projectGenericSuccess": "Project {{action}} succeeded: {{path}}",
+            "projectAddFailed": "Project add failed: {{error}}",
+            "projectDeleteFailed": "Project delete failed: {{error}}",
+            "projectEditFailed": "Project edit failed: {{error}}",
+            "projectGenericFailed": "Project {{action}} failed: {{error}}"
+        },
+        "actions": {
+            "hook": {
+                "create": "Create",
+                "updateBasic": "Update basic info",
+                "updateParameters": "Update parameters",
+                "updateTriggers": "Update triggers",
+                "updateResponse": "Update response",
+                "updateScript": "Update script",
+                "delete": "Delete"
+            },
+            "githook": {
+                "switchBranch": "Switch branch",
+                "switchTag": "Switch tag",
+                "deleteTag": "Delete tag",
+                "deleteBranch": "Delete branch",
+                "skipBranchSwitch": "Branch check",
+                "skipModeMismatch": "Mode check"
+            },
+            "version": {
+                "switchBranch": "Switch branch",
+                "switchTag": "Switch tag",
+                "deleteTag": "Delete tag"
+            },
+            "project": {
+                "add": "add",
+                "delete": "delete",
+                "edit": "edit"
+            }
+        },
+        "status": {
+            "success": "Success",
+            "failed": "Failed",
+            "skipped": "Skipped",
+            "info": "Info"
+        }
+    },
+    "confirmDialog": {
+        "forceOptionLabel": "Force sync",
+        "forceOptionDescription": "When enabled, local changes will be overwritten to keep in sync with the remote repository.",
+        "warningText": "Warning: force sync will permanently discard all uncommitted local changes."
+    },
     "syncNodes": {
         "createTitle": "Create Node",
         "editTitle": "Edit Node",

@@ -8,8 +8,14 @@ import {
     Warning as WarningIcon,
 } from '@mui/icons-material';
 import {WebSocketStore} from '../message/WebSocketStore';
+import useTranslation from '../i18n/useTranslation';
 
 interface WebSocketStatusIndicatorProps {
+    wsStore: WebSocketStore;
+    t: (key: string, params?: Record<string, string | number>) => string;
+    language: string;
+}
+interface WebSocketStatusIndicatorPublicProps {
     wsStore: WebSocketStore;
 }
 
@@ -56,52 +62,80 @@ export class WebSocketStatusIndicator extends React.Component<WebSocketStatusInd
     };
 
     private getStatusText = (status: string, reconnectAttempts: number) => {
+        const {t} = this.props;
         switch (status) {
             case 'connected':
-                return 'WebSocket已连接';
+                return t('websocket.status.connected');
             case 'connecting':
-                return 'WebSocket连接中...';
+                return t('websocket.status.connecting');
             case 'reconnecting':
-                return `重连中... (${reconnectAttempts}/10)`;
+                return t('websocket.status.reconnecting', {current: reconnectAttempts, total: 10});
             case 'disconnected':
             default:
-                return 'WebSocket已断开';
+                return t('websocket.status.disconnected');
         }
     };
 
     private formatTime = (date: Date | null): string => {
-        if (!date) return '无';
-        return date.toLocaleTimeString('zh-CN');
+        const {t, language} = this.props;
+        if (!date) return t('websocket.none');
+        const locale = language.startsWith('zh') ? 'zh-CN' : 'en-US';
+        return date.toLocaleTimeString(locale);
     };
 
     public render() {
+        const {t} = this.props;
         const health = this.props.wsStore.getConnectionHealth();
         const {status, isHealthy, lastHeartbeat, error, reconnectAttempts} = health;
 
         const tooltipContent = (
-            <Box>
+            <Box
+                sx={{
+                    maxWidth: 280,
+                    whiteSpace: 'normal',
+                    overflowWrap: 'anywhere',
+                    wordBreak: 'break-word',
+                }}>
                 <Typography variant="body2">
-                    <strong>状态:</strong> {this.getStatusText(status, reconnectAttempts)}
+                    <strong>{t('websocket.labels.status')}:</strong>{' '}
+                    {this.getStatusText(status, reconnectAttempts)}
                 </Typography>
                 <Typography variant="body2">
-                    <strong>健康状态:</strong> {isHealthy ? '良好' : '异常'}
+                    <strong>{t('websocket.labels.health')}:</strong>{' '}
+                    {isHealthy ? t('websocket.health.healthy') : t('websocket.health.unhealthy')}
                 </Typography>
                 <Typography variant="body2">
-                    <strong>最后心跳:</strong> {this.formatTime(lastHeartbeat)}
+                    <strong>{t('websocket.labels.lastHeartbeat')}:</strong>{' '}
+                    {this.formatTime(lastHeartbeat)}
                 </Typography>
                 {error && (
                     <Typography variant="body2" color="error">
-                        <strong>错误:</strong> {error}
+                        <strong>{t('websocket.labels.error')}:</strong> {error}
                     </Typography>
                 )}
                 <Typography variant="caption" color="textSecondary" sx={{display: 'block', mt: 1}}>
-                    点击发送手动心跳
+                    {t('websocket.manualPing')}
                 </Typography>
             </Box>
         );
 
         return (
-            <Tooltip title={tooltipContent} arrow>
+            <Tooltip
+                title={tooltipContent}
+                arrow
+                placement="top-end"
+                PopperProps={{
+                    modifiers: [
+                        {
+                            name: 'preventOverflow',
+                            options: {boundary: 'viewport', padding: 8},
+                        },
+                        {
+                            name: 'flip',
+                            options: {fallbackPlacements: ['top', 'bottom', 'left']},
+                        },
+                    ],
+                }}>
                 <IconButton
                     size="small"
                     onClick={() => this.props.wsStore.sendPing()}
@@ -117,3 +151,12 @@ export class WebSocketStatusIndicator extends React.Component<WebSocketStatusInd
         );
     }
 }
+
+const WebSocketStatusIndicatorWithTranslation: React.FC<WebSocketStatusIndicatorPublicProps> = (
+    props
+) => {
+    const {t, i18n} = useTranslation();
+    return <WebSocketStatusIndicator {...props} t={t} language={i18n.language} />;
+};
+
+export default WebSocketStatusIndicatorWithTranslation;

@@ -9,6 +9,7 @@ import Checkbox from '@mui/material/Checkbox';
 import Box from '@mui/material/Box';
 import Alert from '@mui/material/Alert';
 import React, {useState} from 'react';
+import useTranslation from '../i18n/useTranslation';
 
 interface IProps {
     title: string;
@@ -25,11 +26,16 @@ export default function ConfirmDialogWithOptions({
     text,
     fClose,
     fOnSubmit,
-    forceOptionLabel = '强制同步',
-    forceOptionDescription = '启用此选项将会强制覆盖本地修改，确保与远程仓库同步',
-    warningText = '注意：强制同步会永久丢弃所有未提交的本地修改',
+    forceOptionLabel,
+    forceOptionDescription,
+    warningText,
 }: IProps) {
+    const {t} = useTranslation();
     const [forceEnabled, setForceEnabled] = useState(false);
+    const resolvedForceLabel = forceOptionLabel ?? t('confirmDialog.forceOptionLabel');
+    const resolvedForceDescription =
+        forceOptionDescription ?? t('confirmDialog.forceOptionDescription');
+    const resolvedWarningText = warningText ?? t('confirmDialog.warningText');
 
     const submitAndClose = () => {
         fOnSubmit(forceEnabled);
@@ -59,10 +65,10 @@ export default function ConfirmDialogWithOptions({
                         }
                         label={
                             <span>
-                                <strong>{forceOptionLabel}</strong>
+                                <strong>{resolvedForceLabel}</strong>
                                 <br />
                                 <span style={{fontSize: '0.875rem', color: '#666'}}>
-                                    {forceOptionDescription}
+                                    {resolvedForceDescription}
                                 </span>
                             </span>
                         }
@@ -71,13 +77,13 @@ export default function ConfirmDialogWithOptions({
 
                 {forceEnabled && (
                     <Alert severity="warning" sx={{mt: 1}}>
-                        {warningText}
+                        {resolvedWarningText}
                     </Alert>
                 )}
             </DialogContent>
             <DialogActions>
                 <Button onClick={fClose} color="secondary" variant="contained" className="cancel">
-                    取消
+                    {t('common.cancel')}
                 </Button>
                 <Button
                     onClick={submitAndClose}
@@ -85,7 +91,7 @@ export default function ConfirmDialogWithOptions({
                     color="primary"
                     variant="contained"
                     className="confirm">
-                    确认
+                    {t('common.confirm')}
                 </Button>
             </DialogActions>
         </Dialog>
